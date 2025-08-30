@@ -959,46 +959,62 @@ async function fetchUserInfo(userId) {
   }
 }
 
-
 async function updateLoginPointsIfNeeded(userId) {
-  try {
-    const res = await apiFetch(`/api/user/${encodeURIComponent(userId)}/update-login-points`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId })
-    });
-
-    if (res.ok && res.status !== 204) {
-      const updated = await res.json().catch(() => null);
-      if (updated && typeof updated.loginPoints === 'number') {
-        showLoginBonus(updated.loginPoints);
-        const el = document.getElementById("loginDays");
-        if (el) el.textContent = `学習日数: ${updated.loginPoints}日目`;
+  const candidates = [
+    `/user/${encodeURIComponent(userId)}/update-login-points`, // ←まずこれ
+    `/api/user/${encodeURIComponent(userId)}/update-login-points`,
+    `/api/user/update-login-points?userId=${encodeURIComponent(userId)}`
+  ];
+  for (const url of candidates) {
+    try {
+      const res = await apiFetch(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+      if (res.ok) {
+        // 204 の場合もあるので try/catch で
+        const updated = await res.json().catch(() => null);
+        if (updated && typeof updated.loginPoints === 'number') {
+          showLoginBonus(updated.loginPoints);
+          const el = document.getElementById("loginDays");
+          if (el) el.textContent = `学習日数: ${updated.loginPoints}日目`;
+        }
+        return;
       }
-    }
-  } catch (err) {
-    console.warn("ログインポイント更新失敗", err);
+      // 404 以外のエラーならそこで終了
+      if (res.status !== 404) break;
+    } catch (_) { /* 次の候補へ */ }
   }
+  console.warn('update-login-points endpoint が見つかりませんでした');
 }
 
 
-async function fetchWordsFromServer(userId, part) {
-  const res = await apiFetch(
-    `/api/words?userId=${encodeURIComponent(userId)}&part=${encodeURIComponent(part)}`
-  );
-  if (!res.ok) {
-    console.error('単語取得失敗', res.status, await res.text().catch(()=>'')); 
-    alert("単語の取得に失敗しました");
-    return [];
-  }
-  const data = await res.json();
 
-  return data.map(word => {
-    const s = word.status;
-    const learned =
-      s === true || s === 1 || s === '1' || s === 'true' || s === 'LEARNED';
-    return { ...word, status: !!learned };
-  });
+async function fetchWordsFromServer(userId, part) {
+  const qs = `userId=${encodeURIComponent(userId)}&part=${encodeURIComponent(part)}`;
+  const tries = [`/api/words?${qs}`, `/words?${qs}`];
+
+  for (const url of tries) {
+    try {
+      const res = await apiFetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        console.log('words fetched from', url, 'count=', data.length);
+        return data.map(w => {
+          const s = w.status;
+          const learned = s === true || s === 1 || s === '1' || s === 'true' || s === 'LEARNED';
+          return { ...w, status: !!learned };
+        });
+      }
+      if (res.status !== 404) {
+        console.error('words fetch failed', res.status, await res.text().catch(()=>'')); 
+        break;
+      }
+    } catch (e) { /* 次の候補へ */ }
+  }
+  alert("単語の取得に失敗しました（エンドポイント未検出）");
+  return [];
 }
 
 
@@ -1257,26 +1273,18 @@ function playVideo(videoUrl) {
 	  };
 	}
 function updateGirlVisual(level) {
-	  const v = document.getElementById("girlVideo");
-	  const bg = document.getElementById("bgEffect");
-	  if (!v || !bg) return;
+  const v = document.getElementById("girlVideo");
+  const bg = document.getElementById("bgEffect");
+  if (!v || !bg) return;
 
-	  // 404などで読み込めない時は動画を消す（UIが崩れないように）
-	  v.onerror = () => { v.remove(); };
+  v.onerror = () => { v.remove(); };   // ← 404ならDOMから撤去
+  if (v.getAttribute("src") !== "/videos/girl_idle_loop.mp4") {
+    v.src = "/videos/girl_idle_loop.mp4";
+  }
+  // 背景エフェクトはそのまま
+  bg.className = level >= 20 ? "heart-bg" : "star-bg";
+}
 
-	  // どのレベルでも動画ファイルは同じなら毎回差し替えなくてもOKですが、
-	  // 念のため現在と違う場合だけ設定します。
-	  const src = "/videos/girl_idle_loop.mp4";
-	  if (v.getAttribute("src") !== src) v.src = src;
-
-	  if (level >= 20) {
-	    bg.className = "heart-bg";
-	  } else if (level >= 10) {
-	    bg.className = "star-bg";
-	  } else {
-	    bg.className = "star-bg"; // normal-bg が未定義なのでとりあえず star-bg に統一
-	  }
-	}
 
 
 function toggleStatus(isChecked, wordId, part) {
@@ -1318,28 +1326,28 @@ function toggleStatus(isChecked, wordId, part) {
 	  });
 	}
 
-
-
 async function updateStatusCount() {
   const userId = getUserIdFromQuery();
+  const qs = `userId=${encodeURIComponent(userId)}&part=${encodeURIComponent(selectedPart)}`;
+  const tries = [`/api/learning/count?${qs}`, `/learning/count?${qs}`];
 
-  try {
-    const res = await apiFetch(
-      `/api/learning/count?userId=${encodeURIComponent(userId)}&part=${encodeURIComponent(selectedPart)}`
-    );
-    if (!res.ok) throw new Error("学習済み数の取得に失敗");
-
-    const learnedCount = await res.json();
-    const totalCount = words.length;
-    const unlearnedCount = Math.max(0, totalCount - learnedCount);
-
-    const statusDiv = document.getElementById("learningStatus");
-    statusDiv.textContent = `学習済み: ${learnedCount} / 未学習: ${unlearnedCount}`;
-  } catch (err) {
-    console.error(err);
-    document.getElementById("learningStatus").textContent = "学習状況の取得に失敗しました";
+  for (const url of tries) {
+    try {
+      const res = await apiFetch(url);
+      if (res.ok) {
+        const learnedCount = await res.json();
+        const totalCount = words.length;
+        const unlearnedCount = Math.max(0, totalCount - learnedCount);
+        document.getElementById("learningStatus").textContent =
+          `学習済み: ${learnedCount} / 未学習: ${unlearnedCount}`;
+        return;
+      }
+      if (res.status !== 404) break;
+    } catch (_) {}
   }
+  document.getElementById("learningStatus").textContent = "学習状況の取得に失敗しました";
 }
+
 
 
 //置き換え版：数値ラベルを表示
