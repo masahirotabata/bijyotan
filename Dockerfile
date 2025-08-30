@@ -1,21 +1,17 @@
-# Gradleを使ってビルドするためのベースイメージ
+# ビルド用ステージ
 FROM gradle:7.3-jdk17 AS build
-
 WORKDIR /app
 
-# プロジェクトファイルをコピー
+# プロジェクトコピーしてビルド
 COPY . .
+RUN ./gradlew bootJar -x test
 
-# Gradle Wrapperを使ってビルド
-RUN ./gradlew build -x test
-
-# 実行用の最小のJDKイメージを使用
+# 実行用ステージ（軽量）
 FROM openjdk:17-jdk-slim
-
 WORKDIR /app
 
-# ビルドされたJARファイルをコピー
-COPY --from=build /app/build/libs/your-app.jar .
+# ビルド成果物をコピー（固定名）
+COPY --from=build /app/build/libs/app.jar /app/app.jar
 
-# アプリケーションを実行
-CMD ["java", "-jar", "your-app.jar"]
+# 実行
+ENTRYPOINT ["java","-jar","/app/app.jar"]
