@@ -39,6 +39,7 @@ public class HomeController {
     private final UserService userService;
     private final WordService wordService;
     private final TestQuestionService testQuestionService;  // ★ 追加
+	private final Optional<Job> csvChunkJob;  // ← 任意注入に変更
 
     @Autowired
     public HomeController(
