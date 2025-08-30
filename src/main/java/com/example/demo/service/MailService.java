@@ -1,22 +1,32 @@
 package com.example.demo.service;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
-@ConditionalOnBean(JavaMailSender.class) // ← JavaMailSender がある時だけ有効化
 public class MailService {
+  private static final Logger log = LoggerFactory.getLogger(MailService.class);
 
-    @Autowired
-    private JavaMailSender mailSender;
+  private final ObjectProvider<JavaMailSender> mailSenderProvider;
 
-    public void sendResetPasswordMail(String to, String resetUrl) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(to);
-        message.setSubject("【美女単】パスワード再設定リンク");
-        message.setText("以下のURLからパスワードを再設定してください。\n" + resetUrl);
-        mailSender.send(message);
+  public MailService(ObjectProvider<JavaMailSender> mailSenderProvider) {
+    this.mailSenderProvider = mailSenderProvider;
+  }
+
+  public void send(String to, String subject, String body) {
+    JavaMailSender mailSender = mailSenderProvider.getIfAvailable();
+    if (mailSender == null) {
+      log.info("JavaMailSender が未設定のため、メール送信をスキップします。");
+      return;
     }
+    SimpleMailMessage msg = new SimpleMailMessage();
+    msg.setTo(to);
+    msg.setSubject(subject);
+    msg.setText(body);
+    mailSender.send(msg);
+  }
 }
