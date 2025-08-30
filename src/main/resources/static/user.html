@@ -937,7 +937,7 @@ function getUserIdFromQuery() {
 }
 
 async function fetchUserInfo(userId) {
-  const res = await apiFetch(`/user/${encodeURIComponent(userId)}`);
+    const res = await fetch(`/user/${encodeURIComponent(userId)}`, { credentials: 'include' });
   if (!res.ok) {
     alert("ユーザー情報が取得できません。ログインし直してください。");
     window.location.href = "login.html";
