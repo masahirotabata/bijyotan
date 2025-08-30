@@ -1,0 +1,1819 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>美女単語（ユーザー）</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 10px;
+      background: rgb(249, 249, 249);
+    }
+
+    h1, h3 {
+      text-align: center;
+      color: rgb(233, 30, 99);
+    }
+
+    #username, #plan {
+      display: block;
+      text-align: center;
+      margin: 10px 0;
+      font-size: 1.1em;
+    }
+
+    .word-card {
+      background: #eef7ff;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      margin: 10px auto;
+      padding: 12px;
+      max-width: 90%;
+      box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
+      font-size: 0.95rem;
+    }
+
+    .pagination {
+      text-align: center;
+      margin: 20px 0;
+    }
+
+    .pagination button {
+      margin: 2px;
+      padding: 8px 12px;
+      font-size: 0.9rem;
+    }
+
+    .locked {
+      background: #ffdddd;
+      padding: 10px;
+      text-align: center;
+    }
+    
+    .musou-card {
+	  background: #fff5f5;
+	  border: 1px solid #f48fb1;
+	  border-radius: 10px;
+	  padding: 10px;
+	  margin: 10px 0;
+	}
+    
+
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 20px;
+      background-color: #ff4081;
+      color: white;
+      font-size: 1rem;
+      margin: 5px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #f50057;
+    }
+    
+#user-info {
+  text-align: left; /* ← 中央から左寄せに変更 */
+  margin: 10px 0 20px;
+  font-size: 1.1rem;
+  padding-left: 10px;
+}
+
+#bgEffect {
+  position: absolute;
+  width: 180px;
+  height: 180px;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: -1;
+}
+
+.star-bg {
+  background: radial-gradient(circle, #fff 20%, transparent 70%);
+  animation: sparkle 1.5s infinite alternate;
+}
+
+.heart-bg {
+  background: url('/images/heart_bg.gif') center center / cover no-repeat;
+}
+
+@keyframes sparkle {
+  0% { opacity: 0.6; transform: scale(1); }
+  100% { opacity: 1; transform: scale(1.05); }
+}
+
+
+#planText {
+  text-align: left; /* ← 中央から左寄せに変更 */
+  color: #333;
+  font-weight: bold;
+}
+
+    #partButtons {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    
+    #statsBox {
+  background: #fff3f8;
+  border: 1px solid #ff99c9;
+  border-radius: 12px;
+  padding: 15px;
+  margin: 15px auto;
+  max-width: 500px;
+  box-shadow: 2px 2px 6px rgba(0,0,0,0.05);
+  font-weight: bold;
+  font-size: 1rem;
+}
+
+#learningStatus {
+  text-align: center;
+  margin-bottom: 10px;
+  color: #333;
+}
+
+#subStats {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.95rem;
+  padding: 0 10px;
+  color: #555;
+}
+
+#subStats div {
+  flex: 1;
+  text-align: center;
+}
+    
+    
+    
+
+    #loginBonusPopup {
+      display: none;
+      position: fixed;
+      top: 10%;
+      left: 5%;
+      width: 90%;
+      height: 75%;
+      background: white;
+      border: 2px solid #ccc;
+      z-index: 9999;
+      padding: 20px;
+      overflow: auto;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    
+    .swal2-popup.premium-popup {
+  font-family: 'sans-serif';
+  border-radius: 15px;
+  padding: 20px;
+  max-width: 400px;
+}
+
+    #stampGrid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+      gap: 10px;
+    }
+
+    #test-section {
+      text-align: center;
+      margin: 20px 0;
+    }
+
+    #videoModal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background-color: rgba(0,0,0,0.8);
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+    }
+
+    video {
+      width: 90%;
+      max-height: 80vh;
+    }
+
+    @media (max-width: 480px) {
+      h1, h3 {
+        font-size: 1.3rem;
+      }
+
+      button {
+        font-size: 0.9rem;
+        padding: 10px;
+        width: 90%;
+      }
+
+      #partButtons {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .word-card {
+        font-size: 0.9rem;
+      }
+    }
+    
+    .btn-premium {
+    background-color: #e91e63;
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-size: 1em;
+    margin-top: 10px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+
+  .btn-premium:hover {
+    background-color: #d81b60;
+  }
+  
+  /* 既存CSSの末尾に追加 */
+.hidden{display:none;}
+
+#swipeModeBox{
+  max-width:700px;margin:16px auto;padding:10px;
+}
+#swipeDeck{
+  position:relative;height:360px;user-select:none;touch-action:pan-y;
+}
+.swipe-card{
+  position:absolute;inset:0;margin:auto;width:92%;max-width:580px;height:340px;
+  background:#fff;border-radius:14px;border:1px solid #eee;
+  box-shadow:0 10px 24px rgba(0,0,0,.08);
+  padding:18px;display:flex;flex-direction:column;justify-content:center;align-items:center;
+  transition:transform .2s ease, opacity .2s ease;
+}
+.swipe-word{font-size:28px;font-weight:700;margin-bottom:8px;}
+.swipe-mean{color:#555;margin-bottom:12px;}
+.swipe-img{
+  width:220px;height:300px;object-fit:cover;border-radius:10px;background:#f2f2f2;
+  -webkit-user-drag: none;      /* Safari/Chrome */
+  user-drag: none;
+  user-select: none;
+  pointer-events: none;          /* ← ドラッグの起点を常にカードにする */
+}
+
+.swipe-badge{
+  position:absolute;top:12px;font-weight:700;padding:6px 10px;border-radius:8px;opacity:0;
+}
+.badge-left{left:12px;background:#fde68a;color:#92400e;}     /* 覚えてない */
+.badge-right{right:12px;background:#dcfce7;color:#166534;}    /* 覚えた */
+
+.swipe-hud{display:flex;justify-content:space-between;align-items:center;margin:6px 6px 10px;}
+.swipe-hints{display:flex;justify-content:space-between;color:#888;margin-top:6px;padding:0 4px;}
+.swipe-card .caption { display: none !important; }
+  
+  </style>
+	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+
+<!-- スタンプカードポップアップ -->
+<div id="loginBonusPopup" style="display:none; position: fixed; top: 10%; left: 10%; width: 80%; height: 70%; background: white; border: 2px solid #ccc; z-index: 9999; padding: 20px; overflow: auto;">
+  <h3>ログインボーナス</h3>
+  <div id="stampGrid" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px;"></div>
+  <button onclick="closeLoginBonus()">OK</button>
+</div>
+
+<div id="user-info">
+  <div id="username"></div>
+  <div id="planText"></div>
+  <div id="userLevel"></div> <!-- ← 追加 -->
+</div>
+<div id="levelGirlContainer" style="text-align:center; margin: 10px 0;">
+  <div id="bgEffect" class="star-bg"></div>
+  <video id="girlVideo" autoplay muted loop playsinline width="180" style="border-radius: 10px;"></video>
+</div>
+
+<!-- パート切り替え -->
+<div id="partButtons">
+  <!-- JavaScriptでPart1〜Part6 + 癒しPartのボタンを生成 -->
+</div>
+<!-- これを追加 -->
+<div style="text-align:center; margin:6px 0 14px;">
+  <button id="swipeStartBtn" onclick="startSwipeMode()">
+    スワイプ学習を始める
+  </button>
+</div>
+<div id="swipeModeBox" class="hidden">
+  <div class="swipe-hud">
+    <button id="swipeExitBtn">一覧に戻る</button>
+    <div id="swipeCounter">0 / 0</div>
+    <div id="swipeStats">覚えた: 0 / 覚えたい: 0</div>
+  </div>
+
+  <div id="swipeDeck">
+    <!-- ここにカードを重ねて描画 -->
+  </div>
+
+  <div class="swipe-hints">
+    <span>← 覚えてない</span>
+    <span>覚えた →</span>
+  </div>
+</div>
+
+
+<div id="statsBox">
+  <div id="learningStatus"></div>
+  <div id="subStats">
+    <div id="loginDays"></div>
+    <div id="testStats"></div>
+  </div>
+</div>
+
+<!-- 広告と課金 -->
+<div style="margin: 10px;">
+  <button onclick="watchAdGlobal()">広告を見て美女が英単語を表現（5枚有効）</button>
+</div>
+<!-- <div style="margin: 10px;">
+  <button onclick="showPremiumPopup()">100円でホットパンツ美女解放</button>
+</div> -->
+
+<div id="test-section" style="text-align: center; margin: 30px 0;">
+  <button id="testStartBtn" onclick="startTest()">テストを開始する</button>
+  <button id="testStartBtn" onclick="startVocabularyTest()">テストを開始する(単語モード)</button>
+  <button onclick="goToPart(getUserId(), '無双Part')">無双Partへ</button>
+</div>
+<div id="weeklyAnswersBox" style="max-width:700px;margin:20px auto;">
+  <h3 style="text-align:center;margin:10px 0;">1週間の解答数:(目標解答数:80が目安)</h3>
+  <div id="weeklyBars" style="display:flex;gap:8px;justify-content:space-between;align-items:flex-end;height:140px;padding:8px 4px;background:#fff3f8;border:1px solid #ff99c9;border-radius:12px;"></div>
+  <div id="weeklyLabels" style="display:flex;gap:8px;justify-content:space-between;font-size:.8rem;margin-top:6px;color:#555;"></div>
+</div>
+
+<div id="wordContainer"></div>
+<div class="pagination" id="pagination"></div>
+<!-- HTMLの一番下に追加 -->
+<div id="videoModal" style="display:none; position:fixed; top:0; left:0; 
+  width:100%; height:100%; background-color:rgba(0,0,0,0.8); 
+  justify-content:center; align-items:center; z-index:999;">
+  <video id="videoPlayer" controls autoplay width="80%"></video>
+</div>
+
+<script>
+let words = [];
+let user = { id: null, isPremium: false, canWatchVideo: false };
+let currentPage = 1;
+const pageSize = 5;
+let selectedPart = "part1"; // ← 初期値を設定
+let currentPart = 1; // 初期値として Part1 = 1 を設定
+
+const style = document.createElement('style');
+style.innerHTML = `
+@keyframes pop {
+  0% { transform: scale(0.3); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}`;
+document.head.appendChild(style);
+
+
+
+//表示名と実際のpart名をマッピング
+const parts = [
+  { label: "Part1", value: "part1" },
+  { label: "Part2", value: "part2" },
+  { label: "Part3", value: "part3" },
+  { label: "Part4", value: "part4" },
+  { label: "Part5", value: "part5" },
+/*   { label: "Part6", value: "part6" },
+  { label: "癒しPart", value: "partHealing" } */
+];
+
+document.addEventListener("DOMContentLoaded", async () => {
+	  const userId = getUserIdFromQuery();
+
+	  await fetchUserInfo(userId); // ← 先にユーザー情報取得
+	  if (userId) {
+	    localStorage.setItem("userId", userId);
+	    await checkPremiumStatus(userId); // ← プレミアム判定
+	  }
+
+	  const urlParams = new URLSearchParams(window.location.search);
+	  if (urlParams.get("premium") === "true") {
+	    await setUserPremium(userId);
+	    user.isPremium = true;
+	  }
+
+	  renderPartButtons();
+	  await loadWords();
+	  // ← これを追加
+	  refreshUserStats();
+
+	  // ✅ 全部完了してから、アップデート情報を表示
+	  showUpdateInfoIfNeeded();
+	});
+
+//URLのテスト結果をUIへ反映し、必要ならコミットも打つ
+async function applyTestParamsAndCommit() {
+  const sp = new URLSearchParams(location.search);
+  const from  = sp.get('from');
+  const score = parseInt(sp.get('score') || '0', 10);
+  const total = parseInt(sp.get('total') || '0', 10);
+  const userId = getUserIdFromQuery() || 1;
+  const mode = 'sentence';
+
+  if (from !== 'test' || !total) return;
+
+  // まず画面を即時更新（サーバ遅延してもユーザーは結果を見られる）
+  const testStats = document.getElementById("testStats");
+  if (testStats) testStats.textContent = `正答数: ${score} / ${total}問中`;
+
+  // レベル演出（暫定）：直近の合計正答をローカルで積み上げ表示
+  const localTotalCorrectKey = `localTotalCorrect:${userId}`;
+  const prevLocal = parseInt(localStorage.getItem(localTotalCorrectKey) || '0', 10);
+  const newLocal  = prevLocal + score;
+  localStorage.setItem(localTotalCorrectKey, String(newLocal));
+
+  const prevLevel = Math.floor(prevLocal / 10);
+  const newLevel  = Math.floor(newLocal / 10);
+  for (let lv = prevLevel + 1; lv <= newLevel; lv++) showLevelUpPopup(lv);
+
+  // すでに test.html 側でコミット済みなら何もしない
+  const committedKey = `committed:${userId}:${mode}:${score}/${total}`;
+  if (sessionStorage.getItem(committedKey) === '1') return;
+
+  // 未コミットならここでリトライコミット
+  try {
+    const res = await fetch('/api/test/commit', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ userId, mode, correct: score, total })
+    });
+    if (res.ok) {
+      sessionStorage.setItem(committedKey, '1');
+    } else {
+      console.warn('user.html側コミット失敗', res.status);
+    }
+  } catch (e) {
+    console.warn('user.html側コミット例外', e);
+  }
+}
+
+// 既存の DOMContentLoaded 後や loadWords() 完了後に呼んでOK
+document.addEventListener('DOMContentLoaded', () => {
+  applyTestParamsAndCommit();
+});
+
+
+//✅ アップデート履歴（例）
+const latestUpdateVersion = "1.3.0"; // ← 最新バージョン
+const updateMessage = `
+  <ul style="text-align: left;">
+    <li>🎉 新機能「衣装切り替え」ボタンを追加</li>
+    <li>📈 正答数に応じたレベルアップ演出を追加</li>
+    <li>🔒 無料ユーザーには一部機能にプレミアム制限</li>
+    <li>🐞 軽微なバグ修正とUI改善</li>
+  </ul>
+`;
+
+// ✅ 初回ログイン or バージョン変更時のみ表示
+function showUpdateInfoIfNeeded() {
+  const shownVersion = localStorage.getItem("updateInfoShownVersion");
+  if (shownVersion !== latestUpdateVersion) {
+    Swal.fire({
+      title: "✨アップデート情報 (v" + latestUpdateVersion + ")✨",
+      html: updateMessage,
+      icon: "info",
+      confirmButtonText: "閉じる",
+      confirmButtonColor: "#e91e63"
+    });
+
+    // 表示済みバージョンとして保存
+    localStorage.setItem("updateInfoShownVersion", latestUpdateVersion);
+  }
+}
+
+	
+async function checkPremiumStatus(userId) {
+	  try {
+	    const res = await fetch(`http://localhost:8080/user/${userId}`);
+	    const user = await res.json();
+
+	    // ✅ user.premiumがtrueなら動画を表示
+	    if (user.premium === true) {
+	      const video = document.createElement("video");
+	      video.src = "videos/run_girl_motion.mp4";
+	      video.autoplay = true;
+	      video.muted = true;
+	      video.loop = true;
+	      video.width = 300;
+
+	      const container = document.getElementById("premiumVideoContainer");
+	      if (container) {
+	        container.innerHTML = ""; // 古い要素があれば削除
+	        container.appendChild(video);
+	      }
+	    }
+	  } catch (err) {
+	    console.error("ユーザー情報の取得に失敗", err);
+	  }
+	}
+
+
+
+
+function changePart(partName) {
+	  currentPart = partName;
+	  musouMode = (partName === '無双Part');
+
+	  const userId = new URLSearchParams(window.location.search).get('userId');
+	  
+	  if (musouMode) {
+	    // 無双Partだけ別ページに遷移
+	    goToPart(userId, "無双Part"); // → musou.html?userId=1&part=無双Part に遷移
+	  } else {
+	    // 通常Partの単語を読み込み
+	    loadWords();
+	  }
+	}
+	
+//単語からファイル名用スラッグを作る（既存に戻す）
+function toSlugForImage(s) {
+  return (s || "")
+    .toLowerCase()
+    .replace(/\s+/g, "_")
+    .replace(/['’`"]/g, "")
+    .replace(/[^a-z0-9_]/g, "");
+}
+
+//単語オブジェクトから最適な画像URLを決定
+function imageUrlForWord(w) {
+  if (w.imageUrl) return w.imageUrl;
+  if (w.pictUrl)  return w.pictUrl;
+  if (w.pictUrlAnimated) return w.pictUrlAnimated; // あれば優先
+  const slug = toSlugForImage(w.word);
+  return `/images/${slug}_girl.png`;               // フォールバック候補
+}
+
+async function uploadAndNormalize(file, mode = 'cover'){ // 'cover' or 'contain'
+	  const form = new FormData();
+	  form.append('file', file);
+
+	  const res = await fetch(`/api/images/normalize/${mode}`, {
+	    method: 'POST',
+	    body: form
+	  });
+	  if(!res.ok) throw new Error('画像の正規化に失敗');
+	  return await res.json(); // { url, width, height, mode }
+	}
+
+	// 例：input type="file" の change で
+	async function onFileChange(e){
+	  const file = e.target.files[0];
+	  if(!file) return;
+	  const { url } = await uploadAndNormalize(file, 'cover'); // または 'contain'
+	  // 返ってきたURLをそのまま <img src="..."> にセット
+	  // これで全画像が 3:5 の同じ比率で保管 & 表示されます
+	}
+
+
+	
+function goToPart(userId, partName) {
+	  const url = `musou.html?userId=${userId}&part=${encodeURIComponent(partName)}`;
+	  window.location.href = url;
+	}
+
+function renderWordCard(word) {
+	  if (musouMode) {
+	    return `
+	      <div class="musou-card">
+	        <h3>${word.word}（${word.meaning}）</h3>
+	        <audio controls src="${word.audioUrl}"></audio>
+	        <video controls width="200" src="${word.videoUrl}"></video>
+	        <img src="${word.imageUrl}" width="100" />
+	        <button onclick="${user.premium ? `playAll('${word.word}')` : 'showPremiumPopup()'}">美女を動かす</button>
+	      </div>
+	    `;
+	  } else {
+	    return `
+	      <div class="normal-card">
+	        <strong>${word.word}（${word.meaning}）</strong><br>
+	        ステータス: <input type="checkbox" ${word.status ? 'checked' : ''}>
+	        <br>
+	        <img src="${word.imageUrl}" width="100">
+	        <br>
+	        <button onclick="${user.premium ? `playVideo('${word.videoUrl}')` : 'showPremiumPopup()'}">美女を動かす</button>
+	      </div>
+	    `;
+	  }
+	}
+
+function getUserId() {
+	  return localStorage.getItem("userId") || new URLSearchParams(window.location.search).get("userId") || 1;
+	}
+
+
+function showLevelUpPopup(newLevel) {
+	  const title = getTitleByLevel(newLevel);
+	  Swal.fire({
+	    title: '🎉 LEVEL UP！🎉',
+	    html: `
+	      <p style="font-size: 20px;">新しいレベル: Lv.${newLevel}</p>
+	      <div style="margin-top: 10px;">称号：<strong>${title}</strong></div>
+	      <div class="slide-message" style="font-size: 18px; margin-top: 10px;">この調子で頑張ろう！</div>
+	      <br>
+	      <button id="shareButton" style="background:#1da1f2;color:white;padding:8px 12px;border:none;border-radius:5px;cursor:pointer;">
+	        SNSでシェアする
+	      </button>
+	    `,
+	    showConfirmButton: false,
+	    timer: 6000,
+	    didOpen: () => {
+	      document.getElementById("shareButton").addEventListener("click", () => {
+	        const shareText = `私は今レベル${newLevel}で「${title}」に到達しました！ #美女単`;
+	        const shareUrl = encodeURIComponent("https://your-app-url.com");
+	        const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${shareUrl}`;
+	        window.open(tweetUrl, '_blank');
+	      });
+	    }
+	  });
+	}
+
+
+// ボタンの描画
+function renderPartButtons() {
+  const container = document.getElementById("partButtons");
+  container.innerHTML = "";
+
+  parts.forEach(({ label, value }) => {
+    const btn = document.createElement("button");
+    btn.textContent = label;
+    btn.onclick = () => selectPart(value);
+    if (value === selectedPart) {
+      btn.style.fontWeight = "bold";
+    }
+    container.appendChild(btn);
+  });
+}
+
+function selectPart(part) {
+	  const lockedParts = ["part4", "part5", "part6", "partHealing","musou"];
+	  const isLockedPart = lockedParts.includes(part);
+
+	  if (!user.premium && isLockedPart && !isAdEnabled()) {
+	    Swal.fire({
+	      title: "このパートは広告視聴が必要です",
+	      html: `
+	        <p>広告を見れば<strong>5分間だけ開放</strong>されます。<br>
+	        <span style="color:#e91e63;font-weight:bold;">🎀プレミアム会員</span>なら、<strong>無制限で開放</strong>されます。</p>`,
+	      icon: "info",
+	      showCancelButton: true,
+	      showDenyButton: true,
+	      confirmButtonText: "広告を見る",
+	      cancelButtonText: "やめる",
+	      denyButtonText: "🎀 300円で広告なし！美女めくり放題🎀"
+	    }).then(result => {
+	      if (result.isConfirmed) {
+	        watchAdGlobal();
+	        selectedPart = part;
+	        currentPart = parts.findIndex(p => p.value === part) + 1;
+	        currentPage = 1;
+	        renderPartButtons();
+	        loadWords();
+	      } else if (result.isDenied) {
+	        showPremiumPopup(); // ← これだけでOK
+	      }
+	    });
+	  } else {
+	    selectedPart = part;
+	    currentPart = parts.findIndex(p => p.value === part) + 1;
+	    currentPage = 1;
+	    renderPartButtons();
+	    loadWords();
+	  }
+	}
+
+
+
+function getUserIdFromQuery() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('userId');
+}
+
+async function fetchUserInfo(userId) {
+	  const res = await fetch(`http://localhost:8080/user/${userId}`);
+	  if (!res.ok) {
+	    alert("ユーザー情報が取得できません。ログインし直してください。");
+	    window.location.href = "login.html";
+	    return;
+	  }
+	  const data = await res.json();
+	  user = data;
+	  localStorage.setItem("userId", data.id); // ←ここで保存
+	  document.getElementById("username").innerText = `${data.username} さん、ようこそ！`;
+	  document.getElementById("planText").innerText = `プラン: ${data.premium ? "プレミアム" : "無料"}`;
+	  document.getElementById("userLevel").innerText = `レベル: Lv.${data.level || 1}`;
+	  updateGirlVisual(data.level || 1);
+	  
+	  await updateLoginPointsIfNeeded(data.id);
+
+	  // ✅ ログインボーナス表示（loginPointsが必要）
+	if (typeof data.loginPoints === 'number') {
+  		showLoginBonus(data.loginPoints);
+	}
+	}
+
+async function updateLoginPointsIfNeeded(userId) {
+	  try {
+	    const res = await fetch(`http://localhost:8080/api/user/updateLoginPoints`, {
+	      method: 'PUT',
+	      headers: { 'Content-Type': 'application/json' },
+	      body: JSON.stringify({ userId })
+	    });
+
+	    if (res.ok) {
+	      const updated = await res.json();
+	      if (typeof updated.loginPoints === 'number') {
+	        showLoginBonus(updated.loginPoints);  // ←ここで再描画
+	        document.getElementById("loginDays").textContent = `学習日数: ${updated.loginPoints}日目`;
+	      }
+	    }
+	  } catch (err) {
+	    console.warn("ログインポイント更新失敗", err);
+	  }
+	}
+
+async function fetchWordsFromServer(userId, part) {
+	  const res = await fetch(`http://localhost:8080/api/words?userId=${userId}&part=${part}`);
+	  if (!res.ok) {
+	    alert("単語の取得に失敗しました");
+	    return [];
+	  }
+	  const data = await res.json();
+
+	  // ✅ statusがundefinedのものをfalseに補正（安全対策）
+	  return data.map(word => {
+		  const s = word.status;
+		  const learned =
+		    s === true || s === 1 || s === '1' || s === 'true' || s === 'LEARNED';
+		  return { ...word, status: !!learned };
+		});
+	}
+
+//=== 広告表示トリガ用のカウンタと保留実行 ===
+let pendingToggle = null;
+
+function getBeautyClickCount() {
+  const n = parseInt(localStorage.getItem('beauty_clicks') || '0', 10);
+  return isNaN(n) ? 0 : n;
+}
+function incBeautyClickCount() {
+  const n = getBeautyClickCount() + 1;
+  localStorage.setItem('beauty_clicks', String(n));
+  return n;
+}
+function resetBeautyClickCount() {
+  localStorage.setItem('beauty_clicks', '0');
+}
+
+// 広告モーダルを開いて、閉じたら処理再開できるように保留
+function showAdModalForToggle(callback) {
+  pendingToggle = callback;
+  document.getElementById('adModal').style.display = 'flex';
+}
+
+// 既存のモーダルのボタンIDに対応（下のモーダルHTMLそのまま使えます）
+function handleAdAccept() {
+  // 視聴処理（既存の5分解放を流用）
+  watchAdGlobal();
+  closeAdModal();
+  if (typeof pendingToggle === 'function') {
+    pendingToggle();
+    pendingToggle = null;
+  }
+  resetBeautyClickCount(); // 6回カウントをリセット
+}
+function closeAdModal() {
+  document.getElementById('adModal').style.display = 'none';
+  pendingToggle = null;
+}
+
+function renderWords() {
+	  const container = document.getElementById("wordContainer");
+	  container.innerHTML = "";
+
+	  const start = (currentPage - 1) * pageSize;
+	  const pageWords = words.slice(start, start + pageSize);
+
+	  pageWords.forEach((word, index) => {
+	    const div = document.createElement("div");
+	    div.className = "word-card";
+
+	    const isPremium = !!(user && (user.premium === true || user.premium === 'true'));
+	    const actionButton = 
+	      /* `<button onclick="playVideo('${word.pictUrlAnimated || ""}')">美女を動かす</button>` */
+	      ""; // 無料は非表示
+
+	    const checkboxId = `status-${word.id}`;
+	    const checked = word.status ? "checked" : "";
+	    const labelText = word.status ? "学習済み" : "未学習";
+
+	    const imageId = `img-${index}`;
+	    const toggleButtonId = `toggle-${index}`;
+	    const baseImg = '/images/beauty.png';
+	    const slug = toSlugForImage(word.word);
+	    const specificImg = `/images/${slug}_girl.png`;
+
+	    div.innerHTML = `
+	      <strong>${word.word}</strong>（${word.meaning}）<br>
+	      ステータス:
+	        <input type="checkbox" id="${checkboxId}" ${checked}
+	               onchange="toggleStatus(this.checked, ${word.id}, selectedPart)">
+	        <span id="status-label-${word.id}">${labelText}</span>
+
+	      <div>画像パス: <span id="imgpath-${index}">${baseImg}</span></div>
+	      <img id="${imageId}" src="${baseImg}" width="150"><br>
+
+	      <button id="${toggleButtonId}"
+	              onclick="handleToggleImage('${imageId}','${toggleButtonId}','${baseImg}','${specificImg}','${index}')">
+	        美女で英単語を表現する
+	      </button>
+
+	      ${actionButton ? `<br>${actionButton}` : ""}
+	    `;
+
+	    container.appendChild(div);
+	  });
+
+	  renderPagination(words.length);
+	}
+
+
+function toggleImage(imgId, btnId, img1, img2, index) {
+	  const imgElem = document.getElementById(imgId);
+	  const pathLabel = document.getElementById(`imgpath-${index}`);
+	  const currentSrc = imgElem.getAttribute("src");
+
+	  if (currentSrc === img1) {
+	    imgElem.src = img2;
+	    pathLabel.textContent = img2;
+	  } else {
+	    imgElem.src = img1;
+	    pathLabel.textContent = img1;
+	  }
+	}
+
+function handleToggleImage(imgId, btnId, img1, img2, index) {
+	  // 実際の切替処理をコールバック化
+	  const proceed = () => toggleImage(imgId, btnId, img1, img2, index);
+
+	  // クリック回数を増やして取得（ローカルに保持）
+	  const total = incBeautyClickCount();
+
+	  // 非プレミアムは 6 回ごとに広告表示 → 視聴後に続き実行
+	  if (!user.premium && total % 6 === 0) {
+	    showAdModalForToggle(proceed);
+	    return;
+	  }
+
+	  // 広告対象でない場合はそのまま切替
+	  proceed();
+	}
+
+
+function renderPagination(totalItems) {
+  const pageCount = Math.ceil(totalItems / pageSize);
+  const pagination = document.getElementById("pagination");
+  pagination.innerHTML = "";
+  for (let i = 1; i <= pageCount; i++) {
+    const btn = document.createElement("button");
+    btn.textContent = i;
+    btn.onclick = () => {
+      currentPage = i;
+      renderWords();
+    };
+    if (i === currentPage) btn.style.fontWeight = "bold";
+    pagination.appendChild(btn);
+  }
+}
+
+async function loadWords() {
+	  const userId = getUserIdFromQuery();
+	  words = await fetchWordsFromServer(userId, selectedPart);
+	  renderWords();
+
+	  // ✅ ステータス集計を反映
+	  updateStatusCount();
+
+	  // ✅ ログイン日数表示
+	  document.getElementById("loginDays").textContent = `学習日数: ${user.loginPoints || 0}日目`;
+
+	  // ✅ テスト結果表示
+	  // login.html または login.js内でログイン成功後
+	  const correct = localStorage.getItem("test_correct") || 0;
+	  const total = localStorage.getItem("test_total") || 0;
+	  document.getElementById("testStats").textContent = `正答数: ${correct} / ${total}問中`;
+	  await refreshUserStats();
+	}
+
+function watchAdGlobal() {
+	  const now = Date.now();
+	  const expiry = now + 5 * 60 * 1000; // 5分間有効
+	  localStorage.setItem("ad_expiry", expiry.toString());
+
+	  alert("広告視聴完了！");
+	  renderWords(); // ← ボタン表示を即時反映
+	}
+	
+function isAdEnabled() {
+	  const expiry = localStorage.getItem("ad_expiry");
+	  return expiry && Date.now() < parseInt(expiry);
+	}
+
+
+function unlockCasualSuit() {
+  alert("1000円で美女スーツ解放（仮）");
+}
+
+function playVideo(videoUrl) {
+	  const modal = document.getElementById("videoModal");
+	  const player = document.getElementById("videoPlayer");
+	  player.src = videoUrl;
+	  modal.style.display = "flex";
+
+	  modal.onclick = () => {
+	    modal.style.display = "none";
+	    player.pause();
+	    player.currentTime = 0;
+	  };
+	}
+function updateGirlVisual(level) {
+	  const video = document.getElementById("girlVideo");
+	  const bg = document.getElementById("bgEffect");
+
+	  if (level >= 20) {
+	    video.src = "/videos/girl_idle_loop.mp4";
+	    bg.className = "heart-bg";
+	  } else if (level >= 10) {
+	    video.src = "/videos/girl_idle_loop.mp4";
+	    bg.className = "star-bg";
+	  } else {
+	    video.src = "/videos/girl_idle_loop.mp4";
+	    bg.className = "normal-bg";
+	  }
+	}
+
+function toggleStatus(isChecked, wordId, part) {
+	  const userId = getUserIdFromQuery();
+
+	  fetch('/api/learning/update', {
+	    method: 'PUT',
+	    headers: {
+	      'Content-Type': 'application/json'
+	    },
+	    body: JSON.stringify({
+	      userId: userId,
+	      wordId: wordId,
+	      status: isChecked,
+	      part: part
+	    })
+	  })
+	  .then(response => {
+	    if (!response.ok) {
+	      alert("更新に失敗しました");
+	      return;
+	    }
+
+	    // 成功時のみ反映
+	    const word = words.find(w => w.id === wordId);
+	    if (word) {
+	      word.status = isChecked;
+	      const statusSpan = document.getElementById(`status-label-${wordId}`);
+	      if (statusSpan) {
+	        statusSpan.innerText = isChecked ? "学習済み" : "未学習";
+	      }
+	    }
+
+	    updateStatusCount();
+	  })
+	  .catch(err => {
+	    console.error(err);
+	    alert("通信エラーが発生しました");
+	  });
+	}
+
+
+
+async function updateStatusCount() {
+	  const userId = getUserIdFromQuery();
+
+	  try {
+	    const res = await fetch(`http://localhost:8080/api/learning/count?userId=${userId}&part=${selectedPart}`);
+	    if (!res.ok) throw new Error("学習済み数の取得に失敗");
+
+	    const learnedCount = await res.json();
+	    const totalCount = words.length;
+	    const unlearnedCount = Math.max(0, totalCount - learnedCount);
+
+	    const statusDiv = document.getElementById("learningStatus");
+	    statusDiv.textContent = `学習済み: ${learnedCount} / 未学習: ${unlearnedCount}`;
+	  } catch (err) {
+	    console.error(err);
+	    document.getElementById("learningStatus").textContent = "学習状況の取得に失敗しました";
+	  }
+	}
+
+//置き換え版：数値ラベルを表示
+async function loadWeeklyAnswers(){
+  const userId = getUserIdFromQuery() || localStorage.getItem('userId') || 1;
+  try{
+    const res = await fetch(`/api/test/weekly?userId=${userId}`);
+    if(!res.ok) return;
+    const data = await res.json(); // [{ymd, answers, correct} ×7]
+
+    // 棒の高さは解答数を基準に
+    const max = Math.max(1, ...data.map(d => d.answers));
+    const bars = document.getElementById('weeklyBars');
+    const labels = document.getElementById('weeklyLabels');
+    bars.innerHTML = ''; labels.innerHTML = '';
+
+    data.forEach(d => {
+      const h = Math.round((d.answers / max) * 120); // 最大120px
+      const wrap = document.createElement('div');
+      wrap.style.flex = '1';
+      wrap.style.display = 'flex';
+      wrap.style.flexDirection = 'column';
+      wrap.style.alignItems = 'center';
+      wrap.style.justifyContent = 'flex-end';
+
+      // 上に正解数を表示
+      const num = document.createElement('div');
+      num.textContent = d.correct;   // 正解数のみ
+      num.style.fontSize = '.8rem';
+      num.style.color = '#e91e63';
+      num.style.marginBottom = '4px';
+      wrap.appendChild(num);
+
+      // 棒（解答数を基準にした高さ）
+      const bar = document.createElement('div');
+      bar.title = `正解:${d.correct} / 解答:${d.answers}`; // ツールチップで正解/解答
+      bar.style.width = '24px';
+      bar.style.height = `${h}px`;
+      bar.style.borderRadius = '8px';
+      bar.style.background = 'linear-gradient(180deg,#ff7bbd,#ffb3d9)';
+      bar.style.boxShadow = '0 2px 6px rgba(0,0,0,.08)';
+      wrap.appendChild(bar);
+
+      bars.appendChild(wrap);
+
+      // 日付ラベル
+      const dd = new Date(d.ymd);
+      const label = document.createElement('div');
+      const mmdd = `${(dd.getMonth()+1).toString().padStart(2,'0')}/${dd.getDate().toString().padStart(2,'0')}`;
+      const youbi = ['日','月','火','水','木','金','土'][dd.getDay()];
+      label.style.flex='1';
+      label.style.textAlign='center';
+      label.innerHTML = `<div>${mmdd}</div><div style="opacity:.7">${youbi}</div>`;
+      labels.appendChild(label);
+    });
+  }catch(e){
+    console.warn('weekly chart load failed', e);
+  }
+}
+
+
+
+	// DOMContentLoaded 後のどこかで呼ぶ
+	document.addEventListener("DOMContentLoaded", loadWeeklyAnswers);
+
+
+	
+function showLoginBonus(points) {
+	  const grid = document.getElementById('stampGrid');
+	  grid.innerHTML = '';
+
+	  // ⭐ loginPointsが0でも、1日目にスタンプを表示
+	  const displayPoints = Math.max(points, 1);
+
+	  for (let i = 1; i <= 30; i++) {
+	    const cell = document.createElement('div');
+	    cell.style.width = '60px';
+	    cell.style.height = '60px';
+	    cell.style.border = '1px solid #999';
+	    cell.style.display = 'flex';
+	    cell.style.justifyContent = 'center';
+	    cell.style.alignItems = 'center';
+	    cell.style.backgroundColor = '#eee';
+
+	    if (i <= displayPoints) {
+	      const img = document.createElement('img');
+	      img.src = '/images/stamp_beauty.png';
+	      img.alt = 'スタンプ';
+	      img.style.width = '100%';
+	      img.style.height = '100%';
+	      img.style.objectFit = 'cover';
+	      img.style.borderRadius = '50%';
+	      img.style.border = '2px solid pink';
+	      if (i === displayPoints) img.style.animation = 'pop 0.6s ease';
+	      cell.appendChild(img);
+	    } else {
+	      const label = document.createElement('div');
+	      label.textContent = `${i}日目`;
+	      label.style.fontSize = '12px';
+	      cell.appendChild(label);
+	    }
+
+	    grid.appendChild(cell);
+	  }
+
+	  document.getElementById('loginBonusPopup').style.display = 'block';
+	}
+	
+	function getTitleByLevel(level) {
+		  if (level >= 20) return "ホットパンツの覇者";
+		  if (level >= 15) return "セクシー学習王";
+		  if (level >= 10) return "フリフリ美女マスター";
+		  if (level >= 5) return "Newbie";
+		  return "ビギナー";
+		}
+
+	function closeLoginBonus() {
+	  document.getElementById("loginBonusPopup").style.display = "none";
+	}
+	
+	function showPremiumPopup() {
+		  Swal.fire({
+		    title: '🎀 美女単プレミアムプラン 🎀',
+		    html: `
+		      <div style="text-align:left; font-size: 0.95rem;">
+		        <p>全モード解放＆広告なしの贅沢体験</p>
+		        <ul style="line-height:1.6;">
+		          <li>✔ リスニングモード解放</li>
+		          <li>✔ テスト回数無制限＆成績履歴も保存</li>
+		        </ul>
+		        <p style="font-weight:bold; font-size:1.1rem;">💰 月額500円（税込）</p>
+		        <p style="color:red;">✨ 今だけ初月300円キャンペーン中 ✨</p>
+		        <small>SNSでシェアすると1週間無料体験🎁</small>
+		      </div>
+		    `,
+		    showCancelButton: true,
+		    confirmButtonText: "プレミアムに登録する",
+		    cancelButtonText: "あとで見る",
+		    customClass: {
+		      popup: 'premium-popup',
+		      confirmButton: 'btn-premium'
+		    }
+		  }).then(result => {
+		    if (result.isConfirmed) {
+		      window.location.href = "/premium.html"; // プラン登録ページへ遷移
+		    }
+		  });
+		}
+	
+	function subscribePremium() {
+		  fetch('/api/payment/create-checkout-session', {
+		    method: 'POST',
+		    headers: { 'Content-Type': 'application/json' },
+		    body: JSON.stringify({ userId: 1 }) // ログインユーザーID
+		  })
+		  .then(res => res.json())
+		  .then(data => {
+		    window.location.href = data.checkoutUrl;
+		  });
+		}
+
+
+
+	function startTest() {
+		  const userId = new URLSearchParams(window.location.search).get("userId");
+		  const testCount = localStorage.getItem("test_started");
+
+		  if (testCount) {
+		    alert("広告を見せる処理（仮）");
+		  }
+
+		  if (user.premium) {
+		    // プレミアムユーザーはモード選択可能
+		    Swal.fire({
+		      title: "テストモードを選んでね",
+		      html: `
+		        <button id="readingBtn" class="swal2-confirm swal2-styled" style="margin: 5px;">📘 リーディング</button>
+		        <button id="listeningBtn" class="swal2-confirm swal2-styled" style="background:#3949ab;margin: 5px;">🎧 リスニング</button>
+		      `,
+		      showConfirmButton: false,
+		      didOpen: () => {
+		        document.getElementById("readingBtn").addEventListener("click", () => {
+		          localStorage.setItem("test_started", "1");
+		          window.location.href = `test.html?userId=${userId}&mode=reading`;
+		        });
+		        document.getElementById("listeningBtn").addEventListener("click", () => {
+		          localStorage.setItem("test_started", "1");
+		          window.location.href = `test.html?userId=${userId}&mode=listening`;
+		        });
+		      }
+		    });
+		  } else {
+		    // 無料ユーザーはリーディングのみ（広告付き）
+		    Swal.fire({
+		      title: "リスニングモードはプレミアム専用🎧",
+		      html: `
+		        <p>今は <strong>リーディングモード</strong>のみご利用いただけます。</p>
+		        <p>🎀 プレミアム登録で <strong>音声リスニングテスト</strong>も可能に！</p>
+		      `,
+		      showCancelButton: true,
+		      confirmButtonText: "リーディングで始める",
+		      cancelButtonText: "プレミアムを見る",
+		    }).then(result => {
+		      if (result.isConfirmed) {
+		        localStorage.setItem("test_started", "1");
+		        window.location.href = `test.html?userId=${userId}&mode=reading`;
+		      } else if (result.dismiss === Swal.DismissReason.cancel) {
+		        showPremiumPopup(); // プレミアム案内を表示
+		      }
+		    });
+		  }
+		}
+	
+	function startVocabularyTest() {
+		  const userId = new URLSearchParams(window.location.search).get("userId");
+		  const testCount = localStorage.getItem("test_started");
+
+		  if (testCount) {
+		    alert("広告を見せる処理（仮）");
+		  }
+
+		  if (user.premium) {
+		    // プレミアムユーザーはモード選択可能
+		    Swal.fire({
+		      title: "テストモードを選んでね",
+		      html: `
+		        <button id="readingBtn" class="swal2-confirm swal2-styled" style="margin: 5px;">📘 リーディング</button>
+		        <button id="listeningBtn" class="swal2-confirm swal2-styled" style="background:#3949ab;margin: 5px;">🎧 リスニング</button>
+		      `,
+		      showConfirmButton: false,
+		      didOpen: () => {
+		        document.getElementById("readingBtn").addEventListener("click", () => {
+		          localStorage.setItem("test_started", "1");
+		          window.location.href = `vocabularyTest.html?userId=${userId}&mode=reading`;
+		        });
+		        document.getElementById("listeningBtn").addEventListener("click", () => {
+		          localStorage.setItem("test_started", "1");
+		          window.location.href = `vocabularyTest.html?userId=${userId}&mode=listening`;
+		        });
+		      }
+		    });
+		  } else {
+		    // 無料ユーザーはリーディングのみ（広告付き）
+		    Swal.fire({
+		      title: "リスニングモードはプレミアム専用🎧",
+		      html: `
+		        <p>今は <strong>リーディングモード</strong>のみご利用いただけます。</p>
+		        <p>🎀 プレミアム登録で <strong>音声リスニングテスト</strong>も可能に！</p>
+		      `,
+		      showCancelButton: true,
+		      confirmButtonText: "リーディングで始める",
+		      cancelButtonText: "プレミアムを見る",
+		    }).then(result => {
+		      if (result.isConfirmed) {
+		        localStorage.setItem("test_started", "1");
+		        window.location.href = `test.html?userId=${userId}&mode=reading`;
+		      } else if (result.dismiss === Swal.DismissReason.cancel) {
+		        showPremiumPopup(); // プレミアム案内を表示
+		      }
+		    });
+		  }
+		}
+
+
+	// 累計正答と学習日数を /user/{id} から更新。
+	// loginPoints がなければ /api/test/weekly から直近7日の「回答>0日数」を表示。
+	async function refreshUserStats() {
+	  const userId = getUserIdFromQuery() || localStorage.getItem('userId') || 1;
+
+	  try {
+	    const res = await fetch(`/user/${userId}`);
+	    if (res.ok) {
+	      const u = await res.json();
+
+	      // 学習日数
+	      const days = (typeof u.loginPoints === 'number') ? u.loginPoints : 0;
+	      document.getElementById("loginDays").textContent = `学習日数: ${days}日目`;
+
+	      // 累計正答（/api/test/commit で増えるのはこっち）
+	   	  const totalCorrect = Number(u.testCorrectTotal ?? 0);
+	      document.getElementById("testStats").textContent = `正答数（累計）: ${totalCorrect}`;
+	      
+	      // ★ レベルを計算し、DBに反映
+	     const newLevel = Math.max(1, Math.floor(totalCorrect / 10) + 1);
+     const currentLevel = Number(u.level ?? 1);
+     if (currentLevel !== newLevel) {
+       // サーバに保存（URL修正済み）
+       const r = await fetch(`/user/updateLevel`, {
+         method: 'PUT',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ userId, level: newLevel })
+       });
+       if (r.ok) {
+         const json = await r.json().catch(() => ({}));
+         u.level = Number(json.level ?? newLevel); // 返却なければ計算値
+       } else {
+         // 保存に失敗してもUIは進める（体験優先／次回再同期）
+         u.level = newLevel;
+       }
+     }
+	   		  // 表示更新（DB値を優先）
+	      	  const levelEl = document.getElementById("userLevel");
+		      const lv = Number(u.level ?? 1);
+		      if (levelEl) levelEl.textContent = `レベル: Lv.${lv}`;
+		      updateGirlVisual(lv);
+
+	      // レベル演出のためにローカルも更新
+	      const prev = parseInt(localStorage.getItem('previousCorrect') || '0', 10);
+	      const prevLv = Math.floor(prev / 10);
+	      const newLv  = Math.floor(totalCorrect / 10);
+	      if (newLv > prevLv) {
+	        for (let lv = prevLv + 1; lv <= newLv; lv++) showLevelUpPopup(lv);
+	      }
+	      localStorage.setItem('previousCorrect', String(totalCorrect));
+	      return;
+	    }
+	  } catch (e) {
+	    console.warn('refreshUserStats /user fetch failed', e);
+	  }
+
+	  // フォールバック：/weekly から直近7日で「回答>0の日」を学習日数として表示
+	  try {
+	    const r2 = await fetch(`/api/test/weekly?userId=${userId}`);
+	    if (r2.ok) {
+	      const w = await r2.json(); // [{ymd, answers, correct} ...]
+	      const days = w.filter(d => d.answers > 0).length;
+	      document.getElementById("loginDays").textContent = `学習日数(直近7日): ${days}日`;
+	    }
+	  } catch (e) {
+	    /* 無視 */
+	  }
+	}
+
+	
+	async function setUserPremium(userId) {
+		  try {
+		    const res = await fetch(`http://localhost:8080/api/user/updatePremium`, {
+		      method: 'PUT',
+		      headers: { 'Content-Type': 'application/json' },
+		      body: JSON.stringify({ userId: userId })
+		    });
+
+		    if (!res.ok) throw new Error("更新に失敗");
+		    console.log("✅ プレミアム状態をDBに反映しました");
+		  } catch (err) {
+		    console.error("❌ プレミアム設定失敗:", err);
+		  }
+		}
+	
+	// ===== スワイプ学習モード =====
+	let swipeWords = [];      // 今のパートの単語配列（スワイプ用）
+	let swipeIndex = 0;       // 先頭から何枚目か
+	let swipeLearned = 0;     // このセッションで「覚えた」にした数
+	let swipeUnlearned = 0;   // このセッションで「覚えてない」にした数
+	let swipeDrag = null;     // {startX, startY, el}
+	// 既存のスワイプ用変数の近くに追加
+	let currentSwipeMode = "unlearned"; // 'unlearned' or 'review'
+	const SWIPE_THRESHOLD = 80; // 何px以上で確定とみなす
+	const AD_EVERY = 7;         // 7スワイプ毎に広告
+	
+	// 🔸 今日の日付キー
+	function swipeTodayKey(userId){
+	  const d = new Date();
+	  const ymd = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+	  return `swipeExcluded:${userId}:${ymd}`;   // 例: swipeExcluded:1:2025-08-24
+	}
+	
+	function todayKey(type){
+		  const d = new Date();
+		  const ymd = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+		  return `swipe:${type}:${getUserId()}:${ymd}`;
+		}
+
+		function getTodaySet(type){
+		  const raw = localStorage.getItem(todayKey(type));
+		  return new Set(raw ? JSON.parse(raw) : []);
+		}
+
+		function addTodaySet(type, wordId){
+		  const set = getTodaySet(type);
+		  set.add(wordId);
+		  localStorage.setItem(todayKey(type), JSON.stringify([...set]));
+		}
+
+
+	// 🔸 今日の除外セットを取得 / 追加保存
+	function getSwipeExcludedSet(userId){
+	  // 日付が変わったら自動的にリセット（キーも変わる）
+	  const raw = localStorage.getItem(swipeTodayKey(userId));
+	  return new Set(raw ? JSON.parse(raw) : []);
+	}
+	function addToSwipeExcluded(userId, wordId){
+	  const key = swipeTodayKey(userId);
+	  const set = getSwipeExcludedSet(userId);
+	  set.add(wordId);
+	  localStorage.setItem(key, JSON.stringify([...set]));
+	}
+	
+	function setSwipeModeVisible(show){
+		  document.getElementById('swipeModeBox').classList.toggle('hidden', !show);
+		  // 一覧系を隠す/戻す
+		  document.getElementById('wordContainer').classList.toggle('hidden', show);
+		  document.getElementById('pagination').classList.toggle('hidden', show);
+		  document.getElementById('test-section').classList.toggle('hidden', show);
+		  document.getElementById('weeklyAnswersBox').classList.toggle('hidden', show);
+		}
+
+	// ✅ スワイプ学習開始時：最初に広告 → 終了後モード選択
+	function startSwipeMode(partValue = selectedPart){
+	  selectedPart = partValue;
+
+	  const lockedParts = ["part4", "part5", "part6", "partHealing", "musou"];
+	  const isLocked = lockedParts.includes(selectedPart);
+	  if(!user.premium && isLocked && !isAdEnabled()){
+	    showPremiumPopup();
+	    return;
+	  }
+
+	  // ✅ 開始時に広告表示
+	  Swal.fire({
+	    title: "美女スワイプ学習🎀",
+	    html: "「学習開始前と終了時に広告が表示されます（計2回）<br>美女と一緒に楽しく学習しましょう！」",
+	    icon: "info",
+	    confirmButtonText: "広告を見る",
+	    confirmButtonColor: "#e91e63",
+	    allowOutsideClick: false
+	  }).then(() => {
+	    // 実際に広告表示（ここでAdMob等の動画広告を再生する）
+	    watchAdGlobal();
+
+	    // 終了後にモード選択へ
+	    showSwipeModeSelection();
+	  });
+	}
+
+	// ✅ モード選択ダイアログ（分離して使いやすく）
+	function showSwipeModeSelection() {
+	  Swal.fire({
+	    title: "モードを選んでね",
+	    html: `
+	      <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">
+	        <button id="btnUnlearned" class="swal2-confirm swal2-styled">未学習を覚える</button>
+	        <button id="btnReview" class="swal2-confirm swal2-styled" style="background:#3949ab">復習チェック</button>
+	      </div>
+	    `,
+	    showConfirmButton: false,
+	    didOpen: () => {
+	      document.getElementById("btnUnlearned").onclick = () => {
+	        currentSwipeMode = "unlearned";
+	        Swal.close();
+	        initSwipeMode("unlearned");
+	      };
+	      document.getElementById("btnReview").onclick = () => {
+	        currentSwipeMode = "review";
+	        Swal.close();
+	        initSwipeMode("review");
+	      };
+	    }
+	  });
+	}
+
+
+
+	// 既存の initSwipeMode を丸ごと置き換え
+	async function initSwipeMode(mode = "unlearned"){
+	  currentSwipeMode = mode;
+	  setSwipeModeVisible(true);
+
+	  const userId = getUserIdFromQuery() || 1;
+	  if (!Array.isArray(words) || words.length === 0) {
+	    words = await fetchWordsFromServer(userId, selectedPart);
+	  }
+
+	  // デッキ作成（未学習30 / 復習30 / デフォルトは25+5）
+	  swipeWords = await buildSwipeDeck(mode);
+
+	  if (swipeWords.length === 0) {
+	    const msg = (mode === "review")
+	      ? "今日は復習用の単語が見つかりませんでした"
+	      : "今日は出題する未学習がありません";
+	    Swal.fire({icon:'info', title: msg, text:'パート変更や明日またチャレンジしてね！'});
+	    setSwipeModeVisible(false);
+	    return;
+	  }
+
+	  swipeIndex = 0;
+	  swipeLearned = 0;   // 未学習: 覚えた / 復習: OK
+	  swipeUnlearned = 0; // 未学習: 覚えてない / 復習: 忘れていた
+
+	  await renderSwipeDeck();
+	  updateSwipeHUD();
+	  document.getElementById('swipeExitBtn').onclick = exitSwipeMode;
+	}
+
+	function exitSwipeMode(){
+	  setSwipeModeVisible(false);                      // ← 一覧へ戻す
+	  renderWords();
+	  updateStatusCount();
+	}
+
+		
+		// 🔸 スワイプ用デッキを組む（未学習のみ + 今日の除外を引く）
+// ランダムサンプル用ユーティリティ（Fisher–Yates）
+// ランダムに配列をシャッフル（in-place）
+// in-place shuffle
+function shuffle(arr){
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+/**
+ * 未学習を優先して N 枚でデッキ構築（未学習:reviewRatio[0], 復習:reviewRatio[1]）
+ * 足りないときは相互に融通し、それでも足りなければ除外無視で補充
+ */
+//shuffle はそのまま利用
+
+//既存の buildSwipeDeck を丸ごと置き換え
+async function buildSwipeDeck(mode = "unlearned"){
+  const userId   = getUserIdFromQuery() || getUserId();
+  const excluded = getSwipeExcludedSet(userId);
+
+  const allUnlearned = words.filter(w => !w.status);
+  const allLearned   = words.filter(w =>  w.status);
+
+  // 既定は「今日の除外を外す」
+  let unlearned = allUnlearned.filter(w => !excluded.has(w.id));
+  let learned   = allLearned.filter(w   => !excluded.has(w.id));
+
+  // ★ 復習モードで候補0なら、除外を無視してでも出す（起動できないのを防ぐ）
+  if (mode === "review" && learned.length === 0 && allLearned.length > 0) {
+    learned = allLearned.slice();
+  }
+
+  shuffle(unlearned);
+  shuffle(learned);
+
+  if (mode === "unlearned") return shuffle(unlearned.slice(0, 10));
+  if (mode === "review")    return shuffle(learned.slice(0, 10));
+
+  return shuffle([
+    ...unlearned.slice(0,25),
+    ...learned.slice(0,5)
+  ]);
+}
+
+
+
+
+	// デッキ描画（先頭3枚だけ積む）
+// デッキ描画（先頭3枚だけ積む）
+async function renderSwipeDeck(){
+  // DOMのデッキ要素
+  const deckEl = document.getElementById('swipeDeck');
+  deckEl.innerHTML = '';
+
+  // swipeWords がまだ用意されていなければ作る
+if (!Array.isArray(swipeWords) || swipeWords.length === 0) {
+	// 現在選択中のモードでデッキを作る
+	swipeWords = await buildSwipeDeck(currentSwipeMode);
+	console.log('deck size:', swipeWords.length,
+            'unlearned total:', words.filter(w=>!w.status).length,
+            'learned total:', words.filter(w=> w.status).length);
+}
+
+  // 今の位置から3枚だけ描画
+  const show = swipeWords.slice(swipeIndex, Math.min(swipeIndex + 3, swipeWords.length));
+
+  show.forEach((w, idx) => {
+    const card = document.createElement('div');
+    card.className = 'swipe-card';
+    card.style.zIndex = String(100 - idx);
+    card.dataset.index = String(swipeIndex + idx);
+
+    const src = imageUrlForWord(w);
+
+    card.innerHTML = `
+    	  <div class="swipe-badge badge-left">覚えてない</div>
+    	  <div class="swipe-badge badge-right">覚えた！</div>
+    	  <div class="swipe-word">${w.word}</div>
+    	  <div class="swipe-mean">(${w.meaning})</div>
+    	  <img class="swipe-img" src="${src}" alt="" draggable="false">
+    	`;
+
+    // 画像が404の時はデフォルトにフォールバック
+    const imgEl = card.querySelector('.swipe-img');
+    imgEl.onerror = () => { imgEl.src = '/images/beauty.png'; };
+
+    attachSwipeHandlers(card);
+    deckEl.appendChild(card);
+  });
+}
+
+
+	// 1枚のカードにドラッグ/タッチ操作を付与
+function attachSwipeHandlers(card){
+  card.addEventListener('pointerdown', e => {
+    e.preventDefault();                 // ← 既定動作(画像ドラッグ等)を抑止
+    card.setPointerCapture(e.pointerId);
+    swipeDrag = {startX:e.clientX, startY:e.clientY, el:card};
+    card.style.transition = 'none';
+  });
+
+  card.addEventListener('pointermove', e => {
+    if(!swipeDrag || swipeDrag.el!==card) return;
+    const dx = e.clientX - swipeDrag.startX;
+    const dy = e.clientY - swipeDrag.startY;
+    const rot = dx * 0.05;
+    card.style.transform = `translate(${dx}px, ${dy}px) rotate(${rot}deg)`;
+    const left  = card.querySelector('.badge-left');
+    const right = card.querySelector('.badge-right');
+    if(dx < -20){ left.style.opacity = Math.min(1, (-dx)/80); right.style.opacity = 0; }
+    else if(dx > 20){ right.style.opacity = Math.min(1, (dx)/80); left.style.opacity = 0; }
+    else { left.style.opacity = right.style.opacity = 0; }
+  });
+
+  card.addEventListener('pointerup',     e => endSwipe(card, e));
+
+  // ← ここを“リセットのみ”に
+  card.addEventListener('pointercancel', () => {
+    card.style.transition = '.2s ease';
+    card.style.transform = 'translate(0,0) rotate(0)';
+    card.querySelector('.badge-left').style.opacity  = 0;
+    card.querySelector('.badge-right').style.opacity = 0;
+    swipeDrag = null;
+  });
+
+  // 念のため HTML5 の dragstart も殺す
+  card.addEventListener('dragstart', e => e.preventDefault());
+}
+
+
+	function endSwipe(card, e){
+	  if(!swipeDrag){ return; }
+	  const dx = e.clientX - swipeDrag.startX;
+	  swipeDrag = null;
+
+	  // 確定判定
+	  if(dx <= -SWIPE_THRESHOLD){
+	    // 左：覚えてない
+	    decideSwipe(card, 'left');
+	  }else if(dx >= SWIPE_THRESHOLD){
+	    // 右：覚えた
+	    decideSwipe(card, 'right');
+	  }else{
+	    // 戻す
+	    card.style.transition = '.2s ease';
+	    card.style.transform = 'translate(0,0) rotate(0)';
+	    card.querySelector('.badge-left').style.opacity = 0;
+	    card.querySelector('.badge-right').style.opacity = 0;
+	  }
+	}
+
+	// 反映＆次のカードへ
+// 既存の decideSwipe を丸ごと置き換え
+async function decideSwipe(card, dir){
+  const i = swipeIndex;
+  const w = swipeWords[i];
+  const isRight = (dir === 'right'); // 右=良い判定
+
+  // 見た目アニメ
+  card.style.transition = '.2s ease';
+  const off = (isRight ? 600 : -600);
+  card.style.transform = `translate(${off}px,-40px) rotate(${off>0?15:-15}deg)`;
+  setTimeout(() => card.remove(), 200);
+
+  // ✅ DB更新はしない。すべて“今日のメモ”に保存するだけ。
+  if (currentSwipeMode === "unlearned") {
+    // 未学習モード: 右=覚えた, 左=覚えてない
+    if (isRight) {
+      addTodaySet('learned', w.id);    // 当日の達成
+      addToSwipeExcluded(getUserId(), w.id); // 今日は出さない
+      swipeLearned++;
+    } else {
+      addTodaySet('unlearned', w.id);  // 当日の未達
+      swipeUnlearned++;
+    }
+  } else { // review
+    // 復習モード: 右=OK, 左=忘れていた
+    if (isRight) {
+      swipeLearned++;                  // セッションOKカウント
+      addTodaySet('review_ok', w.id);  // 任意の記録
+    } else {
+      swipeUnlearned++;                // セッション忘れカウント
+      addTodaySet('review_ng', w.id);  // 任意の記録
+      // （オプション）忘れていたものを“明日の未学習候補”にしたいなら、ここで別キーに保存しておく
+    }
+    addToSwipeExcluded(getUserId(), w.id); // 復習でも今日は重複させない
+  }
+
+  swipeIndex++;
+  updateSwipeHUD();
+  
+//✅ 広告表示：7枚ごと、または最後の1枚
+  if (swipeIndex === swipeWords.length) {
+  watchAdGlobal();
+  }
+
+  if (swipeIndex < swipeWords.length) {
+    await renderSwipeDeck();
+  } else {
+    exitSwipeMode(); // 一覧へ戻る（DB更新なし）
+  }
+}
+
+
+
+//既存の updateSwipeHUD を丸ごと置き換え
+function updateSwipeHUD(){
+  const total = swipeWords.length;
+  document.getElementById('swipeCounter').textContent = `${swipeIndex}/${total}`;
+
+  if (currentSwipeMode === "unlearned") {
+    // 当日メモ（未学習用）
+    const learnedSet   = getTodaySet('learned');
+    const unlearnedSet = getTodaySet('unlearned');
+    document.getElementById('swipeStats').textContent =
+      `覚えた: ${learnedSet.size} / 覚えてない: ${unlearnedSet.size}`;
+  } else {
+    // セッションカウント（復習用）
+    document.getElementById('swipeStats').textContent =
+      `OK: ${swipeLearned} / 忘れていた: ${swipeUnlearned}`;
+  }
+}
+
+
+
+
+	// もし「スワイプ学習」ボタンをどこかに追加するなら：
+	// <button onclick="startSwipeMode()">スワイプ学習を始める</button>
+    async function onSwipeRightLearned(word){
+  // 1) サーバに学習済みを反映（既存の更新APIを使う）
+  try{
+    await fetch('/api/learning/update', {
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        userId: getUserId(),
+        wordId: word.id,
+        status: true,
+        part: selectedPart
+      })
+    });
+    // 2) フロントの words も即時更新
+    const w = words.find(x => x.id === word.id);
+    if (w) w.status = true;
+
+    // 3) 今日のスワイプ除外に追加（次のスワイプでは出ない）
+    addToSwipeExcluded(getUserId(), word.id);
+  }catch(e){
+    console.warn('学習済み反映失敗', e);
+  }
+}
+    
+    const SWIPE_TUTOR_KEY = 'swipe_tutorial_shown_v1';
+
+    function showSwipeHowToIfNeeded(){
+      if (localStorage.getItem(SWIPE_TUTOR_KEY) === '1') return;
+      Swal.fire({
+        title: 'スワイプ学習のコツ',
+        html: `
+          <div style="text-align:left;line-height:1.8">
+            <p>・右スワイプ = <b>覚えた！→ 学習済みに反映</b></p>
+            <p>・左スワイプ = まだ覚えてない（デッキ後方へ）</p>
+            <p>・今日覚えた単語は、<b>その日は再表示されません</b></p>
+            <p>・対象は <b>未学習だけ</b>。効率よく覚えよう！</p>
+          </div>
+        `,
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#e91e63'
+      }).then(()=> localStorage.setItem(SWIPE_TUTOR_KEY,'1'));
+    }
+
+
+	</script>
+　　<!-- カスタム広告・プレミアムモーダル -->
+<div id="adModal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background-color:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center;">
+  <div class="modal-content" style="background:white; padding:30px; border-radius:10px; max-width:90%; text-align:center;">
+    <h2 style="color:#e91e63;"><i class="fas fa-info-circle"></i> このパートは広告視聴が必要です</h2>
+    <p>広告を見ると5枚だけ美女で英単語を表現するボタンが開放されます。<br>有料プランなら無制限で開放されます。</p>
+    <div class="modal-buttons" style="margin-top:20px;">
+      <button id="watchAdBtn" class="btn btn-primary" onclick="handleAdAccept()">広告を見る</button>
+      <button id="closeModalBtn" class="btn btn-secondary" onclick="closeAdModal()">やめる</button>
+      <button id="upgradeBtn" class="btn btn-premium" onclick="location.href='/premium.html'">🎀 プレミアムで無制限開放 (月額300円)🎀</button>
+    </div>
+  </div>
+</div>
+	</body>
+	</html>

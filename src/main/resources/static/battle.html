@@ -1,0 +1,983 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <title>美女単 × E-CHO バトルモード</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body{font-family:system-ui, -apple-system, sans-serif; margin:16px; background:#f7f9fc}
+    .card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 8px 24px rgba(0,0,0,0.08);max-width:820px;margin:0 auto 16px}
+    .row{display:flex;gap:12px;flex-wrap:wrap}
+    .btn{padding:12px 16px;border:none;border-radius:10px;background:#2563eb;color:#fff;cursor:pointer;font-weight:700}
+    .btn.secondary{background:#64748b}
+    .btn.ghost{background:#e2e8f0;color:#0f172a}
+    .btn:disabled{opacity:.6;cursor:not-allowed}
+    .tabs button{padding:10px 14px;border-radius:999px;border:1px solid #cbd5e1;background:#fff}
+    .tabs button.active{background:#1e293b;color:#fff;border-color:#1e293b}
+    .difficulty .chip{padding:10px 14px;border-radius:12px;font-weight:700;cursor:pointer;border:1px solid #cbd5e1;background:#fff}
+    .difficulty .chip.active{background:#111827;color:#fff;border-color:#111827}
+    .hpbar{height:14px;background:#e5e7eb;border-radius:999px;overflow:hidden}
+    .hpbar > div{height:100%;background:linear-gradient(90deg,#22c55e,#16a34a)}
+    .enemy{font-weight:800}
+    .choices{display:grid;gap:10px;margin-top:12px}
+    .choices button{padding:12px;border-radius:10px;border:1px solid #cbd5e1;background:#fff;text-align:left}
+    .choices button.correct{border-color:#22c55e;background:#ecfdf5}
+    .choices button.wrong{border-color:#ef4444;background:#fef2f2}
+    .meter{display:flex;gap:12px;align-items:center}
+    .muted{color:#475569}
+    .specials { margin: 12px 0 18px; }
+	.gauge-wrap { background:#eef3ff; border-radius:12px; padding:6px; }
+	.gauge { position:relative; height:16px; background:linear-gradient(90deg,#7aa7ff,#3f7cff);
+	         width:0%; border-radius:8px; transition:width .25s ease; }
+	.gauge span { position:absolute; right:6px; top:-22px; font-size:12px; color:#3f7cff; font-weight:700; }
+	.sp-buttons { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+	.sp-btn { padding:8px 12px; border-radius:10px; border:none; font-weight:700; background:#f1f3f7; color:#333; }
+	.sp-btn:disabled { opacity:.45; cursor:not-allowed; }
+	.sp-btn.ready { outline:2px solid #3f7cff; animation:pulse 1.2s infinite; }
+	.sp-btn.ultimate { background:#ffe6e6; color:#b50000; }
+	@keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(63,124,255,.5)} 70%{box-shadow:0 0 0 10px transparent} 100%{box-shadow:0 0 0 0 transparent} }
+	.sp-note { font-size:12px; color:#888; margin-top:6px; min-height:16px; }
+	.hidden{display:none;}
+	.gauge-wrap.bump { box-shadow: 0 0 0 6px rgba(63,124,255,.18) inset; transition: box-shadow .25s; }
+	
+
+	/* 既存の .hidden は残っててもOKだが、こちらを使う */
+	.ult-cutin{
+	  position:fixed; inset:0; z-index:9999; pointer-events:none;
+	  display:block; opacity:0; visibility:hidden; transition:opacity .15s;
+	  display:flex; align-items:center; justify-content:center;
+	}
+	.ult-cutin.show{ opacity:1; visibility:visible; }
+	
+	.ult-cutin .ult-bg{
+	  position:absolute; inset:0; background:rgba(0,0,0,.7);
+	  /* forwards でも親のopacity/visibilityで確実に隠れる */
+	  animation: ult-bg .35s ease-out forwards;
+	}
+
+	@keyframes ult-bg{ from{opacity:0} to{opacity:1} }
+	
+	.ult-cutin .rin{
+	  width:38vmin; transform: translateX(-120%) skewX(-8deg);
+	  filter: drop-shadow(0 8px 16px rgba(0,0,0,.5));
+	  animation: rin-in .45s cubic-bezier(.18,.9,.22,1.2) forwards;
+	}
+	@keyframes rin-in{ to{ transform:translateX(0) skewX(-8deg);} }
+	
+	.ult-title{
+	  position:absolute; bottom:12vh; left:8vw;
+	  font: 800 4vmin/1.1 "Noto Sans JP", system-ui;
+	  color:#fff; letter-spacing:.08em;
+	  text-shadow: 0 4px 12px rgba(0,0,0,.6);
+	  animation: title-pop .35s ease-out forwards .2s;
+	}
+	@keyframes title-pop{ from{ transform:scale(.8); opacity:0 } to{ transform:scale(1); opacity:1 } }
+	
+	.fx-flash{
+	  position:fixed; inset:0; background:#fff; z-index:9998;
+	  animation: flash .18s ease-out forwards;
+	}
+	@keyframes flash{ from{opacity:.9} to{opacity:0} }
+	
+	.fx-shake.shake{
+	  position:fixed; inset:0; z-index:1; pointer-events:none;
+	  animation: shake .4s cubic-bezier(.36,.07,.19,.97);
+	}
+	@keyframes shake{
+	  10%{ transform:translate(-2px, 3px) }
+	  20%{ transform:translate(3px, -2px) }
+	  30%{ transform:translate(-4px, 2px) }
+	  40%{ transform:translate(2px, -3px) }
+	  50%{ transform:translate(-3px, 2px) }
+	  60%{ transform:translate(3px, -1px) }
+	  70%{ transform:translate(-2px, 1px) }
+	  80%{ transform:translate(2px, -1px) }
+	  90%{ transform:translate(-1px, 1px) }
+	  100%{ transform:translate(0,0) }
+	}
+	
+	.skill-gauge{
+	  position:fixed; right:2rem; bottom:2rem; z-index:10;
+	  background:#111; color:#fff; padding:.6rem .8rem; border-radius:.75rem;
+	  box-shadow:0 6px 16px rgba(0,0,0,.25);
+	  display:flex; align-items:center; gap:.6rem;
+	}
+	.skill-gauge .bar{
+	  width:140px; height:10px; background:#333; border-radius:999px; overflow:hidden;
+	}
+	.skill-gauge #skill-fill{
+	  display:block; height:100%; width:0%;
+	  background:linear-gradient(90deg,#0af,#09f);
+	  transition:width .25s ease;
+	}
+	.enemy-avatar{
+	  position:fixed; right:4vw; top:18vh; width:120px; filter:drop-shadow(0 8px 16px rgba(0,0,0,.3));
+	}
+	.enemy-avatar.defeating {
+	  transition: filter .5s ease, transform .5s ease, opacity .5s ease;
+	  filter: grayscale(100%) blur(2px);
+	  transform: scale(.88) translateY(8px) rotate(-2deg);
+	  opacity: 0;
+	}
+	.battle-stage{ position:relative; width:100%; max-width:840px; height:360px; margin:16px auto;
+  border-radius:16px; overflow:hidden; box-shadow:0 8px 24px rgba(0,0,0,.12); background:#cfe8ff;}
+.battle-stage.hidden{ display:none; }
+
+.battle-stage .stage-bg{
+  position:absolute; inset:0;
+  background:
+    radial-gradient(ellipse at 70% 35%, #dff5d4 0%, #bde3a7 50%, #8ec07c 100%),
+    linear-gradient(#a0c4ff 0 45%, #82b1ff 46% 100%);
+  filter: saturate(0.9);
+}
+
+.stage-enemy{
+  position:absolute; right:14%; top:18%; width:160px;
+  image-rendering: auto;  /* ドット化しない。レトロにしたいなら pixelated */
+  transform-origin: bottom center;
+  animation: enemy-drop .28s ease-out both;
+  filter: drop-shadow(0 12px 20px rgba(0,0,0,.25));
+}
+@keyframes enemy-drop { from{ transform:translateY(-24px) scale(.96); opacity:.0 } to{ transform:translateY(0) scale(1); opacity:1 } }
+
+.stage-ui{
+  position:absolute; inset:0; pointer-events:none; padding:16px;
+  display:flex; flex-direction:column; justify-content:flex-end; gap:10px;
+}
+.stage-ui .hp{ background:rgba(255,255,255,.9); border-radius:12px; padding:8px 10px;
+  display:flex; align-items:center; gap:8px; }
+.stage-ui .hp.enemy{ align-self:flex-start; min-width:46%; }
+.stage-ui .hp.me{ align-self:flex-end;   min-width:46%; }
+.stage-ui .hp .bar{ flex:1; height:12px; background:#e5e7eb; border-radius:999px; overflow:hidden; }
+.stage-ui .hp .bar i{ display:block; height:100%; width:100%; background:linear-gradient(90deg,#22c55e,#16a34a); }
+	
+	
+	
+	/* 必殺使用時の軽いフラッシュ */
+	.flash-sp {
+	  position:fixed; inset:0; background:rgba(63,124,255,.15);
+	  animation:flashsp .35s ease; pointer-events:none; z-index:9998;
+	}
+	@keyframes flashsp { from{opacity:0} 50%{opacity:1} to{opacity:0} }
+	/* バトルアリーナの見た目は今のままでOK。HPだけ重ねる */
+.arena { position: relative; overflow: hidden; }
+
+/* ステータスカードの共通デザイン（ポケ風） */
+.status-card{
+  position:absolute; width: 280px;
+  background: #fff; border: 2px solid #1f2937;
+  border-radius: 10px; padding:10px 12px;
+  box-shadow: 0 8px 20px rgba(0,0,0,.12);
+}
+.status-card .status-head{
+  display:flex; justify-content:space-between; align-items:center;
+  font-weight:800; color:#111827;
+}
+.status-card .level{ font-weight:700; color:#374151; }
+
+/* HPバー */
+.status-card .hpbar{
+  height:10px; background:#e5e7eb; border-radius:999px;
+  overflow:hidden; margin-top:8px;
+}
+.status-card .hpbar > div{
+  height:100%; width:100%;
+  background: linear-gradient(90deg,#22c55e,#16a34a);
+  transition: width .25s ease;
+}
+
+/* 敵：左上／自分：右下 に配置 */
+.enemy-status{ top:18px; left:18px; }
+.player-status{ right:18px; bottom:18px; }
+
+/* 自分のHPカラー（オレンジ系） */
+.status-card .hpbar.hp-you > #meHpFill{
+  background: linear-gradient(90deg,#f97316,#ef4444);
+}
+
+/* 小さな数値表記 */
+.status-card .hptext{
+  margin-top:6px; font-size:12px; color:#4b5563; text-align:right;
+}
+	
+    
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>美女単 × E-CHO バトルモード</h2>
+    <div class="tabs row" id="modeTabs">
+      <button data-mode="READING" class="active">Reading</button>
+      <button data-mode="LISTENING">Listening</button>
+    </div>
+    <div id="charSelect" class="row card">
+  		<div id="chars" class="row"></div>
+	</div>
+
+    <div class="difficulty row" id="diffRow" style="margin:12px 0;">
+      <div class="chip active" data-diff="EASY">EASY / HP10</div>
+      <div class="chip" data-diff="NORMAL">NORMAL / HP20</div>
+      <div class="chip" data-diff="HARD">HARD / HP30</div>
+      <div class="chip" data-diff="BOSS">FINAL BOSS（Lv50解放）</div>
+    </div>
+    <!-- 必殺ゲージ＆ボタン群：難易度ボタンの下に追加 -->
+<div class="specials">
+  <div class="gauge-wrap">
+    <div class="gauge" id="spGauge"><span id="spGaugeText">0 / 3</span></div>
+  </div>
+  <div class="sp-buttons">
+<!-- 変更後（順番入替え） -->
+<button class="sp-btn" id="spRun"     title="3ターン二連撃。直後に自HPが半分" disabled>RUN</button>
+<button class="sp-btn" id="spStop"    title="2ターン敵停止→以後3ターン敵二連撃" disabled>STOP</button>
+<button class="sp-btn" id="spErase"   title="4回で強制勝利。使うたび問題の25%を消す" disabled>ERASE</button>
+<button class="sp-btn" id="spReboot"  title="遅延デバフ解除" disabled>REBOOT</button>
+<button class="sp-btn" id="spRestart" title="お互いHP全回復（ゲージリセット）" disabled>RESTART</button>
+<button class="sp-btn ultimate" id="spUltimate" title="Lv50で解放：HP半減＋自全快＋異常解除" disabled>ULTIMATE</button>
+
+  </div>
+  <div id="spNote" class="sp-note"></div>
+</div>
+
+    <div class="row">
+      <button class="btn" id="startBtn">バトル開始</button>
+      <button class="btn ghost" id="nextBtn" disabled>次の問題</button>
+      <span id="status" class="muted"></span>
+    </div>
+  </div>
+  
+  <!-- 必殺カットイン（りんちゃん） -->
+<div id="ult-cutin" class="ult-cutin hidden">
+  <div class="ult-bg"></div>
+<img class="rin" src="/images/rin_cutin.png" alt="Rin"
+     onerror="this.style.display='none'">
+  <div class="ult-title">
+  <span id="ult-name"></span>
+  </div>
+</div>
+
+<!-- 演出用オーバレイ（画面フラッシュ/Shake） -->
+<div id="fx-flash" class="fx-flash hidden"></div>
+<div id="fx-shake" class="fx-shake"></div>
+
+<!-- 必殺ゲージUI（簡易） -->
+<div id="skill-gauge" class="skill-gauge">
+  <div class="bar"><span id="skill-fill"></span></div>
+  <div class="ticks">● ● ●</div>
+  <div class="label">必殺：<span id="skill-ready">0/3</span></div>
+</div>
+
+<!-- 難易度アバター（敵の見た目差し替え） -->
+<img id="enemy-avatar" class="enemy-avatar" src="/images/enemy_easy.png" alt="Enemy">
+  
+  
+ <!-- Pokemon-like battle stage -->
+<div id="battleStage" class="battle-stage hidden">
+  <div class="stage-bg"></div>
+  <img id="stage-enemy" class="stage-enemy" alt="Enemy">
+  <!-- 既存HPと同じ表示でもOK。見た目だけ重ねるなら以下2つだけでも十分 -->
+  <div class="stage-ui">
+    <div class="hp enemy"><span>敵HP</span><div class="bar"><i id="stage-ehp"></i></div></div>
+    <div class="hp me"><span>あなた</span><div class="bar"><i id="stage-mhp"></i></div></div>
+  </div>
+</div>
+  <div class="card" id="battleUI" style="display:none;">
+<!-- これがバトル背景＆敵スプライトのラッパ -->
+<div id="arena" class="arena">
+  <img id="enemy-sprite" src="/images/enemy_easy.png" alt="Enemy">
+
+  <!-- 左上：敵ステータス -->
+  <div class="status-card enemy-status">
+    <div class="status-head">
+      <span class="name">敵</span>
+      <span class="level">Lv ??</span>
+    </div>
+    <div class="hpbar">
+      <div id="enemyHpFill"></div>
+    </div>
+    <div class="hptext" id="enemyHpText">--/--</div>
+  </div>
+
+  <!-- 右下：自分ステータス -->
+  <div class="status-card player-status">
+    <div class="status-head">
+      <span class="name">あなた</span>
+      <span class="level">Lv ??</span>
+    </div>
+    <div class="hpbar hp-you">
+      <div id="meHpFill"></div>
+    </div>
+    <div class="hptext" id="meHpText">--/--</div>
+  </div>
+</div>
+
+    <h3 id="prompt" style="margin-top:16px;">問題を読み込み中...</h3>
+    <audio id="tts" style="display:none" controls></audio>
+
+    <div class="choices" id="choices"></div>
+  </div>
+
+  <div class="card" id="resultUI" style="display:none;">
+    <h3 id="resultTitle">結果</h3>
+    <p id="reward"></p>
+    <div class="row">
+      <button class="btn" id="retryBtn">もう一度</button>
+      <button class="btn secondary" onclick="location.href='battle.html'">トップへ</button>
+    </div>
+  </div>
+
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+<script>
+const api = {
+  start: '/api/battle/start',
+  answer: '/api/battle/answer',
+  next: '/api/battle/next'
+};
+
+let state = {
+  mode: 'READING',
+  diff: 'EASY',
+  battleId: null,
+  enemyMax: 0,
+  meMax: 0
+};
+
+//--- 効果音（任意のmp3/oggを配置してください）
+const se = {
+  cutin: new Audio('/se/cutin.mp3'),
+  erase: new Audio('/se/erase.mp3'),
+  run:   new Audio('/se/run.mp3'),
+  stop:  new Audio('/se/stop.mp3'),
+  reboot:new Audio('/se/reboot.mp3'),
+  restart:new Audio('/se/restart.mp3'),
+  boom:  new Audio('/se/boom.mp3')         // 決着SE
+};
+
+const enemySpriteByDiff = {
+		  EASY:   '/images/enemy_easy.png',
+		  NORMAL: '/images/enemy_normal.png',
+		  HARD:   '/images/enemy_hard.png',
+		  BOSS:   '/images/enemy_boss.png'
+		};
+
+
+
+async function loadChars(){
+	  const res = await fetch('/api/characters'); const chars = await res.json();
+	  const wrap = document.getElementById('chars'); wrap.innerHTML='';
+	  chars.forEach(c=>{
+	    const d=document.createElement('button');
+	    d.className='chip'; d.style.background='white';
+	    d.innerHTML = `<img src="${c.portraitUrl}" style="width:40px;border-radius:8px;margin-right:8px;vertical-align:middle"> ${c.name}`;
+	    d.onclick = async ()=>{
+	      await fetch('/api/characters/select',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({characterId:c.id})});
+	      localStorage.setItem('playerCharacter', JSON.stringify(c)); // 即時反映用
+	    };
+	    wrap.appendChild(d);
+	  });
+	}
+	loadChars();
+
+let stomp, matchId = null, seq = 0, deadline = 0;
+
+function connectWs(){
+  const sock = new SockJS('/ws');
+  stomp = Stomp.over(sock);
+  stomp.debug = null;
+  stomp.connect({}, () => {
+    // 自分宛チャネル
+    stomp.subscribe('/user/topic/self', msg => {
+      const data = JSON.parse(msg.body);
+      if (data.status === 'WAITING') {
+        console.log('waiting...');
+      } else if (data.status === 'MATCHED') {
+        matchId = data.matchId;
+        console.log('matched', matchId);
+      } else if (data.matchId) {
+        console.log('READY', data);
+      }
+    });
+    client.subscribe('/user/queue/self', frame => {
+    	  const msg = JSON.parse(frame.body);
+    	  // {status:"WAITING"} or {status:"MATCHED", matchId:123}
+    	});
+    // まずは入隊
+    stomp.send('/app/pvp/queue.enqueue', {}, JSON.stringify({mode:'READING', diff:'EASY'}));
+  });
+}
+
+function subscribeMatch(mid){
+  stomp.subscribe('/topic/pvp/match.'+mid, msg => {
+    const ev = JSON.parse(msg.body);
+    if (ev.seq) seq = ev.seq;
+    if (ev.deadlineEpochMs) deadline = ev.deadlineEpochMs;
+
+    if (ev.question){
+      renderQuestion(ev.question); startTimer(deadline);
+    }
+    if (ev.p1Hp!=null){ renderHp(ev.p1Hp, ev.p2Hp); }
+    if (ev.winner){ alert('Winner: '+ev.winner); }
+  });
+}
+
+function renderQuestion(q){
+  const box = document.getElementById('choices'); box.innerHTML='';
+  q.choices.forEach((c,i)=>{
+    const b=document.createElement('button'); b.textContent = (i+1)+'. '+c.label;
+    b.onclick=()=> stomp.send('/app/pvp/answer', {}, JSON.stringify({matchId, seq, choiceId:c.id}));
+    box.appendChild(b);
+  });
+}
+
+function startTimer(deadlineMs){
+  // ざっくりUI。サーバが権威なので表示だけ
+  console.log('deadline', new Date(deadlineMs).toLocaleTimeString());
+}
+
+function renderHp(e, eMax, me, meMax){
+	  document.getElementById('enemyHpText').textContent = `${e}/${eMax}`;
+	  document.getElementById('meHpText').textContent    = `${me}/${meMax}`;
+	  document.getElementById('enemyHpFill').style.width = `${Math.max(0, e/eMax*100)}%`;
+	  document.getElementById('meHpFill').style.width    = `${Math.max(0, me/meMax*100)}%`;
+
+	  // 撃破検知（0未満も拾う）
+	  if (e <= 0) finishEnemy();
+	}
+
+
+connectWs();
+
+// マッチIDが決まったら購読開始（READYメッセージや enqueue 戻りで拾えます）
+/* 例:
+stomp.subscribe('/user/topic/self', msg=>{
+  const d = JSON.parse(msg.body);
+  if (d.matchId) { matchId = d.matchId; subscribeMatch(matchId); }
+});
+*/
+
+
+// 画面シェイク
+function shake(){
+  const s = document.getElementById('fx-shake');
+  s.classList.add('shake');
+  setTimeout(()=> s.classList.remove('shake'), 450);
+}
+
+// 必殺技の「視覚効果だけ」モック（本体の計算はサーバー側で）
+async function useSkillMock(skillName){
+  if(!skillGauge.ready()) return alert('まだ必殺ゲージが足りません！');
+  playCutin(skillName);
+  se[skillName]?.play();
+  shake();
+  skillGauge.consume();
+  // 実運用：/api/battle/skill をPOSTして状態更新を受け取る
+  // await fetch('/api/battle/skill', {method:'POST', body: JSON.stringify({battleId, skill: skillName})})
+}
+
+// 敵HP0の演出
+let finishedOnce = false;
+function finishEnemy(){
+  if (finishedOnce) return;
+  finishedOnce = true;
+
+  // カットインっぽいフラッシュ＆SE
+  playCutin('finish!');
+  try { se.boom.currentTime = 0; se.boom.play().catch(()=>{}); } catch(e){}
+
+  const enemy = document.getElementById('enemy-avatar');
+  enemy.classList.add('defeating');
+
+  // 画像を「撃破後」に差し替え
+  setTimeout(()=>{
+    enemy.classList.remove('defeating');
+    enemy.style.transition = 'none';
+    enemy.src = '/images/enemy_defeated.png';
+    // 現在の場所でうっすら残骸表示に
+    enemy.style.filter = 'grayscale(100%) opacity(.8)';
+    enemy.style.transform = 'scale(.9)';
+  }, 520);
+}
+
+
+
+document.querySelectorAll('#modeTabs button').forEach(b=>{
+  b.onclick = ()=>{
+    document.querySelectorAll('#modeTabs button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    state.mode = b.dataset.mode;
+  };
+});
+
+document.querySelectorAll('#diffRow .chip').forEach(ch=>{
+	  ch.onclick = ()=>{
+	    document.querySelectorAll('#diffRow .chip').forEach(x=>x.classList.remove('active'));
+	    ch.classList.add('active');
+	    state.diff = ch.dataset.diff;                      // 先に更新
+	    const avatar = document.getElementById('enemy-avatar');
+	    avatar.src = enemySpriteByDiff[state.diff] || enemySpriteByDiff.EASY;
+	    avatar.style.opacity = '0';
+	    requestAnimationFrame(()=>{
+	      avatar.style.transition = 'opacity .25s ease';
+	      avatar.style.opacity = '1';
+	    });
+	  };
+	});
+
+const startBtn = document.getElementById('startBtn');
+const nextBtn = document.getElementById('nextBtn');
+const statusEl = document.getElementById('status');
+
+startBtn.onclick = async () => {
+		  document.getElementById('enemy-avatar').src =
+		  enemySpriteByDiff[state.diff] || enemySpriteByDiff.EASY;
+	  // 選択キャラの見た目反映（ローカル保存から）
+	  const pc = JSON.parse(localStorage.getItem('playerCharacter') || 'null');
+	  if (pc) {
+	    document.querySelector('#ult-cutin .rin').src = pc.cutinUrl;
+	    document.documentElement.style.setProperty('--accent', pc.color);
+	  }
+
+	  startBtn.disabled = true;
+	  statusEl.textContent = 'マッチング中...';
+
+	  try {
+	    const res = await fetch(api.start, {
+	      method: 'POST',
+	      headers: {'Content-Type':'application/json'},
+	      body: JSON.stringify({ mode: state.mode, difficulty: state.diff, userId: 1 })
+	    });
+	    if (!res.ok) {
+	      const txt = await res.text();
+	      throw new Error(`HTTP ${res.status} /api/battle/start: ${txt}`);
+	    }
+
+	    const data = await res.json();
+	    if (data.enemyHp == null || data.playerHp == null) {
+	      throw new Error('API応答に enemyHp / playerHp がありません: ' + JSON.stringify(data));
+	    }
+	    
+	 // ステージ起動
+	    const stage = document.getElementById('battleStage');
+	    const stageEnemy = document.getElementById('stage-enemy');
+	    stageEnemy.src = enemySpriteByDiff[state.diff] || enemySpriteByDiff.EASY;
+
+	    // HP初期値をステージUIにも反映（バー幅は % で）
+	    document.getElementById('stage-ehp').style.width = `${100}%`;
+	    document.getElementById('stage-mhp').style.width = `${100}%`;
+
+	    // 表示切り替え：ステージを出し、下の通常UIも続けて使うならそのまま。
+	    // もし“ステージ→通常UIに遷移”したい場合は最初はステージだけ見せて、次の問題で通常UIへ、など調整可。
+	    stage.classList.remove('hidden');
+
+
+	    // 状態反映
+	    state.battleId = data.battleId;
+	    state.enemyMax = data.enemyHp;
+	    state.meMax    = data.playerHp;
+
+	    // ★ ここで状態初期化
+	    startBattle(data);
+	    refreshGaugeUI();
+
+	    statusEl.textContent = '';
+	    document.getElementById('battleUI').style.display = 'block';
+	    renderHp(data.enemyHp, state.enemyMax, data.playerHp, state.meMax);
+		// ★ これを追加
+	    onAfterAnswerResolved(data);
+	    renderQuestion(data.question);
+	    nextBtn.disabled = false;
+
+	  } catch (e) {
+	    console.error(e);
+	    statusEl.textContent = '開始に失敗しました: ' + e.message;
+	    startBtn.disabled = false;
+	  }
+	};
+
+
+
+nextBtn.onclick = async ()=>{
+  const res = await fetch(`${api.next}?battleId=${state.battleId}`);
+  const data = await res.json();
+  if (data.finished){
+    showResult(data);
+  }else{
+    renderQuestion(data.question);
+    renderHp(data.enemyHp, state.enemyMax, data.playerHp, state.meMax);
+    refreshGaugeUI(); // 念のため
+  }
+};
+
+function renderHp(e, eMax, me, meMax){
+  document.getElementById('enemyHpText').textContent = `${e}/${eMax}`;
+  document.getElementById('meHpText').textContent = `${me}/${meMax}`;
+  document.getElementById('enemyHpFill').style.width = `${Math.max(0, e/eMax*100)}%`;
+  document.getElementById('meHpFill').style.width = `${Math.max(0, me/meMax*100)}%`;
+  
+  // ★ ステージUIも同期
+  const ehp = document.getElementById('stage-ehp');
+  const mhp = document.getElementById('stage-mhp');
+  if (ehp) ehp.style.width = `${Math.max(0, e/eMax*100)}%`;
+  if (mhp) mhp.style.width = `${Math.max(0, me/meMax*100)}%`;
+}
+
+function renderQuestion(q){
+  const prompt = document.getElementById('prompt');
+  const tts = document.getElementById('tts');
+  const choices = document.getElementById('choices');
+  choices.innerHTML = '';
+
+  if(q.mode === 'LISTENING' && q.ttsUrl){
+    prompt.textContent = '音声を聞いて正しい絵を選ぼう';
+    tts.src = q.ttsUrl; tts.style.display = 'block'; tts.play().catch(()=>{});
+  }else{
+    tts.pause(); tts.style.display = 'none';
+    prompt.textContent = q.prompt;
+  }
+
+  q.choices.forEach((c,i)=>{
+    const btn = document.createElement('button');
+    btn.textContent = `${i+1}. ${c.label}`;
+    btn.onclick = ()=> submitAnswer(q.questionId, c.id, btn);
+    choices.appendChild(btn);
+  });
+}
+
+async function submitAnswer(questionId, choiceId, btn){
+  const res = await fetch(api.answer, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ battleId: state.battleId, questionId, choiceId })
+  });
+  const data = await res.json();
+  renderHp(data.enemyHp, state.enemyMax, data.playerHp, state.meMax);
+//★ 正誤・各種ターン処理・ゲージ加算などを実行
+onAfterAnswerResolved(data);
+
+
+  // マーク
+  document.querySelectorAll('.choices button').forEach(b=>b.disabled=true);
+  if (data.correct){
+    btn.classList.add('correct');
+  }else{
+    btn.classList.add('wrong');
+  }
+
+  if (data.finished) {
+	  if (data.enemyHp <= 0) finishEnemy();
+	  setTimeout(()=>showResult(data), 600);
+	} else {
+	  setTimeout(()=>renderQuestion(data.nextQuestion), 600);
+	}
+}
+
+//====== 追加：バトル拡張状態 ======
+const battleState = {
+  level: 1,                    // APIの報酬で更新していく想定
+  enemyMaxHp: 10, playerMaxHp: 5,
+  specialsUsed: 0,
+  spNeeded: 3,                 // 次に満タンになる必要正解数（初期3→+2ずつ）
+  spStack: 0,                  // 現在の溜まり
+  eraseCount: 0,               // erase 使用回数
+  runTurns: 0,                 // 二連撃 残りターン
+  enemyFrozen: 0,              // stop の敵停止 残りターン
+  enemyDoubleStrike: 0,        // stop 後ペナルティ 残りターン
+  mustUseOnce: true            // 1回は必殺必須
+};
+
+// ====== ゲージUI ======
+const elGauge = document.getElementById('spGauge');
+const elGaugeText = document.getElementById('spGaugeText');
+const elNote = document.getElementById('spNote');
+
+function refreshGaugeUI() {
+	  const pct = Math.min(100, (battleState.spStack / battleState.spNeeded) * 100);
+	  elGauge.style.width = pct + '%';
+	  elGaugeText.textContent = `${battleState.spStack} / ${battleState.spNeeded}`;
+	  const ready = battleState.spStack >= battleState.spNeeded;
+
+	  const ids = ['spRun','spStop','spErase','spReboot','spRestart','spUltimate']; // ←順番をRUN先頭に
+	  ids.forEach(id=>{
+	    const btn = document.getElementById(id);
+	    const unlockUltimate = (id!=='spUltimate') || battleState.level >= 50;
+	    btn.disabled = !ready || !unlockUltimate;
+	    btn.classList.toggle('ready', !btn.disabled);
+	  });
+
+	  // 満タンになった瞬間、RUNにフォーカス（キーボード操作の既定をRUNへ）
+	  if (ready) {
+	    const runBtn = document.getElementById('spRun');
+	    if (runBtn) runBtn.focus();
+	  }
+	}
+
+function addGauge(by=1){
+	  battleState.spStack = Math.min(battleState.spNeeded, battleState.spStack + by);
+	  refreshGaugeUI();
+	  const wrap = document.querySelector('.gauge-wrap');
+	  wrap.classList.add('bump');
+	  setTimeout(()=>wrap.classList.remove('bump'), 180);
+	}
+
+// 正解時に呼ぶ：ゲージ加算
+function addGauge(by=1){
+  battleState.spStack = Math.min(battleState.spNeeded, battleState.spStack + by);
+  refreshGaugeUI();
+}
+
+function preloadAssets(){
+	  const imgs = Object.values(enemySpriteByDiff)
+	    .concat(['/images/enemy_defeated.png',
+	             '/images/rin_cutin.png']); // りんちゃんが表示されるなら
+	  imgs.forEach(src => { const i=new Image(); i.src = src; });
+
+	  // 音はブラウザの自動再生制限があるので、初回クリック後に .play() して .pause() で温める手も
+	  ['cutin','boom','erase','run','stop','reboot','restart'].forEach(k=>{
+	    try { se[k].load(); } catch(e){}
+	  });
+	}
+	preloadAssets();
+
+// 必殺を使ったら呼ぶ：ゲージ消費＆次必要値+2
+function consumeGauge(){
+  battleState.spStack = 0;
+  battleState.spNeeded += 2;
+  battleState.specialsUsed++;
+  refreshGaugeUI();
+  flashSp();
+}
+
+// 軽いフラッシュ
+function flashSp(){
+  const d=document.createElement('div'); d.className='flash-sp';
+  document.body.appendChild(d); setTimeout(()=>d.remove(), 360);
+}
+
+// ====== 必殺：実体 ======
+function useErase(){
+  if (!canUse()) return;
+  consumeGauge();
+  battleState.eraseCount++;
+  elNote.textContent = `ERASE発動：テキストを${battleState.eraseCount*25}%マスク（4回で強制勝利）`;
+  applyMaskPercent(battleState.eraseCount * 25);
+
+  if (battleState.eraseCount >= 4) {
+    // 強制勝利
+    forceWin();
+  }
+}
+
+function useRun(){
+  if (!canUse()) return;
+  consumeGauge();
+  battleState.runTurns = 3;
+  // 自HP半減（小数切り上げ）
+  state.playerHp = Math.max(1, Math.ceil(state.playerHp / 2));
+  renderHpBars();
+  elNote.textContent = 'RUN発動：3ターン二連撃（自HPは半分）';
+}
+
+function useStop(){
+  if (!canUse()) return;
+  consumeGauge();
+  battleState.enemyFrozen = 2;
+  battleState.enemyDoubleStrike = 0; // すでに残ってたら一旦クリアして数え直し
+  // 凍結終了時に3ターン分の二連撃ペナルティを与える
+  elNote.textContent = 'STOP発動：敵を2ターン停止→その後3ターン敵二連撃';
+}
+
+function useReboot(){
+  if (!canUse()) return;
+  consumeGauge();
+  // 遅延デバフ解除＝敵二連撃をリセット
+  battleState.enemyDoubleStrike = 0;
+  elNote.textContent = 'REBOOT発動：遅延デバフを解除';
+}
+
+function useRestart(){
+  if (!canUse()) return;
+  consumeGauge();
+  // HPリセット＆ゲージ完全リセット
+  state.enemyHp = state.enemyMaxHp;
+  state.playerHp = battleState.playerMaxHp;
+  battleState.spNeeded = 3;
+  battleState.spStack = 0;
+  refreshGaugeUI();
+  renderStateText('RESTART：お互いHP全回復');
+  renderHpBars();
+}
+
+function useUltimate(){
+  if (!canUse() || battleState.level < 50) return;
+  consumeGauge();
+  // 例：敵HPを半分に、自分は全快、異常解除
+  state.enemyHp = Math.max(1, Math.ceil(state.enemyHp / 2));
+  state.playerHp = battleState.playerMaxHp;
+  battleState.enemyDoubleStrike = 0;
+  battleState.enemyFrozen = 0;
+  elNote.textContent = 'ULTIMATE！敵HP半減＋自HP全快＋状態異常解除';
+  renderHpBars();
+}
+
+function canUse(){
+  const ok = battleState.spStack >= battleState.spNeeded;
+  if (!ok) elNote.textContent = 'ゲージ不足です';
+  return ok;
+}
+
+// ====== 既存 submitAnswer の中に組み込む判定 ======
+// ★ 既存のsubmitAnswerの正誤結果を受けた直後に下記ロジックを混ぜてください
+function onAfterAnswerResolved(result){
+  // result: {correct, finished, win, enemyHp, playerHp, ...} など既存と同様
+
+  // 正解ならゲージ加算
+  if (result.correct) {
+    addGauge(1);
+
+    // RUN中は二連撃：もう1点ダメージ（HP更新をUIと合わせる）
+    if (battleState.runTurns > 0 && state.enemyHp > 1) {
+      state.enemyHp = Math.max(0, state.enemyHp - 1);
+      renderHpBars();
+    }
+  }
+
+  // STOPで敵停止中なら、今回の不正解でも敵からの反撃ダメージを無効化
+  // （既存のプレイヤーHP更新を抑止するフックを、既存処理の前後どちらかで入れてください）
+  if (!result.correct && battleState.enemyFrozen > 0) {
+    // 直前に減った分を巻き戻す（または減らさないように分岐）
+    state.playerHp = Math.min(battleState.playerMaxHp, state.playerHp + 1);
+    renderHpBars();
+  }
+
+  // 「必殺未使用ならHP1で踏みとどまる」処理（最後の一押しをブロック）
+  if (battleState.mustUseOnce && battleState.specialsUsed === 0 && state.enemyHp <= 0) {
+    state.enemyHp = 1;
+    renderHpBars();
+    renderStateText('必殺技を1回使わないと倒せない！');
+  }
+
+  // 経過ターン処理
+  if (battleState.runTurns > 0) battleState.runTurns--;
+  if (battleState.enemyFrozen > 0) {
+    battleState.enemyFrozen--;
+    if (battleState.enemyFrozen === 0) {
+      battleState.enemyDoubleStrike = 3; // STOPの反動開始
+    }
+  } else if (battleState.enemyDoubleStrike > 0) {
+    // 反動中：敵二連撃。= プレイヤーが間違えたターンは追加でもう1ダメ
+    if (!result.correct) {
+      state.playerHp = Math.max(0, state.playerHp - 1);
+      renderHpBars();
+    }
+    battleState.enemyDoubleStrike--;
+  }
+
+  // 勝敗が確定していなければUI更新
+  refreshGaugeUI();
+}
+
+// ====== 勝利強制（ERASE 4回用） ======
+function forceWin(){
+  state.enemyHp = 0;
+  onBattleFinished(true);
+}
+
+//グローバルにタイマーID保持
+
+//--- カットイン（勝利・必殺演出用） ---
+let cutinTimer = null;
+
+function closeCutin(){
+  const cut = document.getElementById('ult-cutin');
+  const nameEl = document.getElementById('ult-name');
+  cut.classList.remove('show');
+  nameEl.textContent = '';
+  if (cutinTimer){ clearTimeout(cutinTimer); cutinTimer = null; }
+}
+
+// 必ずこの定義を1つだけ残す（似たブロックの重複は削除！）
+function playCutin(text){
+  // 念のためリセット
+  closeCutin();
+
+  const cut = document.getElementById('ult-cutin');
+  const nameEl = document.getElementById('ult-name');
+  const flash = document.getElementById('fx-flash');
+
+  nameEl.textContent = (text||'').toUpperCase();
+  cut.classList.add('show');
+
+  try { se.cutin.currentTime = 0; se.cutin.play().catch(()=>{}); } catch(e){}
+
+  flash.classList.remove('hidden');
+  setTimeout(()=> flash.classList.add('hidden'), 200);
+
+  cutinTimer = setTimeout(closeCutin, 800);
+}
+
+// グローバル参照できるように（保険）
+window.playCutin = playCutin;
+window.closeCutin = closeCutin;
+
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeCutin(); });
+document.getElementById('ult-cutin').addEventListener('click', closeCutin);
+
+function renderHpBars() {
+	  // 既存の数値でバー更新
+	  document.getElementById('enemyHpFill').style.width =
+	    `${Math.max(0, (parseInt(document.getElementById('enemyHpText').textContent)||0) / state.enemyMax * 100)}%`;
+	  document.getElementById('meHpFill').style.width =
+	    `${Math.max(0, (parseInt(document.getElementById('meHpText').textContent)||0) / state.meMax * 100)}%`;
+	}
+	function renderStateText(_) { /* 表示不要なら空でOK */ }
+
+// ====== マスク（ERASE用） ======
+function applyMaskPercent(percent){
+  // 例：#questionText と .choice-label をマスク
+  const mask = s => s.replace(/[^\s]/g, (ch, idx) =>
+    Math.random() < (percent/100) ? '█' : ch);
+  const qEl = document.getElementById('questionText');
+  if (qEl) qEl.textContent = mask(qEl.textContent);
+  document.querySelectorAll('.choice-label').forEach(el=>{
+    el.textContent = mask(el.textContent);
+  });
+}
+
+// ====== イベント紐付け ======
+document.getElementById('spErase').onclick   = useErase;
+document.getElementById('spRun').onclick     = useRun;
+document.getElementById('spStop').onclick    = useStop;
+document.getElementById('spReboot').onclick  = useReboot;
+document.getElementById('spRestart').onclick = useRestart;
+document.getElementById('spUltimate').onclick= useUltimate;
+	
+function startBattle(data){
+	  finishedOnce = false;           // ←追加
+	  battleState.specialsUsed = 0;
+	  battleState.spNeeded = 3;
+	  battleState.spStack = 0;
+	  battleState.eraseCount = 0;
+	  battleState.runTurns = 0;
+	  battleState.enemyFrozen = 0;
+	  battleState.enemyDoubleStrike = 0;
+	  battleState.mustUseOnce = true;
+	  battleState.playerMaxHp = 5;
+	  state.enemyMaxHp = data?.enemyHp ?? state.enemyMaxHp;
+	  refreshGaugeUI();
+	}
+
+
+
+function showResult(data){
+  document.getElementById('battleUI').style.display = 'none';
+  const r = document.getElementById('resultUI');
+  r.style.display = 'block';
+  document.getElementById('resultTitle').textContent = data.win ? '勝利！' : '敗北…';
+  document.getElementById('reward').textContent =
+    `EXP +${data.reward.exp} / Coin +${data.reward.coin} / 現在Lv: ${data.reward.level}`;
+}
+
+document.getElementById('retryBtn').onclick = ()=>location.reload();
+</script>
+</body>
+</html>

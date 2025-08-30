@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>単語帳アプリ</title>
+  <link rel="stylesheet" href="/home.css">
+</head>
+<body>
+  <h1>単語帳アプリ</h1>
+
+  <h2>新規作成</h2>
+  <form id="createForm">
+    <label>問題：</label>
+    <textarea id="question" required></textarea><br>
+    <label>解答：</label>
+    <textarea id="answer" required></textarea><br>
+    <button type="button" id="createButton">作成</button>
+  </form>
+
+  <h2>CSVインポート（テスト用CSV: sentence, options, correct, audio）</h2>
+  <input type="file" id="fileInput" accept=".csv">
+  <button type="button" id="importCsvButton">CSVインポート</button>
+
+  <h2>単語一覧</h2>
+  <ul id="wordList"></ul>
+
+  <div id="beautyContainer" style="margin-top: 20px;"></div>
+  <button id="watchAdButton" onclick="watchAdThenEnable()" style="display:none;">
+    広告を見て美女を動かす（5分間有効）
+  </button>
+
+  <!-- 外部JSにするなら src だけ。ここでは内蔵スクリプトで完結させます -->
+  <script>
+    // userId は URL クエリから取得（例：/home.html?userId=1）
+    function getUserIdFromURL() {
+      const p = new URLSearchParams(location.search);
+      const v = p.get("userId");
+      return v ? Number(v) : null;
+    }
+
+    document.getElementById('importCsvButton').addEventListener('click', async () => {
+    	  const fileInput = document.getElementById('fileInput');
+    	  if (!fileInput.files.length) { alert('CSV を選択してください'); return; }
+
+    	  const f = new FormData();
+    	  f.append('file', fileInput.files[0]);
+    	  f.append('userId', 1); // 画面の userId を使うなら hidden から取得
+
+    	  const res = await fetch('/api/test-questions/import', { method: 'POST', body: f });
+    	  const text = await res.text();
+    	  alert(text); // "OK=.., NG=.." が出ればサービスが動いています
+    	});
+  </script>
+</body>
+</html>

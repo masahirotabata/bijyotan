@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>美女単 - ログイン</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #f8e8f0, #f0f8ff);
+      font-family: 'Arial', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      flex-direction: column;
+      text-align: center;
+      padding: 20px;
+    }
+
+    h2 {
+      color: #e91e63;
+      font-size: 1.8rem;
+      margin-bottom: 20px;
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 15px;
+      width: 100%;
+      max-width: 320px;
+    }
+
+    input {
+      padding: 14px;
+      font-size: 1rem;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+    }
+
+    button {
+      font-size: 1.2rem;
+      padding: 14px;
+      background-color: #ff4081;
+      border: none;
+      border-radius: 30px;
+      color: white;
+      cursor: pointer;
+      transition: background-color 0.3s;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    button:hover {
+      background-color: #f50057;
+    }
+
+    .links {
+      margin-top: 20px;
+      font-size: 0.95rem;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .links a {
+      color: #e91e63;
+      text-decoration: none;
+    }
+
+    .links a:hover {
+      text-decoration: underline;
+    }
+
+    /* スマホ用：横幅が狭いときは少し余白追加 */
+    @media (max-width: 480px) {
+      body {
+        padding: 30px 15px;
+      }
+
+      h2 {
+        font-size: 1.6rem;
+      }
+
+      button {
+        font-size: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <h2>美女単 ログイン</h2>
+
+  <form method="post" action="/login">
+    <input type="email" name="email" placeholder="メールアドレス" required>
+    <input type="password" name="password" placeholder="パスワード" required>
+    <button type="submit">ログイン</button>
+  </form>
+
+  <div class="links">
+    <a href="register.html">新規ユーザー登録</a>
+    <a href="forgot-password.html">パスワードを忘れた方はこちら</a>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("reset") === "success") {
+      alert("パスワード再設定リンクをメール送信しました！");
+    } else if (params.get("error") === "notfound") {
+      alert("メールアドレスが見つかりませんでした。");
+    } else if (params.get("error")) {
+      alert("ログインに失敗しました");
+    }
+  </script>
+
+</body>
+</html>

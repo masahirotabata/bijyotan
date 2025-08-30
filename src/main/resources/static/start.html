@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>美女単 - スタート</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #f8e8f0, #f0f8ff);
+      font-family: 'Arial', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      text-align: center;
+      flex-direction: column;
+    }
+
+    h1 {
+      font-size: 2.5em;
+      color: #e91e63;
+      margin-bottom: 40px;
+    }
+
+    button {
+      font-size: 1.2em;
+      padding: 15px 30px;
+      background-color: #ff4081;
+      border: none;
+      border-radius: 30px;
+      color: white;
+      cursor: pointer;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      transition: background-color 0.3s;
+    }
+
+    button:hover {
+      background-color: #f50057;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>びじょたん!へようこそ！</h1>
+  <button onclick="startApp()">START</button>
+
+  <script>
+    function startApp() {
+      // 仮で userId=1 を指定（必要ならログインIDなどに動的に変更してください）
+      window.location.href = "user.html?userId=1";
+    }
+  </script>
+
+</body>
+</html>

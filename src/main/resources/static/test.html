@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>美女単テスト (CSV版)</title>
+<style>
+  body { font-family: sans-serif; text-align: center; background: #f5f8ff; margin: 0; padding: 20px; }
+
+  @keyframes smile { 0% { transform: scale(1);} 50% { transform: scale(1.05); filter: brightness(1.2);} 100% { transform: scale(1);} }
+  .smile-animation { animation: smile 0.6s ease-in-out; }
+
+  #sentence { font-size: 24px; margin: 20px 0; }
+
+  /* 2列グリッド。端末幅で自動折返し */
+  .option-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+/* ★カードの見た目とサイズ統一（高さを少し大きめに） */
+.option-grid img {
+  display: block;
+  width: 100%;
+  height: 450px;         /* ← 高さを拡大（220px → 320px） */
+  object-fit: cover;     /* 中央でトリミング。顔が切れにくくなる */
+  border: 4px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 0.2s, border 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  background-color: #fff;
+}
+
+/* スマホ時は少し小さめに調整 */
+@media (max-width: 480px) {
+  .option-grid img {
+    height: 240px;   /* ← モバイルは少し小さめに */
+  }
+}
+
+
+  .option-grid img:hover { transform: scale(1.03); }
+
+  .correct { border-color: #2e7d32; }
+  .wrong   { border-color: #c62828; }
+
+  /* --- リスニングモード（スコープを body.listening-mode に限定） --- */
+  body.listening-mode { background-color: #111; color: #fff; }
+
+  body.listening-mode .option-grid img {
+    background-color: #222;
+    border: 2px solid #555;         /* リスニング時の縁 */
+    box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+  }
+
+  body.listening-mode .option-grid img:hover { background-color: #444; }
+
+  #feedback, #score, #nextBtn, #finishMessage { margin-top: 20px; font-size: 20px; }
+  #nextBtn { padding: 10px 20px; font-size: 16px; }
+
+  /* 画面幅が狭いときは高さを少し下げる（可読性UP） */
+  @media (max-width: 480px) {
+    .option-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .option-grid img { height: 180px; }
+  }
+</style>
+
+</head>
+<body id="mainBody">
+  <h1>美女単テスト（CSV読み込み）</h1>
+  <div id="score">0 問正解</div>
+  <div id="sentence"></div>
+  <div class="option-grid" id="options"></div>
+  <div id="feedback"></div>
+  <button id="nextBtn" style="display:none;">次の問題へ</button>
+  <div id="finishMessage" style="display:none;"></div>
+  <audio id="correctSound" src="/sounds/pinpon.mp3"></audio>
+
+  <script>
+  // ===== クエリ =====
+  const urlParams   = new URLSearchParams(location.search);
+  const userIdParam = urlParams.get("userId") || "";
+  const modeParam   = urlParams.get("mode")   || "reading";
+
+  // ===== 要素 =====
+  const sentenceEl   = document.getElementById("sentence");
+  const optionsEl    = document.getElementById("options");
+  const feedbackEl   = document.getElementById("feedback");
+  const scoreEl      = document.getElementById("score");
+  const nextBtn      = document.getElementById("nextBtn");
+  const correctSound = document.getElementById("correctSound");
+
+//===== 定数/状態 =====
+  const MAX_QUESTIONS = 10;
+  let testData = [];
+  let currentIndex = 0;
+  let totalQuestions = 0;
+  let score = 0;
+  let answered = false;
+
+  // ★ 追加：不正解時の表示用に保持
+  let lastCorrectKey = "";
+  let lastCorrectWord = "";
+  let lastJaText = "";
+
+  // ★ 追加：安全なHTMLエスケープ
+  const escapeHTML = (s="") => s.replace(/[&<>"']/g, m => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[m]));
+
+  // ★ 追加：和訳候補をいろんなプロパティから拾う
+  const pickJa = (q={}) =>
+    q.ja ?? q.jp ?? q.translation ?? q.meaning ?? q.jaText ?? "";
+
+
+  // ===== ヘルパ =====
+  const shuffle = arr => [...arr].sort(() => Math.random() - 0.5);
+  const isUrlLike = s => !!s && /^(\/|https?:\/\/|\.{0,2}\/)/i.test(s);
+  const normPath  = u => { try { return new URL(u, location.origin).pathname; } catch { return (u||"").trim(); } };
+  
+  
+  async function commitResult(userId, mode, correct, total) {
+	    try {
+	      const res = await fetch('/api/test/commit', {
+	        method:'POST',
+	        headers:{'Content-Type':'application/json'},
+	        body: JSON.stringify({ userId, mode, correct, total })
+	      });
+	      // 失敗時は例外化
+	      if (!res.ok) throw new Error('commit failed: ' + res.status);
+
+	      // サーバ側に “今回分は加算済み” の証跡をセッション中だけ残す（重複コミット防止）
+	      sessionStorage.setItem(`committed:${userId}:${mode}:${correct}/${total}`, '1');
+	      return true;
+	    } catch (e) {
+	      console.warn('commit失敗。後段の画面でフォールバックします', e);
+	      return false;
+	    }
+	  }
+
+	  // ===== 次へ / 終了 =====
+	nextBtn.onclick = async () => {
+	  currentIndex++;
+	  if (currentIndex < totalQuestions) {
+	    showQuestion();
+	  } else {
+	    const msg = `テスト終了！ ${score}/${totalQuestions} 問正解でした。`;
+	    const finish = document.getElementById("finishMessage");
+	    finish.textContent = msg;
+	    finish.style.display = "block";
+	    nextBtn.style.display = "none";
+	    scoreEl.textContent = `${score} / ${totalQuestions}`;
+	
+	    const userId = userIdParam || 1;
+	    await commitResult(userId, 'sentence', score, totalQuestions);
+	
+	    const url =
+	      `/user.html?userId=${encodeURIComponent(userId)}&from=test` +
+	      `&score=${encodeURIComponent(score)}&total=${encodeURIComponent(totalQuestions)}`;
+	    setTimeout(() => window.location.replace(url), 800);
+	  }
+	};
+
+
+
+
+  function guessImageFromWord(word){
+    if(!word) return "";
+    return `/images/${word.toLowerCase()
+      .replace(/['’`"]/g,"")
+      .replace(/\s+/g,"_")
+      .replace(/[^a-z0-9_]/g,"")}_girl.png`;
+  }
+
+  function speakText(text){
+    if (!text) return;
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "en-US"; u.pitch = 1.1; u.rate = 0.9;
+      speechSynthesis.speak(u);
+    } catch {}
+  }
+  function playAudioOrSpeech(q) {
+    if (q.audio) {
+      const a = new Audio(q.audio);
+      a.onerror = () => speakText(q.sentence || "");
+      a.play().catch(() => speakText(q.sentence || ""));
+    } else {
+      speakText(q.sentence || "");
+    }
+  }
+
+  // ===== データ読み込み =====
+  async function loadData() {
+    const res = await fetch(`/api/test-questions/play?userId=${encodeURIComponent(userIdParam)}`);
+    if (!res.ok) throw new Error("Failed to load questions");
+
+    const raw = await res.json();
+    if (!Array.isArray(raw) || raw.length === 0) {
+      sentenceEl.textContent = "問題がありません。";
+      return;
+    }
+
+    testData = shuffle(raw).slice(0, MAX_QUESTIONS);
+    totalQuestions = testData.length;
+
+    currentIndex = 0;
+    score = 0;
+    scoreEl.textContent = `${score} 問正解`;
+
+    showQuestion();
+  }
+
+//単語からファイル名用スラッグを作る
+  function toSlugForImage(s) {
+    return (s || "")
+      .toLowerCase()
+      .replace(/\s+/g, "_")
+      .replace(/['’`"]/g, "")
+      .replace(/[^a-z0-9_]/g, "");
+  }
+  
+  function guessImageFromWord(word) {
+	  if (!word) return "";
+	  const slug = toSlugForImage(word);
+	  return `/images/${slug}_girl.png`;
+	}
+
+  // 単語オブジェクトから画像URLを決定
+  function imageUrlForWord(w) {
+    if (w.imageUrl) return w.imageUrl;
+    if (w.pictUrlAnimated) return w.pictUrlAnimated;
+    if (w.pictUrl) return w.pictUrl;
+    const slug = toSlugForImage(w.word || w.correct || "");
+    return `/images/${slug}_girl.png`;
+  }
+
+  // 問題表示
+  async function showQuestion() {
+    feedbackEl.textContent = "";
+    nextBtn.style.display = "none";
+    optionsEl.innerHTML = "";
+    answered = false;
+
+    const q = testData[currentIndex];
+    if (!q) return;
+
+    sentenceEl.textContent = q.sentence ?? "";
+
+    // ===== sentence 非表示（リスニングモードの場合） =====
+    if (modeParam === "listening") {
+      document.body.classList.add("listening-mode");
+      sentenceEl.style.display = "none";
+    }
+
+    playAudioOrSpeech(q);
+
+    // 正解画像URLを取得（URL優先 → 単語から生成）
+    let correctKey = q.correctPictUrl || q.correct || "";
+    if (!isUrlLike(correctKey) && q.correct) {
+      correctKey = imageUrlForWord({ word: q.correct });
+    }
+
+    // 不正解時に表示するため保持
+    lastCorrectKey  = correctKey || "";
+    lastCorrectWord = q.correct || "";
+    lastJaText      = pickJa(q) || "";
+
+    const candidates = Array.isArray(q.options) ? q.options.slice() : [];
+    const shuffled = shuffle(candidates);
+    let hasCorrect = false;
+
+    shuffled.forEach((option) => {
+      let imgUrl = isUrlLike(option) ? option : imageUrlForWord({ word: option });
+      const img = document.createElement("img");
+      img.src = encodeURI(imgUrl);
+      img.onerror = () => { img.onerror = null; img.src = "/images/beauty.png"; };
+
+      const isCorrect = normPath(imgUrl) === normPath(correctKey);
+      if (isCorrect) hasCorrect = true;
+      img.dataset.correct = isCorrect ? "1" : "0";
+
+      img.onclick = () => handleAnswer(img);
+      optionsEl.appendChild(img);
+      console.log("🔍 option =", option);
+      console.log("🔍 imgUrl =", imgUrl);
+      console.log("q:", q);
+      console.log("correctKey:", correctKey);
+      console.log("options:", candidates);
+    });
+
+    // 候補に正解がない場合、最初を正解扱いにする
+    if (!hasCorrect) {
+      const first = optionsEl.querySelector("img");
+      if (first) first.dataset.correct = "1";
+    }
+
+    // スコア表示
+    scoreEl.textContent = `${score} 問正解`;
+
+    // ✅ テスト結果表示
+    const correct = localStorage.getItem("test_correct") || 0;
+    const total = localStorage.getItem("test_total") || 0;
+    const testStatsEl = document.getElementById("testStats");
+    if (testStatsEl) {
+      testStatsEl.textContent = `正答数: ${correct} / ${total}問中`;
+    }
+
+    // ✅ ログイン日数表示
+    const loginDaysEl = document.getElementById("loginDays");
+    if (loginDaysEl && typeof user === "object") {
+      loginDaysEl.textContent = `学習日数: ${user.loginPoints || 0}日目`;
+    }
+
+    // ✅ ユーザーステータス再取得（必要であれば）
+    if (typeof refreshUserStats === "function") {
+      await refreshUserStats();
+    }
+  }
+
+
+
+
+  // ===== 回答処理 =====
+function handleAnswer(clickedImg){
+  if (answered) return;
+  answered = true;
+
+  // 以降のクリック無効化
+  optionsEl.querySelectorAll("img").forEach(i => (i.onclick = null));
+
+  const isCorrect = clickedImg.dataset.correct === "1";
+
+  // 正解/不正解の縁取り
+  optionsEl.querySelectorAll("img").forEach(img => {
+    const ok = img.dataset.correct === "1";
+    img.classList.add(ok ? "correct" : "wrong");
+  });
+
+  if (isCorrect) {
+    // ★ 正解時の処理を追加
+    try { correctSound.currentTime = 0; correctSound.play(); } catch {}
+    clickedImg.classList.add("smile-animation");
+    score++;  // ★ 加点
+    feedbackEl.innerHTML = `<span style="color:#2e7d32;font-weight:bold;">正解！</span>`;
+  } else {
+    // ★ 不正解時：英文＋和訳＋正解肢のサムネイルを表示
+    const q = testData[currentIndex] || {};
+    const ja = q.ja ? `<div style="margin-top:8px;"><strong>和訳:</strong> ${q.ja}</div>` : "";
+    const correctSrc = [...optionsEl.querySelectorAll("img")]
+      .find(i => i.dataset.correct === "1")?.src || q.correctPictUrl || "";
+
+    const thumb = correctSrc
+      ? `<div style="margin-top:12px;">
+           <div><strong>正解：</strong> ${new URL(correctSrc, location.origin).pathname}</div>
+           <img src="${correctSrc}" style="width:120px;height:120px;object-fit:cover;border:3px solid #2e7d32;border-radius:10px;margin-top:8px;">
+         </div>`
+      : "";
+
+    feedbackEl.innerHTML =
+      `<div style="color:#c62828;">
+         <strong>不正解…</strong>
+         <div style="margin-top:8px;"><strong>英文:</strong> ${sentenceEl.textContent}</div>
+         ${ja}
+         ${thumb}
+       </div>`;
+  }
+
+  // スコアと「次へ」表示
+  scoreEl.textContent = `${score} 問正解`;
+  nextBtn.style.display = "inline-block";
+}
+
+
+
+  // ===== 終了処理 =====
+  function finishAndRedirect() {
+    try { speechSynthesis.cancel(); } catch {}
+    const url =
+      `/user.html?userId=${encodeURIComponent(userIdParam)}&from=test` +
+      `&score=${encodeURIComponent(score)}&total=${encodeURIComponent(totalQuestions)}`;
+    setTimeout(() => window.location.replace(url), 1200);
+  }
+
+  nextBtn.onclick = () => {
+    currentIndex++;
+    if (currentIndex < totalQuestions) {
+      showQuestion();
+    } else {
+      const msg = `テスト終了！ ${score}/${totalQuestions} 問正解でした。`;
+      const finish = document.getElementById("finishMessage");
+      finish.textContent = msg;
+      finish.style.display = "block";
+      nextBtn.style.display = "none";
+      scoreEl.textContent = `${score} / ${totalQuestions}`;
+
+      // レベル加算（サーバへコミット）
+      const userId = userIdParam || 1;
+      fetch('/api/test/commit', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ userId, mode:'sentence', correct: score, total: totalQuestions })
+      }).catch(()=>{});
+
+      finishAndRedirect();
+    }
+  };
+
+  // ===== 起動 =====
+  loadData().catch(e => {
+    console.error(e);
+    sentenceEl.textContent = "問題の読み込みに失敗しました。";
+  });
+  </script>
+</body>
+</html>

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>美女単語：無双Part（見る系）</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      background: #fff0f6;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      color: #e91e63;
+      font-size: 30px;
+      margin-bottom: 10px;
+    }
+    .word-card {
+      background: #eef7ff;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      margin: 20px auto;
+      padding: 12px;
+      max-width: 500px;
+      box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+    }
+    video {
+      max-width: 100%;
+      height: auto;
+      margin-top: 10px;
+    }
+    .back-button {
+      background-color: #e91e63;
+      color: #fff;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      margin-top: 20px;
+      cursor: pointer;
+    }
+    .back-button:hover {
+      background-color: #d81b60;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎬 無双Part（似た意味を一気に理解）</h1>
+  <div id="word-container"></div>
+  <button class="back-button" onclick="goBack()">← 戻る</button>
+
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <script>
+    let user = null;
+
+    window.onload = async function () {
+      const params = new URLSearchParams(window.location.search);
+      const userId = params.get("userId");
+      const part = params.get("part");
+
+      try {
+        const res = await fetch(`http://localhost:8080/user/${userId}`);
+        if (!res.ok) throw new Error("HTTPエラー：" + res.status);
+
+        user = await res.json();
+        console.log("取得したユーザー情報:", user);
+
+        if (!user.premium) {
+          showPremiumPopup();
+          return;
+        }
+
+      } catch (error) {
+        console.error("ユーザー情報の取得に失敗しました:", error);
+        alert("ユーザー情報の取得に失敗しました。");
+        return;
+      }
+
+      // ✅ 学習状態付きで単語を取得
+      try {
+        const response = await fetch(`/api/words/withStatus?userId=${userId}&part=${encodeURIComponent(part)}`);
+        if (!response.ok) throw new Error("単語の取得に失敗");
+
+        const words = await response.json();
+        const container = document.getElementById("word-container");
+        container.innerHTML = "";
+
+        words.forEach(word => {
+          const card = document.createElement("div");
+          card.className = "word-card";
+
+          const title = document.createElement("h3");
+          title.innerHTML = `${word.word}（${word.meaning}）`;
+
+          const video = document.createElement("video");
+          video.src = word.pictUrlAnimated || "/videos/sample_motion.mp4";
+          video.controls = true;
+          video.loop = true;
+
+          card.appendChild(title);
+          card.appendChild(video);
+          container.appendChild(card);
+        });
+
+      } catch (e) {
+        console.error("単語取得エラー：", e);
+        alert("単語データの取得に失敗しました");
+      }
+    };
+
+    // 🎀 プレミアムプランのポップアップ
+    function showPremiumPopup() {
+  const userId = new URLSearchParams(window.location.search).get('userId');
+
+  Swal.fire({
+    title: '🎀 美女単プレミアムプラン 🎀',
+    html: `
+      <div style="text-align:left; font-size: 0.95rem;">
+        <p>全モード解放＆広告なしの贅沢体験</p>
+        <ul style="line-height:1.6;">
+          <li>✔ 美女の全モーション動画が無制限再生</li>
+          <li>✔ リスニングモード解放</li>
+          <li>✔ 褒めボイス付き演出強化</li>
+          <li>✔ テスト回数無制限＆成績履歴も保存</li>
+        </ul>
+        <p style="font-weight:bold; font-size:1.1rem;">💰 月額1,200円（税込）</p>
+        <p style="color:red;">✨ 今だけ初月500円キャンペーン中 ✨</p>
+        <small>SNSでシェアすると1週間無料体験🎁</small>
+      </div>
+    `,
+    showCancelButton: true,
+    confirmButtonText: "プレミアムに登録する",
+    cancelButtonText: "あとで見る",
+    customClass: {
+      popup: 'premium-popup',
+      confirmButton: 'btn-premium'
+    }
+  }).then(result => {
+    if (result.isConfirmed) {
+      window.location.href = "/premium.html";
+    } else if (result.dismiss === Swal.DismissReason.cancel) {
+      window.location.href = `user.html?userId=${userId}`;
+    }
+  });
+}
+
+    // ← 戻るボタン処理
+    function goBack() {
+      const userId = new URLSearchParams(window.location.search).get('userId') || 1;
+      window.location.href = `user.html?userId=${userId}`;
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>美女単語テスト</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: sans-serif; text-align: center; background: #f5f8ff; margin: 0; padding: 20px; }
+    .option-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+    .opt {
+      border: 4px solid transparent;
+      border-radius: 12px;
+      background: #fff;
+      padding: 10px;
+      transition: 0.3s;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      min-height: 320px;
+    }
+    .opt.correct { border-color: #22c55e; background: #ecfdf5; }
+    .opt.wrong   { border-color: #ef4444; background: #fef2f2; }
+    .imgwrap { width: 100%; aspect-ratio: 3 / 4; overflow: hidden; border-radius: 8px; background: #eee; }
+    .imgwrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .muted { margin-top: 10px; color: #333; font-size: 14px; white-space: pre-wrap; }
+    .prompt { font-size: 1.8rem; margin: 16px 0; }
+    .top { display: flex; justify-content: space-between; align-items: center; max-width: 700px; margin: 0 auto; color: #666; }
+    .btn { padding: 10px 20px; font-size: 16px; border-radius: 10px; background: #6366f1; color: #fff; border: none; cursor: pointer; }
+    .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+    .score { margin-top: 10px; font-size: 18px; }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <div>単語モード（全10問）</div>
+    <div id="progress">Q 1 / 10</div>
+  </div>
+  <div class="prompt" id="prompt">Loading…</div>
+  <div class="option-grid" id="options"></div>
+  <div class="score" id="score"></div>
+  <button class="btn" id="nextBtn" disabled>次へ</button>
+
+  <script>
+    const COUNT = 10;
+    let questions = [];
+    let idx = 0, score = 0, locked = false;
+
+    const promptEl = document.getElementById('prompt');
+    const optionsEl = document.getElementById('options');
+    const scoreEl = document.getElementById('score');
+    const progressEl = document.getElementById('progress');
+    const nextBtn = document.getElementById('nextBtn');
+
+    nextBtn.onclick = () => {
+      if (++idx < COUNT) {
+        render();
+      } else {
+        finish();
+      }
+    };
+    function toSlugForImage(s) {
+    	  return (s || "")
+    	    .normalize("NFKD")
+    	    .toLowerCase()
+    	    .replace(/\s+/g, "_")
+    	    .replace(/['’`"\\]/g, "")
+    	    .replace(/[^a-z0-9_]/g, "");
+    	}
+
+
+    function render() {
+      locked = false;
+      const q = questions[idx];
+      if (!q) return;
+
+      progressEl.textContent = `Q ${idx + 1} / ${COUNT}`;
+      promptEl.textContent = q.word || '';
+
+      optionsEl.innerHTML = '';
+      (q.options || []).forEach(op => {
+        const label = (op.label || '').trim();
+        let imgUrl = (op.imageUrl || '').trim();
+
+        const USE_GIRL_SUFFIX = false; // ← trueなら "_girl.png" を使う
+
+        if (!imgUrl && label) {
+          const slug = toSlugForImage(label);
+          imgUrl = USE_GIRL_SUFFIX
+            ? `/images/${slug}_girl.png`
+            : `/images/${slug}.png`;
+        }
+
+
+        const d = document.createElement('div');
+        d.className = 'opt';
+        d.dataset.correct = op.correct ? '1' : '0';
+
+        if (imgUrl) {
+          const imgWrap = document.createElement('div');
+          imgWrap.className = 'imgwrap';
+          const img = document.createElement('img');
+          img.src = encodeURI(imgUrl);
+          img.alt = label;
+          img.onerror = () => img.src = '/images/beauty.png';
+          imgWrap.appendChild(img);
+          d.appendChild(imgWrap);
+        }
+
+        if (label) {
+          const cap = document.createElement('div');
+          cap.className = 'muted';
+          cap.textContent = label;
+          d.appendChild(cap);
+        }
+
+        if (op.explanation) {
+          const expl = document.createElement('div');
+          expl.className = 'muted';
+          expl.style.background = '#e0f2fe';
+          expl.style.padding = '6px';
+          expl.style.borderRadius = '8px';
+          expl.textContent = op.explanation;
+          d.appendChild(expl);
+        }
+
+        d.onclick = () => {
+          if (locked) return;
+          locked = true;
+          const correct = d.dataset.correct === '1';
+          document.querySelectorAll('.opt').forEach(opt => {
+            const isC = opt.dataset.correct === '1';
+            opt.classList.add(isC ? 'correct' : 'wrong');
+          });
+          if (correct) score++;
+          scoreEl.textContent = `${score} 問正解`;
+          nextBtn.disabled = false;
+        };
+
+        optionsEl.appendChild(d);
+      });
+
+      nextBtn.disabled = true;
+      scoreEl.textContent = `${score} 問正解`;
+    }
+
+    async function finish() {
+      promptEl.textContent = 'おつかれさま！';
+      optionsEl.innerHTML = '';
+      progressEl.textContent = '完了';
+      nextBtn.style.display = 'none';
+      scoreEl.textContent = `結果：${score} / ${COUNT} 正解`;
+
+      const userId = new URLSearchParams(location.search).get('userId') || 1;
+      try {
+        await fetch(`/api/test/commit?userId=${encodeURIComponent(userId)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: 'word', correct: score, total: COUNT })
+        });
+      } catch (e) { console.warn('commit failed', e); }
+
+      setTimeout(() => {
+        location.href = `/user.html?userId=${userId}&from=test&score=${score}&total=${COUNT}`;
+      }, 1000);
+    }
+
+    async function init() {
+      const res = await fetch(`/api/quiz/word-mode?count=${COUNT}`);
+      const data = await res.json();
+      questions = Array.isArray(data.questions) ? data.questions.filter(Boolean) : [];
+      if (questions.length === 0) {
+        promptEl.textContent = '問題が取得できませんでした。';
+        return;
+      }
+      idx = 0; score = 0;
+      render();
+    }
+
+    init();
+  </script>
+</body>
+</html>

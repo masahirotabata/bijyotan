@@ -1,0 +1,50 @@
+#createForm label, textarea {
+	vertical-align: top;
+}
+
+#createForm label {
+	width: 50px;
+}
+
+#createForm textarea {
+	width: 300px;
+	height: 50px;
+}
+
+ul {
+	list-style-type: none;
+	padding: 0;
+}
+
+li {
+	margin-bottom: 10px;
+	display: flex;
+}
+
+button {
+	font-size: 1rem;
+	padding: 10px 20px;
+	margin: 5px;
+	border-radius: 5px;
+	border: none;
+	cursor: pointer;
+	height: 50px;
+}
+
+.toggle-text-button {
+	background-color: greenyellow;
+	color: black;
+	flex: 8;
+}
+
+.status-button {
+	background-color: crimson;
+	color: white;
+	flex: 1;
+}
+
+.delete-button {
+	background-color: blue;
+	color: white;
+	flex: 1;
+}

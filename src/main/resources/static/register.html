@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>美女単 - 新規登録</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #f8e8f0, #f0f8ff);
+      font-family: 'Arial', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      flex-direction: column;
+      text-align: center;
+    }
+
+    h2 {
+      color: #e91e63;
+      font-size: 2em;
+      margin-bottom: 30px;
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 15px;
+      width: 300px;
+    }
+
+    input {
+      padding: 12px;
+      width: 100%;
+      font-size: 1em;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      font-size: 1.2em;
+      padding: 12px 20px;
+      background-color: #ff4081;
+      border: none;
+      border-radius: 30px;
+      color: white;
+      cursor: pointer;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      transition: background-color 0.3s;
+    }
+
+    button:hover {
+      background-color: #f50057;
+    }
+
+    .links {
+      margin-top: 20px;
+      font-size: 0.9em;
+    }
+
+    .links a {
+      color: #e91e63;
+      text-decoration: none;
+    }
+
+    .links a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>新規ユーザー登録</h2>
+
+ <form method="post" action="/user/register">
+  <input type="email" name="email" required>
+  <input type="password" name="password" required>
+  <button type="submit">登録</button>
+</form>
+
+  <div class="links">
+    <a href="login.html">ログイン画面に戻る</a>
+  </div>
+
+</body>
+</html>
