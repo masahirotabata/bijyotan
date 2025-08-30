@@ -894,15 +894,15 @@ function renderPartPagination() {
 
 // 修正：Part選択時に「そのPartが載っているページ」を自動表示
 function selectPart(part) {
-  const lockedParts = ["part4", "part5", "part6", "partHealing","musou"];
+  const lockedParts = ["part4", "part5", "part6", "partHealing", "musou"];
   const isLockedPart = lockedParts.includes(part);
 
   const show = () => {
     selectedPart = part;
     const idx = Math.max(0, parts.findIndex(p => p.value === part));
-    partsPage = Math.floor(idx / partsPerPage) + 1; // ← ここがポイント
+    partsPage = Math.floor(idx / partsPerPage) + 1; // そのPartが載っている「Partページ」を表示
     currentPart = idx + 1;
-    currentPage = 1; // 単語の方の1ページ目へ
+    currentPage = 1;
     renderPartButtons();
     loadWords();
   };
@@ -930,46 +930,6 @@ function selectPart(part) {
     show();
   }
 }
-
-
-function selectPart(part) {
-	  const lockedParts = ["part4", "part5", "part6", "partHealing","musou"];
-	  const isLockedPart = lockedParts.includes(part);
-
-	  if (!user.premium && isLockedPart && !isAdEnabled()) {
-	    Swal.fire({
-	      title: "このパートは広告視聴が必要です",
-	      html: `
-	        <p>広告を見れば<strong>5分間だけ開放</strong>されます。<br>
-	        <span style="color:#e91e63;font-weight:bold;">🎀プレミアム会員</span>なら、<strong>無制限で開放</strong>されます。</p>`,
-	      icon: "info",
-	      showCancelButton: true,
-	      showDenyButton: true,
-	      confirmButtonText: "広告を見る",
-	      cancelButtonText: "やめる",
-	      denyButtonText: "🎀 300円で広告なし！美女めくり放題🎀"
-	    }).then(result => {
-	      if (result.isConfirmed) {
-	        watchAdGlobal();
-	        selectedPart = part;
-	        currentPart = parts.findIndex(p => p.value === part) + 1;
-	        currentPage = 1;
-	        renderPartButtons();
-	        loadWords();
-	      } else if (result.isDenied) {
-	        showPremiumPopup(); // ← これだけでOK
-	      }
-	    });
-	  } else {
-	    selectedPart = part;
-	    currentPart = parts.findIndex(p => p.value === part) + 1;
-	    currentPage = 1;
-	    renderPartButtons();
-	    loadWords();
-	  }
-	}
-
-
 
 function getUserIdFromQuery() {
   const params = new URLSearchParams(window.location.search);
@@ -1361,23 +1321,26 @@ function toggleStatus(isChecked, wordId, part) {
 
 
 async function updateStatusCount() {
-	  const userId = getUserIdFromQuery();
+  const userId = getUserIdFromQuery();
 
-	  try {
-	    const res = await fetch(`http://localhost:8080/api/learning/count?userId=${userId}&part=${selectedPart}`);
-	    if (!res.ok) throw new Error("学習済み数の取得に失敗");
+  try {
+    const res = await apiFetch(
+      `/api/learning/count?userId=${encodeURIComponent(userId)}&part=${encodeURIComponent(selectedPart)}`
+    );
+    if (!res.ok) throw new Error("学習済み数の取得に失敗");
 
-	    const learnedCount = await res.json();
-	    const totalCount = words.length;
-	    const unlearnedCount = Math.max(0, totalCount - learnedCount);
+    const learnedCount = await res.json();
+    const totalCount = words.length;
+    const unlearnedCount = Math.max(0, totalCount - learnedCount);
 
-	    const statusDiv = document.getElementById("learningStatus");
-	    statusDiv.textContent = `学習済み: ${learnedCount} / 未学習: ${unlearnedCount}`;
-	  } catch (err) {
-	    console.error(err);
-	    document.getElementById("learningStatus").textContent = "学習状況の取得に失敗しました";
-	  }
-	}
+    const statusDiv = document.getElementById("learningStatus");
+    statusDiv.textContent = `学習済み: ${learnedCount} / 未学習: ${unlearnedCount}`;
+  } catch (err) {
+    console.error(err);
+    document.getElementById("learningStatus").textContent = "学習状況の取得に失敗しました";
+  }
+}
+
 
 //置き換え版：数値ラベルを表示
 async function loadWeeklyAnswers(){
@@ -1710,21 +1673,20 @@ function showLoginBonus(points) {
 	  }
 	}
 
-	
-	async function setUserPremium(userId) {
-		  try {
-		    const res = await fetch(`http://localhost:8080/api/user/updatePremium`, {
-		      method: 'PUT',
-		      headers: { 'Content-Type': 'application/json' },
-		      body: JSON.stringify({ userId: userId })
-		    });
+async function setUserPremium(userId) {
+  try {
+    const res = await apiFetch(`/api/user/updatePremium`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId })
+    });
+    if (!res.ok) throw new Error("更新に失敗");
+    console.log("✅ プレミアム状態をDBに反映しました");
+  } catch (err) {
+    console.error("❌ プレミアム設定失敗:", err);
+  }
+}
 
-		    if (!res.ok) throw new Error("更新に失敗");
-		    console.log("✅ プレミアム状態をDBに反映しました");
-		  } catch (err) {
-		    console.error("❌ プレミアム設定失敗:", err);
-		  }
-		}
 	
 	// ===== スワイプ学習モード =====
 	let swipeWords = [];      // 今のパートの単語配列（スワイプ用）
