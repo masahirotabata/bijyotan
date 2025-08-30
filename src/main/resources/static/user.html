@@ -662,7 +662,9 @@ function showUpdateInfoIfNeeded() {
 	
 async function checkPremiumStatus(userId) {
 	  try {
-	    const res = await fetch(`http://localhost:8080/user/${userId}`);
+	   const res = await fetch(`/user/${encodeURIComponent(userId)}`, {
+		     credentials: 'include'
+			});
 	    const u = await res.json();
 	    if (u.premium === true) {
 	      // 既存の girlVideo を使用し、存在しない場合はフォールバック
