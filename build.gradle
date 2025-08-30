@@ -29,30 +29,40 @@ tasks.withType(JavaCompile) {
 }
 
 dependencies {
-  implementation 'org.springframework.boot:spring-boot-starter-web'
-  implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-  implementation 'org.springframework.boot:spring-boot-starter-mail'   // ← これ1回だけでOK
-  implementation "org.springframework.boot:spring-boot-starter-websocket"
-  implementation "org.springframework:spring-messaging"
-  // もしセキュリティ未設定なら一旦外してもOK（入れるなら後述のpermitAll設定を）
-  // implementation "org.springframework.boot:spring-boot-starter-security"
+    // --- Spring Boot starters ---
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-batch'
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
 
-  implementation 'com.stripe:stripe-java:24.9.0'
-  implementation 'net.coobird:thumbnailator:0.4.20'
-  implementation 'org.apache.commons:commons-csv:1.10.0'
-  implementation 'com.google.code.gson:gson:2.10.1'
+    // DB
+    runtimeOnly 'com.h2database:h2'
 
-  compileOnly 'org.projectlombok:lombok'
-  annotationProcessor 'org.projectlombok:lombok'
+    // （保険）Batch / Security のコアを明示　※starterで入るはずですが、
+    // 今回のような解決漏れ対策に追加しておくと安心
+    implementation 'org.springframework.batch:spring-batch-core'
+    implementation 'org.springframework.security:spring-security-config'
+    implementation 'org.springframework.security:spring-security-web'
 
-  runtimeOnly 'com.h2database:h2'
+    // その他ライブラリ
+    implementation 'org.apache.commons:commons-csv:1.10.0'
+    implementation 'com.stripe:stripe-java:24.9.0'
+    implementation 'net.coobird:thumbnailator:0.4.20'
+    implementation 'com.google.code.gson:gson:2.10.1'
 
-  developmentOnly 'org.springframework.boot:spring-boot-devtools'
+    // Lombok
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
 
-  testImplementation 'org.springframework.boot:spring-boot-starter-test'
-  testImplementation 'org.springframework.batch:spring-batch-test'
-  testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    // Test
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.batch:spring-batch-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
+
 
 application {
     mainClassName = 'com.example.demo.BijotanVocabularyApplication'
