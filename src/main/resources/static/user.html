@@ -517,7 +517,6 @@
 <div class="pagination" id="paginationTop"></div>
 
 <div id="wordContainer"></div>
-<div id="wordContainer"></div>
 <div class="pagination" id="pagination"></div>
 <!-- HTMLの一番下に追加 -->
 <div id="videoModal" style="display:none; position:fixed; top:0; left:0; 
@@ -527,6 +526,10 @@
 </div>
 
 <script>
+// すべてのfetchを同一オリジン & Cookie付きで
+const apiFetch = (path, opts = {}) => fetch(path, { credentials: 'include', ...opts });
+// グローバルで使っているのに未宣言だったので用意
+let musouMode = false;
 let words = [];
 let user = { id: null, isPremium: false, canWatchVideo: false };
 let currentPage = 1;
@@ -974,64 +977,70 @@ function getUserIdFromQuery() {
 }
 
 async function fetchUserInfo(userId) {
-	  const res = await fetch(`http://localhost:8080/user/${userId}`);
-	  if (!res.ok) {
-	    alert("ユーザー情報が取得できません。ログインし直してください。");
-	    window.location.href = "login.html";
-	    return;
-	  }
-	  const data = await res.json();
-	  user = data;
-	  localStorage.setItem("userId", data.id); // ←ここで保存
-	  document.getElementById("username").innerText = `${data.username} さん、ようこそ！`;
-	  document.getElementById("planText").innerText = `プラン: ${data.premium ? "プレミアム" : "無料"}`;
-	  document.getElementById("userLevel").innerText = `レベル: Lv.${data.level || 1}`;
-	  updateGirlVisual(data.level || 1);
-	  
-	  await updateLoginPointsIfNeeded(data.id);
+  const res = await apiFetch(`/user/${encodeURIComponent(userId)}`);
+  if (!res.ok) {
+    alert("ユーザー情報が取得できません。ログインし直してください。");
+    window.location.href = "login.html";
+    return;
+  }
+  const data = await res.json();
+  user = data;
 
-	  // ✅ ログインボーナス表示（loginPointsが必要）
-	if (typeof data.loginPoints === 'number') {
-  		showLoginBonus(data.loginPoints);
-	}
-	}
+  localStorage.setItem("userId", data.id);
+  document.getElementById("username").innerText = `${data.username} さん、ようこそ！`;
+  document.getElementById("planText").innerText = `プラン: ${data.premium ? "プレミアム" : "無料"}`;
+  document.getElementById("userLevel").innerText = `レベル: Lv.${data.level || 1}`;
+  updateGirlVisual(data.level || 1);
+
+  await updateLoginPointsIfNeeded(data.id);
+
+  if (typeof data.loginPoints === 'number') {
+    showLoginBonus(data.loginPoints);
+  }
+}
+
 
 async function updateLoginPointsIfNeeded(userId) {
-	  try {
-	    const res = await fetch(`http://localhost:8080/api/user/updateLoginPoints`, {
-	      method: 'PUT',
-	      headers: { 'Content-Type': 'application/json' },
-	      body: JSON.stringify({ userId })
-	    });
+  try {
+    const res = await apiFetch(`/api/user/${encodeURIComponent(userId)}/update-login-points`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId })
+    });
 
-	    if (res.ok) {
-	      const updated = await res.json();
-	      if (typeof updated.loginPoints === 'number') {
-	        showLoginBonus(updated.loginPoints);  // ←ここで再描画
-	        document.getElementById("loginDays").textContent = `学習日数: ${updated.loginPoints}日目`;
-	      }
-	    }
-	  } catch (err) {
-	    console.warn("ログインポイント更新失敗", err);
-	  }
-	}
+    if (res.ok && res.status !== 204) {
+      const updated = await res.json().catch(() => null);
+      if (updated && typeof updated.loginPoints === 'number') {
+        showLoginBonus(updated.loginPoints);
+        const el = document.getElementById("loginDays");
+        if (el) el.textContent = `学習日数: ${updated.loginPoints}日目`;
+      }
+    }
+  } catch (err) {
+    console.warn("ログインポイント更新失敗", err);
+  }
+}
+
 
 async function fetchWordsFromServer(userId, part) {
-	  const res = await fetch(`http://localhost:8080/api/words?userId=${userId}&part=${part}`);
-	  if (!res.ok) {
-	    alert("単語の取得に失敗しました");
-	    return [];
-	  }
-	  const data = await res.json();
+  const res = await apiFetch(
+    `/api/words?userId=${encodeURIComponent(userId)}&part=${encodeURIComponent(part)}`
+  );
+  if (!res.ok) {
+    console.error('単語取得失敗', res.status, await res.text().catch(()=>'')); 
+    alert("単語の取得に失敗しました");
+    return [];
+  }
+  const data = await res.json();
 
-	  // ✅ statusがundefinedのものをfalseに補正（安全対策）
-	  return data.map(word => {
-		  const s = word.status;
-		  const learned =
-		    s === true || s === 1 || s === '1' || s === 'true' || s === 'LEARNED';
-		  return { ...word, status: !!learned };
-		});
-	}
+  return data.map(word => {
+    const s = word.status;
+    const learned =
+      s === true || s === 1 || s === '1' || s === 'true' || s === 'LEARNED';
+    return { ...word, status: !!learned };
+  });
+}
+
 
 //=== 広告表示トリガ用のカウンタと保留実行 ===
 let pendingToggle = null;
