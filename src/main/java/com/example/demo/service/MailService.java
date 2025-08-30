@@ -6,6 +6,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 @Service
+@ConditionalOnBean(JavaMailSender.class) // ← JavaMailSender がある時だけ有効化
 public class MailService {
 
     @Autowired
