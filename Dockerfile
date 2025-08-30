@@ -1,14 +1,21 @@
-# Use an official Java runtime as a parent image
-FROM openjdk:17-jdk-slim
+# Gradleを使ってビルドするためのベースイメージ
+FROM gradle:7.3-jdk17 AS build
 
-# Set the working directory in the container
 WORKDIR /app
 
-# Copy the local code to the container
+# プロジェクトファイルをコピー
 COPY . .
 
-# Build the Spring Boot app (Make sure the build tool is available)
-RUN ./mvnw clean package -DskipTests
+# Gradle Wrapperを使ってビルド
+RUN ./gradlew build -x test
 
-# Run the Spring Boot app
-CMD ["java", "-jar", "target/your-app-name.jar"]
+# 実行用の最小のJDKイメージを使用
+FROM openjdk:17-jdk-slim
+
+WORKDIR /app
+
+# ビルドされたJARファイルをコピー
+COPY --from=build /app/build/libs/your-app.jar .
+
+# アプリケーションを実行
+CMD ["java", "-jar", "your-app.jar"]
