@@ -29,36 +29,32 @@ public class PaymentController {
         this.successUrl = successUrl;
         this.cancelUrl = cancelUrl;
 
-        // キーがあれば Stripe SDK を初期化（未設定なら起動は通し、エンドポイント側で弾く）
-        if (stripeSecretKey != null && !stripeSecretKey.isBlank()) {
-            Stripe.apiKey = stripeSecretKey;
+        if (!stripeSecretKey.isBlank()) {
+            com.stripe.Stripe.apiKey = stripeSecretKey;
         }
     }
 
     @PostMapping("/create-checkout-session")
     public Map<String, String> createCheckoutSession(@RequestBody(required = false) Map<String, Object> payload) {
-        // 未設定ガード（起動は通しつつ、呼ばれたら 503 相当のメッセージを返す）
-        if (stripeSecretKey == null || stripeSecretKey.isBlank()
-                || stripePriceId == null || stripePriceId.isBlank()) {
+        if (stripeSecretKey.isBlank() || stripePriceId.isBlank()) {
             return Map.of("error", "Stripe is not configured on this environment.");
         }
 
         try {
-            SessionCreateParams params = SessionCreateParams.builder()
-                .setMode(SessionCreateParams.Mode.SUBSCRIPTION)
-                .setSuccessUrl(successUrl) // {CHECKOUT_SESSION_ID} を含めると便利
+            var params = com.stripe.param.checkout.SessionCreateParams.builder()
+                .setMode(com.stripe.param.checkout.SessionCreateParams.Mode.SUBSCRIPTION)
+                .setSuccessUrl(successUrl)
                 .setCancelUrl(cancelUrl)
                 .addLineItem(
-                    SessionCreateParams.LineItem.builder()
+                    com.stripe.param.checkout.SessionCreateParams.LineItem.builder()
                         .setQuantity(1L)
-                        .setPrice(stripePriceId)   // ← フィールド名修正
+                        .setPrice(stripePriceId) // 例: price_xxx
                         .build()
                 )
                 .build();
 
-            Session session = Session.create(params);
+            var session = com.stripe.model.checkout.Session.create(params);
             return Map.of("checkoutUrl", session.getUrl());
-
         } catch (Exception e) {
             e.printStackTrace();
             return Map.of("error", e.getMessage());
