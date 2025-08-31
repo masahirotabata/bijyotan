@@ -18,8 +18,12 @@ repositories {
 }
 
 configurations {
-    compileOnly { extendsFrom annotationProcessor }
+    developmentOnly
+    runtimeClasspath {
+        extendsFrom developmentOnly
+    }
 }
+
 
 tasks.withType(JavaCompile).configureEach {
     options.compilerArgs += ['-parameters']
@@ -37,7 +41,9 @@ dependencies {
 
     // --- DB drivers ---
     runtimeOnly 'org.postgresql:postgresql'   // ★ 半角スペース&runtimeOnlyでOK
-    runtimeOnly 'com.h2database:h2'           // ローカル開発用（本番では使われません）
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.postgresql:postgresql'
+    developmentOnly 'com.h2database:h2'   // ← 本番Jarには入らない
 
     // --- その他ライブラリ ---
     implementation 'org.apache.commons:commons-csv:1.10.0'
