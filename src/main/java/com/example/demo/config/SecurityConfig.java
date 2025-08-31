@@ -35,7 +35,9 @@ public class SecurityConfig {
           // 静的ファイル
           "/css/**", "/js/**", "/images/**", "/videos/**", "/se/**", "/static/**",
           // H2 Console
-          "/h2-console/**"
+          "/h2-console/**",
+          "/images/**", "/videos/**", "/css/**", "/js/**",
+          "/webjars/**", "/*.html", "/favicon.*"
         ).permitAll()
 
         // 2) 最後に other を認証ありに
