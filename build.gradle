@@ -1,30 +1,27 @@
 plugins {
-	id 'java'
-	id 'org.springframework.boot' version '3.5.3'
-	id 'io.spring.dependency-management' version '1.1.7'
-	id 'application'
+    id 'java'
+    id 'org.springframework.boot' version '3.5.3'
+    id 'io.spring.dependency-management' version '1.1.7'
 }
 
 group = 'com.example'
 version = '0.0.1-SNAPSHOT'
 
 java {
-	toolchain {
-		languageVersion = JavaLanguageVersion.of(17)
-	}
-}
-
-configurations {
-	compileOnly {
-		extendsFrom annotationProcessor
-	}
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
 }
 
 repositories {
-	mavenCentral()
+    mavenCentral()
 }
 
-tasks.withType(JavaCompile) {
+configurations {
+    compileOnly { extendsFrom annotationProcessor }
+}
+
+tasks.withType(JavaCompile).configureEach {
     options.compilerArgs += ['-parameters']
 }
 
@@ -34,53 +31,45 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-websocket'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-    implementation 'org.springframework.boot:spring-boot-starter-batch'
+    implementation 'org.springframework.boot:spring-boot-starter-batch'     // 使わないなら削除可
     implementation 'org.springframework.boot:spring-boot-starter-mail'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
-	implementation　'org.postgresql:postgresql'  
 
-    // DB
-    runtimeOnly 'com.h2database:h2'
+    // --- DB drivers ---
+    runtimeOnly 'org.postgresql:postgresql'   // ★ 半角スペース&runtimeOnlyでOK
+    runtimeOnly 'com.h2database:h2'           // ローカル開発用（本番では使われません）
 
-    // （保険）Batch / Security のコアを明示　※starterで入るはずですが、
-    // 今回のような解決漏れ対策に追加しておくと安心
-    implementation 'org.springframework.batch:spring-batch-core'
-    implementation 'org.springframework.security:spring-security-config'
-    implementation 'org.springframework.security:spring-security-web'
-
-    // その他ライブラリ
+    // --- その他ライブラリ ---
     implementation 'org.apache.commons:commons-csv:1.10.0'
     implementation 'com.stripe:stripe-java:24.9.0'
     implementation 'net.coobird:thumbnailator:0.4.20'
     implementation 'com.google.code.gson:gson:2.10.1'
 
-    // Lombok
+    // --- Lombok & config processor ---
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
+    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 
-    // Test
+    // --- Test ---
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.batch:spring-batch-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 sourceSets {
-  main {
-    java {
-      exclude 'com/example/demo/batch/**'
+    main {
+        java {
+            exclude 'com/example/demo/batch/**' // 不要な場合のビルド除外（任意）
+        }
     }
-  }
-}
-
-
-
-
-application {
-    mainClassName = 'com.example.demo.BijotanVocabularyApplication'
 }
 
 tasks.named('test') {
-	useJUnitPlatform()
+    useJUnitPlatform()
+}
+
+springBoot {
+    mainClass = 'com.example.demo.BijotanVocabularyApplication'
 }
 
 tasks.named('bootJar') {
