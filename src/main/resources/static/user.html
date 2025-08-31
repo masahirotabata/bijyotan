@@ -704,81 +704,107 @@ function changePart(partName) {
 	  }
 	}
 	
-//単語からファイル名用スラッグを作る（既存に戻す）
+// 単語からファイル名用スラッグ
 function toSlugForImage(s) {
   return (s || "")
     .toLowerCase()
-    .replace(/\s+/g, "_")
+    .trim()
     .replace(/['’`"]/g, "")
+    .replace(/\s+/g, "_")
     .replace(/[^a-z0-9_]/g, "");
 }
 
-//単語オブジェクトから最適な画像URLを決定
-function imageUrlForWord(w) {
-  if (w.imageUrl) return w.imageUrl;
-  if (w.pictUrl)  return w.pictUrl;
-  if (w.pictUrlAnimated) return w.pictUrlAnimated; // あれば優先
-  const slug = toSlugForImage(w.word);
-  return `/images/${slug}_girl.png`;               // フォールバック候補
+// API 1件をフロントで共通形に正規化
+function normalizeWord(raw) {
+  const w = {
+    word: raw.word ?? "",
+    meaning: raw.meaning ?? "",
+    part: (raw.part ?? "").toLowerCase(),
+    // どっちの表記でも拾う
+    pictUrl: raw.pict_url ?? raw.pictUrl ?? "",
+    pictUrlStatic: raw.pict_url_static ?? raw.pictUrlStatic ?? "",
+    pictUrlAnimated: raw.pict_url_animated ?? raw.pictUrlAnimated ?? "",
+    audioUrl: raw.audio_url ?? raw.audioUrl ?? "",
+    videoUrl: raw.video_url ?? raw.videoUrl ?? "",
+    status: !!(raw.status ?? raw.learned ?? false),
+  };
+  w.imageUrl = imageUrlForWord(w);
+  return w;
 }
 
-async function uploadAndNormalize(file, mode = 'cover'){ // 'cover' or 'contain'
-	  const form = new FormData();
-	  form.append('file', file);
+// 単語オブジェクトから画像URLを決定（優先順）
+function imageUrlForWord(w) {
+  return (
+    w.pictUrl ||
+    w.pictUrlStatic ||
+    w.pictUrlAnimated ||
+    `/images/${toSlugForImage(w.word)}_girl.png`
+  );
+}
 
-	  const res = await fetch(`/api/images/normalize/${mode}`, {
-	    method: 'POST',
-	    body: form
-	  });
-	  if(!res.ok) throw new Error('画像の正規化に失敗');
-	  return await res.json(); // { url, width, height, mode }
-	}
+// 画像404時のフォールバック
+function imgTag(src, alt = "") {
+  return `<img src="${src}" alt="${alt}"
+           width="100"
+           onerror="this.onerror=null;this.src='/images/beauty.png';">`;
+}
 
-	// 例：input type="file" の change で
-	async function onFileChange(e){
-	  const file = e.target.files[0];
-	  if(!file) return;
-	  const { url } = await uploadAndNormalize(file, 'cover'); // または 'contain'
-	  // 返ってきたURLをそのまま <img src="..."> にセット
-	  // これで全画像が 3:5 の同じ比率で保管 & 表示されます
-	}
+// ▼ 使い方例：取得後に正規化
+// const rows = await (await fetch(`/api/words?userId=${uid}&part=part1`)).json();
+// const words = rows.map(normalizeWord);
 
+async function uploadAndNormalize(file, mode = "cover") {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`/api/images/normalize/${mode}`, { method: "POST", body: form });
+  if (!res.ok) throw new Error("画像の正規化に失敗");
+  return await res.json(); // { url, width, height, mode }
+}
 
-	
+async function onFileChange(e, currentWord) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  const { url } = await uploadAndNormalize(file, "cover");
+  // 例：保存APIに反映（実装に合わせて）
+  // await fetch(`/api/words/${currentWord.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ pict_url: url }) });
+  currentWord.pictUrl = url;
+  currentWord.imageUrl = imageUrlForWord(currentWord);
+  // 再描画処理…
+}
+
 function goToPart(userId, partName) {
-	  const url = `musou.html?userId=${userId}&part=${encodeURIComponent(partName)}`;
-	  window.location.href = url;
-	}
+  const url = `musou.html?userId=${userId}&part=${encodeURIComponent(partName)}`;
+  window.location.href = url;
+}
 
-function renderWordCard(word) {
-	  if (musouMode) {
-	    return `
-	      <div class="musou-card">
-	        <h3>${word.word}（${word.meaning}）</h3>
-	        <audio controls src="${word.audioUrl}"></audio>
-	        <video controls width="200" src="${word.videoUrl}"></video>
-	        <img src="${word.imageUrl}" width="100" />
-	        <button onclick="${user.premium ? `playAll('${word.word}')` : 'showPremiumPopup()'}">美女を動かす</button>
-	      </div>
-	    `;
-	  } else {
-	    return `
-	      <div class="normal-card">
-	        <strong>${word.word}（${word.meaning}）</strong><br>
-	        ステータス: <input type="checkbox" ${word.status ? 'checked' : ''}>
-	        <br>
-	        <img src="${word.imageUrl}" width="100">
-	        <br>
-	        <button onclick="${user.premium ? `playVideo('${word.videoUrl}')` : 'showPremiumPopup()'}">美女を動かす</button>
-	      </div>
-	    `;
-	  }
-	}
+function renderWordCard(word, musouMode, user) {
+  if (musouMode) {
+    return `
+      <div class="musou-card">
+        <h3>${word.word}（${word.meaning}）</h3>
+        ${word.audioUrl ? `<audio controls src="${word.audioUrl}"></audio>` : ""}
+        ${word.videoUrl ? `<video controls width="200" src="${word.videoUrl}"></video>` : ""}
+        ${imgTag(word.imageUrl, word.word)}
+        <button onclick="${user.premium ? `playAll('${word.word}')` : 'showPremiumPopup()'}">美女を動かす</button>
+      </div>`;
+  } else {
+    return `
+      <div class="normal-card">
+        <strong>${word.word}（${word.meaning}）</strong><br>
+        ステータス: <input type="checkbox" ${word.status ? "checked" : ""}>
+        <br>
+        ${imgTag(word.imageUrl, word.word)}
+        <br>
+        <button onclick="${user.premium ? `playVideo('${word.videoUrl}')` : 'showPremiumPopup()'}">美女を動かす</button>
+      </div>`;
+  }
+}
 
 function getUserId() {
-	  return localStorage.getItem("userId") || new URLSearchParams(window.location.search).get("userId") || 1;
-	}
-
+  return localStorage.getItem("userId") ||
+         new URLSearchParams(window.location.search).get("userId") ||
+         "1";
+}
 
 function showLevelUpPopup(newLevel) {
 	  const title = getTitleByLevel(newLevel);
