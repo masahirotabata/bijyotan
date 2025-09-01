@@ -450,8 +450,7 @@
 </div>
 <div id="levelGirlContainer" style="text-align:center; margin: 10px 0;">
   <div id="bgEffect" class="star-bg"></div>
-  <video id="girlVideo" src="/videos/girl_idle_loop.mp4" autoplay muted loop playsinline width="180" style="border-radius:10px;"></video>
-
+  <video id="girlVideo" autoplay muted loop playsinline width="180" style="border-radius:10px;"></video>
 </div>
 
 <!-- 追加：Part用ページネーション（上） -->
@@ -577,9 +576,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 	  await loadWords();
 	  // ← これを追加
 	  refreshUserStats();
-
 	  // ✅ 全部完了してから、アップデート情報を表示
 	  showUpdateInfoIfNeeded();
+	  // ★ 追加：動画の自動フォールバック
+  	  ensureHeroVideo();
 	});
 
 //URLのテスト結果をUIへ反映し、必要ならコミットも打つ
@@ -644,6 +644,56 @@ const updateMessage = `
     <li>🐞 軽微なバグ修正とUI改善</li>
   </ul>
 `;
+
+// --- 追加：最初に到達できるURLを選ぶユーティリティ ---
+async function headOk(u){
+  try{
+    const r = await fetch(u, { method: 'HEAD', cache: 'no-store', credentials: 'include' });
+    // 一部環境は HEAD を許可してないので GET でもう一度
+    if (!r.ok) {
+      const g = await fetch(u, { method: 'GET', cache: 'no-store', credentials: 'include' });
+      return g.ok;
+    }
+    return true;
+  }catch{ return false; }
+}
+async function pickFirstAvailable(list){
+  for (const u of list){
+    if (await headOk(u)) return u;
+  }
+  return null;
+}
+
+// --- 追加：ヒロイン動画の自動フォールバック設定 ---
+async function ensureHeroVideo(){
+  const v = document.getElementById('girlVideo');
+  if (!v) return;
+
+  const prefer = (user && (user.premium === true || user.premium === 'true'))
+    ? ['/videos/run_girl_motion.mp4'] : [];
+
+  const candidates = [
+    ...prefer,
+    '/videos/girl_idle_loop.mp4',                                       // ローカル（最優先）
+    'https://cdn.jsdelivr.net/gh/masahirotabata/bijyotan@master/src/main/resources/static/videos/girl_idle_loop.mp4' // CDNフォールバック
+  ];
+  const ok = await pickFirstAvailable(candidates);
+  if (ok){
+    v.src = ok;
+    try { await v.play(); } catch {}
+  }else{
+    // 何も見つからなければ静止画に置き換え（お好み）
+    const p = v.parentElement;
+    v.remove();
+    const img = document.createElement('img');
+    img.src = '/images/beauty.png';
+    img.alt = 'girl';
+    img.style.borderRadius = '10px';
+    img.width = 180;
+    p.appendChild(img);
+  }
+}
+
 
 // ✅ 初回ログイン or バージョン変更時のみ表示
 function showUpdateInfoIfNeeded() {
@@ -987,33 +1037,72 @@ async function fetchUserInfo(userId) {
 }
 
 async function updateLoginPointsIfNeeded(userId) {
-  const candidates = [
-    `/user/${encodeURIComponent(userId)}/update-login-points`, // ←まずこれ
-    `/api/user/${encodeURIComponent(userId)}/update-login-points`,
-    `/api/user/update-login-points?userId=${encodeURIComponent(userId)}`
+  // 候補をいろいろ試す（PUT/GET 両対応）
+  const tries = [
+    { url: `/user/${encodeURIComponent(userId)}/update-login-points`, method: 'PUT', withBody: true },
+    { url: `/api/user/${encodeURIComponent(userId)}/update-login-points`, method: 'PUT', withBody: true },
+    { url: `/api/user/update-login-points?userId=${encodeURIComponent(userId)}`, method: 'PUT', withBody: false },
+    { url: `/api/user/update-login-points?userId=${encodeURIComponent(userId)}`, method: 'GET', withBody: false },
+    { url: `/user/update-login-points?userId=${encodeURIComponent(userId)}`, method: 'GET', withBody: false },
   ];
-  for (const url of candidates) {
+
+  for (const t of tries) {
     try {
-      const res = await apiFetch(url, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId })
+      const res = await apiFetch(t.url, {
+        method: t.method,
+        headers: t.withBody ? { 'Content-Type': 'application/json' } : undefined,
+        body: t.withBody ? JSON.stringify({ userId }) : undefined
       });
       if (res.ok) {
-        // 204 の場合もあるので try/catch で
         const updated = await res.json().catch(() => null);
-        if (updated && typeof updated.loginPoints === 'number') {
-          showLoginBonus(updated.loginPoints);
-          const el = document.getElementById("loginDays");
-          if (el) el.textContent = `学習日数: ${updated.loginPoints}日目`;
+        const points = (updated && typeof updated.loginPoints === 'number') ? updated.loginPoints : undefined;
+        if (typeof points === 'number') {
+          setLoginDays(points);
+          showLoginBonusOncePerDay(points);
         }
-        return;
+        return true;
       }
-      // 404 以外のエラーならそこで終了
-      if (res.status !== 404) break;
+      if (res.status !== 404) return false; // 404以外はそこで終了
     } catch (_) { /* 次の候補へ */ }
   }
+
+  // ---- フォールバック：/user → /api/test/weekly ----
+  try {
+    const uRes = await apiFetch(`/user/${encodeURIComponent(userId)}`);
+    if (uRes.ok) {
+      const u = await uRes.json();
+      if (typeof u.loginPoints === 'number') {
+        setLoginDays(u.loginPoints);
+        showLoginBonusOncePerDay(u.loginPoints);
+        return true;
+      }
+    }
+  } catch {}
+
+  try {
+    const wRes = await apiFetch(`/api/test/weekly?userId=${encodeURIComponent(userId)}`);
+    if (wRes.ok) {
+      const w = await wRes.json();
+      const days = Array.isArray(w) ? w.filter(d => (d.answers ?? 0) > 0).length : 0;
+      const points = Math.max(1, days); // 少なくとも1日目表示
+      setLoginDays(points);
+      showLoginBonusOncePerDay(points);
+      return true;
+    }
+  } catch {}
+
   console.warn('update-login-points endpoint が見つかりませんでした');
+  return false;
+}
+
+// 1日1回だけポップアップ
+function showLoginBonusOncePerDay(points){
+  const d = new Date();
+  const ymd = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const key = `loginBonusShown:${ymd}`;
+  if (localStorage.getItem(key) === '1') return;
+  showLoginBonus(points);
+  localStorage.setItem(key, '1');
 }
 
 
