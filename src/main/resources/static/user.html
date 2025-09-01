@@ -645,18 +645,21 @@ const updateMessage = `
   </ul>
 `;
 
-// --- 追加：最初に到達できるURLを選ぶユーティリティ ---
+// 置き換え
 async function headOk(u){
   try{
-    const r = await fetch(u, { method: 'HEAD', cache: 'no-store', credentials: 'include' });
-    // 一部環境は HEAD を許可してないので GET でもう一度
+    const sameOrigin = u.startsWith(location.origin);
+    const opt1 = { method: 'HEAD', cache: 'no-store', ...(sameOrigin ? {credentials:'include'} : {}) };
+    const r = await fetch(u, opt1);
     if (!r.ok) {
-      const g = await fetch(u, { method: 'GET', cache: 'no-store', credentials: 'include' });
+      const opt2 = { method: 'GET', cache: 'no-store', ...(sameOrigin ? {credentials:'include'} : {}) };
+      const g = await fetch(u, opt2);
       return g.ok;
     }
     return true;
   }catch{ return false; }
 }
+
 async function pickFirstAvailable(list){
   for (const u of list){
     if (await headOk(u)) return u;
@@ -664,7 +667,6 @@ async function pickFirstAvailable(list){
   return null;
 }
 
-// --- 追加：ヒロイン動画の自動フォールバック設定 ---
 async function ensureHeroVideo(){
   const v = document.getElementById('girlVideo');
   if (!v) return;
@@ -674,15 +676,15 @@ async function ensureHeroVideo(){
 
   const candidates = [
     ...prefer,
-    '/videos/girl_idle_loop.mp4',                                       // ローカル（最優先）
-    'https://cdn.jsdelivr.net/gh/masahirotabata/bijyotan@master/src/main/resources/static/videos/girl_idle_loop.mp4' // CDNフォールバック
+    '/videos/girl_idle_loop.mp4',
+    'https://cdn.jsdelivr.net/gh/masahirotabata/bijyotan@master/src/main/resources/static/videos/girl_idle_loop.mp4'
   ];
+
   const ok = await pickFirstAvailable(candidates);
   if (ok){
     v.src = ok;
     try { await v.play(); } catch {}
   }else{
-    // 何も見つからなければ静止画に置き換え（お好み）
     const p = v.parentElement;
     v.remove();
     const img = document.createElement('img');
@@ -694,6 +696,11 @@ async function ensureHeroVideo(){
   }
 }
 
+	// 追加（どこでもOK、updateLoginPointsIfNeeded より上でも下でも）
+function setLoginDays(points){
+  const el = document.getElementById('loginDays');
+  if (el) el.textContent = `学習日数: ${points}日目`;
+}
 
 // ✅ 初回ログイン or バージョン変更時のみ表示
 function showUpdateInfoIfNeeded() {
@@ -1388,16 +1395,23 @@ function playVideo(videoUrl) {
 	    player.currentTime = 0;
 	  };
 	}
+// 置き換え
 function updateGirlVisual(level) {
   const v = document.getElementById("girlVideo");
   const bg = document.getElementById("bgEffect");
   if (!v || !bg) return;
 
-  v.onerror = () => { v.remove(); };   // ← 404ならDOMから撤去
-  if (v.getAttribute("src") !== "/videos/girl_idle_loop.mp4") {
-    v.src = "/videos/girl_idle_loop.mp4";
+  // srcは原則いじらない。空ならだけ初期値を入れる
+  if (!v.getAttribute('src')) {
+    v.src = '/videos/girl_idle_loop.mp4';
   }
-  // 背景エフェクトはそのまま
+  // 404時はCDNにフォールバック
+  v.onerror = () => {
+    v.onerror = null;
+    v.src =
+      'https://cdn.jsdelivr.net/gh/masahirotabata/bijyotan@master/src/main/resources/static/videos/girl_idle_loop.mp4';
+  };
+
   bg.className = level >= 20 ? "heart-bg" : "star-bg";
 }
 
