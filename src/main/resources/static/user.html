@@ -466,6 +466,15 @@
   padding: 0 12px;               /* 画面端の“戻る”ジェスチャーを避ける余白 */
 }
 
+/* 末尾に追記：位置を詰める */
+#swipeModeBox{
+  margin: 8px auto 0 !important;   /* 上の余白を小さく */
+}
+#swipeDeck{
+  height: 340px !important;        /* わずかに浅くして画面上寄せ */
+}
+.swipe-hud{ margin: 4px 6px 8px !important; }
+
 /* モバイルでは列数を減らしOKを押しやすく */
 @media (max-width:480px){
   #stampGrid{ grid-template-columns: repeat(4, minmax(56px,1fr)); }
@@ -624,6 +633,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 	  showUpdateInfoIfNeeded();
 	  // ★ 追加：動画の自動フォールバック
   	  ensureHeroVideo();
+	 // ★ ここで位置を確定
+	  placeSwipeBoxAboveStartButton();
 	});
 
 //URLのテスト結果をUIへ反映し、必要ならコミットも打つ
@@ -785,10 +796,16 @@ async function checkPremiumStatus(userId) {
 	  }
 	}
 
-
-
-
-
+function placeSwipeBoxAboveStartButton(){
+  const box = document.getElementById('swipeModeBox');
+  const btn = document.getElementById('swipeStartBtn');
+  if (!box || !btn) return;
+  const wrap = btn.parentElement;                 // ボタンを包む <div ...>
+  if (wrap && box.previousElementSibling !== wrap){
+    // ボタンの“直前”に #swipeModeBox を移動
+    wrap.parentNode.insertBefore(box, wrap);
+  }
+}
 
 function changePart(partName) {
 	  currentPart = partName;
@@ -1064,8 +1081,9 @@ function getUserIdFromQuery() {
   return params.get('userId');
 }
 
+// fetchUserInfo 内の末尾あたりを差し替え
 async function fetchUserInfo(userId) {
-    const res = await fetch(`/user/${encodeURIComponent(userId)}`, { credentials: 'include' });
+  const res = await fetch(`/user/${encodeURIComponent(userId)}`, { credentials: 'include' });
   if (!res.ok) {
     alert("ユーザー情報が取得できません。ログインし直してください。");
     window.location.href = "login.html";
@@ -1075,13 +1093,20 @@ async function fetchUserInfo(userId) {
   user = data;
 
   localStorage.setItem("userId", data.id);
-  document.getElementById("username").innerText = `${data.username} さん、ようこそ！`;
-  document.getElementById("planText").innerText = `プラン: ${data.premium ? "プレミアム" : "無料"}`;
-  document.getElementById("userLevel").innerText = `レベル: Lv.${data.level || 1}`;
+  document.getElementById("username").innerText   = `${data.username} さん、ようこそ！`;
+  document.getElementById("planText").innerText   = `プラン: ${data.premium ? "プレミアム" : "無料"}`;
+  document.getElementById("userLevel").innerText  = `レベル: Lv.${data.level || 1}`;
   updateGirlVisual(data.level || 1);
 
-  await updateLoginPointsIfNeeded(data.id);
+  // ← 成功/失敗に関わらず、必ずどちらかで表示まで到達させる
+  const ok = await updateLoginPointsIfNeeded(data.id);
+  if (!ok) {
+    const points = (typeof data.loginPoints === 'number') ? data.loginPoints : 1;
+    setLoginDays(points);
+    showLoginBonusOncePerDay(points);
+  }
 }
+
 
 async function updateLoginPointsIfNeeded(userId) {
   // 候補をいろいろ試す（PUT/GET 両対応）
@@ -1937,6 +1962,7 @@ async function setUserPremium(userId) {
 
 	// ✅ スワイプ学習開始時：最初に広告 → 終了後モード選択
 	function startSwipeMode(partValue = selectedPart){
+	  placeSwipeBoxAboveStartButton();   // ← 追加
 	  selectedPart = partValue;
 
 	  const lockedParts = ["part4", "part5", "part6", "partHealing", "musou"];
