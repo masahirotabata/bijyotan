@@ -430,6 +430,49 @@
   cursor: default;
 }
 
+/* --- Login Bonus modal --- */
+#loginBonusPopup{
+  display:none;           /* JSでflexにする */
+  position:fixed;
+  inset:4vh 3vw;          /* 画面に収める余白 */
+  background:#fff;
+  border:2px solid #ccc;
+  border-radius:12px;
+  z-index:9999;
+  box-shadow:0 8px 20px rgba(0,0,0,.15);
+  padding:12px 12px 0;
+  overflow:hidden;        /* 内側だけスクロール */
+  display:flex; flex-direction:column;
+}
+#stampScroll{
+  flex:1;                 /* ここがスクロール領域 */
+  overflow:auto;
+  -webkit-overflow-scrolling:touch;
+  padding:8px 2px 12px;
+}
+#stampGrid{
+  display:grid;
+  grid-template-columns: repeat(6, minmax(50px,1fr));
+  gap:10px;
+}
+#loginBonusOkBtn{
+  position:sticky; bottom:0;
+  margin:8px auto calc(env(safe-area-inset-bottom) + 8px);
+  width:min(380px, 90%);
+}
+
+#swipeDeck{
+  overscroll-behavior: contain; /* 画面端のオーバースクロール無効 */
+  padding: 0 12px;               /* 画面端の“戻る”ジェスチャーを避ける余白 */
+}
+
+/* モバイルでは列数を減らしOKを押しやすく */
+@media (max-width:480px){
+  #stampGrid{ grid-template-columns: repeat(4, minmax(56px,1fr)); }
+}
+
+/* モーダル時は背景スクロールを止める */
+body.modal-open{ overflow:hidden; height:100vh; }
   
   </style>
 	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -437,11 +480,12 @@
 <body>
 
 <!-- スタンプカードポップアップ -->
-<div id="loginBonusPopup" style="display:none; position: fixed; top: 10%; left: 10%; width: 80%; height: 70%; background: white; border: 2px solid #ccc; z-index: 9999; padding: 20px; overflow: auto;">
+<div id="loginBonusPopup">
   <h3>ログインボーナス</h3>
-  <div id="stampGrid" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px;"></div>
-  <button onclick="closeLoginBonus()">OK</button>
+  <div id="stampScroll"><div id="stampGrid"></div></div>
+  <button id="loginBonusOkBtn" onclick="closeLoginBonus()">OK</button>
 </div>
+
 
 <div id="user-info">
   <div id="username"></div>
@@ -1037,10 +1081,6 @@ async function fetchUserInfo(userId) {
   updateGirlVisual(data.level || 1);
 
   await updateLoginPointsIfNeeded(data.id);
-
-  if (typeof data.loginPoints === 'number') {
-    showLoginBonus(data.loginPoints);
-  }
 }
 
 async function updateLoginPointsIfNeeded(userId) {
@@ -1240,18 +1280,28 @@ function renderWords() {
 
 
 function toggleImage(imgId, btnId, img1, img2, index) {
-	  const imgElem = document.getElementById(imgId);
-	  const pathLabel = document.getElementById(`imgpath-${index}`);
-	  const currentSrc = imgElem.getAttribute("src");
+  const imgElem = document.getElementById(imgId);
+  const pathLabel = document.getElementById(`imgpath-${index}`);
 
-	  if (currentSrc === img1) {
-	    imgElem.src = img2;
-	    pathLabel.textContent = img2;
-	  } else {
-	    imgElem.src = img1;
-	    pathLabel.textContent = img1;
-	  }
-	}
+  // 現在の状態は data-state で管理（'1' or '2'）
+  const nextState = imgElem.dataset.state === '2' ? '1' : '2';
+  const nextSrc = nextState === '2' ? img2 : img1;
+
+  const test = new Image();
+  test.onload = () => {
+    imgElem.src = nextSrc;
+    imgElem.dataset.state = nextState;
+    pathLabel.textContent = nextSrc;
+  };
+  test.onerror = () => {
+    // 失敗時はデフォ画像に戻す
+    imgElem.src = img1;
+    imgElem.dataset.state = '1';
+    pathLabel.textContent = img1;
+  };
+  test.src = nextSrc;
+}
+
 
 function handleToggleImage(imgId, btnId, img1, img2, index) {
 	  // 実際の切替処理をコールバック化
@@ -1544,47 +1594,50 @@ async function loadWeeklyAnswers(){
 	document.addEventListener("DOMContentLoaded", loadWeeklyAnswers);
 
 
-	
-function showLoginBonus(points) {
-	  const grid = document.getElementById('stampGrid');
-	  grid.innerHTML = '';
+function showLoginBonus(points){
+  const grid = document.getElementById('stampGrid');
+  grid.innerHTML = '';
+  const displayPoints = Math.max(points, 1);
 
-	  // ⭐ loginPointsが0でも、1日目にスタンプを表示
-	  const displayPoints = Math.max(points, 1);
+  for (let i = 1; i <= 30; i++) {
+    const cell = document.createElement('div');
+    cell.style.width = '60px';
+    cell.style.height = '60px';
+    cell.style.border = '1px solid #999';
+    cell.style.display = 'flex';
+    cell.style.justifyContent = 'center';
+    cell.style.alignItems = 'center';
+    cell.style.backgroundColor = '#eee';
 
-	  for (let i = 1; i <= 30; i++) {
-	    const cell = document.createElement('div');
-	    cell.style.width = '60px';
-	    cell.style.height = '60px';
-	    cell.style.border = '1px solid #999';
-	    cell.style.display = 'flex';
-	    cell.style.justifyContent = 'center';
-	    cell.style.alignItems = 'center';
-	    cell.style.backgroundColor = '#eee';
+    if (i <= displayPoints) {
+      const img = document.createElement('img');
+      img.src = '/images/stamp_beauty.png';
+      img.alt = 'スタンプ';
+      img.style.width = '100%';
+      img.style.height = '100%';
+      img.style.objectFit = 'cover';
+      img.style.borderRadius = '50%';
+      img.style.border = '2px solid pink';
+      if (i === displayPoints) img.style.animation = 'pop 0.6s ease';
+      cell.appendChild(img);
+    } else {
+      const label = document.createElement('div');
+      label.textContent = `${i}日目`;
+      label.style.fontSize = '12px';
+      cell.appendChild(label);
+    }
+    grid.appendChild(cell);
+  }
 
-	    if (i <= displayPoints) {
-	      const img = document.createElement('img');
-	      img.src = '/images/stamp_beauty.png';
-	      img.alt = 'スタンプ';
-	      img.style.width = '100%';
-	      img.style.height = '100%';
-	      img.style.objectFit = 'cover';
-	      img.style.borderRadius = '50%';
-	      img.style.border = '2px solid pink';
-	      if (i === displayPoints) img.style.animation = 'pop 0.6s ease';
-	      cell.appendChild(img);
-	    } else {
-	      const label = document.createElement('div');
-	      label.textContent = `${i}日目`;
-	      label.style.fontSize = '12px';
-	      cell.appendChild(label);
-	    }
+  document.getElementById('loginBonusPopup').style.display = 'flex'; // ← block→flex
+  document.body.classList.add('modal-open');                         // ← 背景停止
+}
 
-	    grid.appendChild(cell);
-	  }
+function closeLoginBonus(){
+  document.getElementById('loginBonusPopup').style.display = 'none';
+  document.body.classList.remove('modal-open'); // ← 背景再開
+}
 
-	  document.getElementById('loginBonusPopup').style.display = 'block';
-	}
 	
 	function getTitleByLevel(level) {
 		  if (level >= 20) return "ホットパンツの覇者";
@@ -1593,10 +1646,6 @@ function showLoginBonus(points) {
 		  if (level >= 5) return "Newbie";
 		  return "ビギナー";
 		}
-
-	function closeLoginBonus() {
-	  document.getElementById("loginBonusPopup").style.display = "none";
-	}
 	
 	function showPremiumPopup() {
 		  Swal.fire({
@@ -1940,44 +1989,87 @@ async function setUserPremium(userId) {
 	  });
 	}
 
+function scrollToSwipeTop(){
+  const box = document.getElementById('swipeModeBox');
+  if (!box) return;
+  box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* A) 横方向のタッチ移動は既定動作を止める（iOS対策） */
+function preventIOSBackSwipe(){
+  const deck = document.getElementById('swipeDeck');
+  if (!deck || deck._iosGuardInstalled) return;
+  let sx = 0, sy = 0;
+  deck.addEventListener('touchstart', e => {
+    const t = e.touches && e.touches[0];
+    if (!t) return;
+    sx = t.clientX; sy = t.clientY;
+  }, {passive:true});
+  deck.addEventListener('touchmove', e => {
+    const t = e.touches && e.touches[0];
+    if (!t) return;
+    const dx = Math.abs(t.clientX - sx);
+    const dy = Math.abs(t.clientY - sy);
+    if (dx > dy && dx > 8) {
+      // 横方向の操作っぽい時だけ既定動作をキャンセル
+      e.preventDefault();
+    }
+  }, {passive:false});
+  deck._iosGuardInstalled = true;
+}
+
+/* B) スワイプ中だけ“戻るジェスチャー”を捕まえて一覧に戻す */
+let _backGuardHandler = null;
+function enableSwipeBackGuard(){
+  if (_backGuardHandler) return;
+  history.pushState({swipe:'on'}, '', location.href); // ダミー履歴を積む
+  _backGuardHandler = () => {
+    // 端スワイプでpopstateが来たら、ページ遷移せずスワイプを閉じる
+    history.pushState({swipe:'on'}, '', location.href); // すぐ戻しておく
+    exitSwipeMode();
+  };
+  window.addEventListener('popstate', _backGuardHandler);
+}
+function disableSwipeBackGuard(){
+  if (!_backGuardHandler) return;
+  window.removeEventListener('popstate', _backGuardHandler);
+  _backGuardHandler = null;
+  // 履歴が1つ増えている可能性があるが、ここでは遷移を発生させない
+}
 
 
-	// 既存の initSwipeMode を丸ごと置き換え
-	async function initSwipeMode(mode = "unlearned"){
-	  currentSwipeMode = mode;
-	  setSwipeModeVisible(true);
+async function initSwipeMode(mode = "unlearned"){
+  currentSwipeMode = mode;
+  setSwipeModeVisible(true);
+  showSwipeHowToIfNeeded(); // setSwipeModeVisible(true) の直後など
+  requestAnimationFrame(scrollToSwipeTop);  // ← 追加
 
-	  const userId = getUserIdFromQuery() || 1;
-	  if (!Array.isArray(words) || words.length === 0) {
-	    words = await fetchWordsFromServer(userId, selectedPart);
-	  }
+  const userId = getUserIdFromQuery() || 1;
+  if (!Array.isArray(words) || words.length === 0) {
+    words = await fetchWordsFromServer(userId, selectedPart);
+  }
+  swipeWords = await buildSwipeDeck(mode);
+  if (swipeWords.length === 0) {
+    Swal.fire({icon:'info', title:(mode==="review"?"今日は復習がありません":"今日は未学習がありません")});
+    setSwipeModeVisible(false);
+    return;
+  }
+  swipeIndex = 0; swipeLearned = 0; swipeUnlearned = 0;
+  await renderSwipeDeck();
+  updateSwipeHUD();
+  document.getElementById('swipeExitBtn').onclick = exitSwipeMode;
 
-	  // デッキ作成（未学習30 / 復習30 / デフォルトは25+5）
-	  swipeWords = await buildSwipeDeck(mode);
+  // iOSの横スワイプ干渉対策（下の 3) とセット）
+  preventIOSBackSwipe();
+  enableSwipeBackGuard();
+}
+function exitSwipeMode(){
+  setSwipeModeVisible(false);
+  renderWords();
+  updateStatusCount();
+  disableSwipeBackGuard();  // ← 追加
+}
 
-	  if (swipeWords.length === 0) {
-	    const msg = (mode === "review")
-	      ? "今日は復習用の単語が見つかりませんでした"
-	      : "今日は出題する未学習がありません";
-	    Swal.fire({icon:'info', title: msg, text:'パート変更や明日またチャレンジしてね！'});
-	    setSwipeModeVisible(false);
-	    return;
-	  }
-
-	  swipeIndex = 0;
-	  swipeLearned = 0;   // 未学習: 覚えた / 復習: OK
-	  swipeUnlearned = 0; // 未学習: 覚えてない / 復習: 忘れていた
-
-	  await renderSwipeDeck();
-	  updateSwipeHUD();
-	  document.getElementById('swipeExitBtn').onclick = exitSwipeMode;
-	}
-
-	function exitSwipeMode(){
-	  setSwipeModeVisible(false);                      // ← 一覧へ戻す
-	  renderWords();
-	  updateStatusCount();
-	}
 
 		
 		// 🔸 スワイプ用デッキを組む（未学習のみ + 今日の除外を引く）
