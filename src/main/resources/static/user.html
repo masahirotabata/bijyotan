@@ -1319,13 +1319,16 @@ function esc(s=''){
     .replace(/'/g,'&#39;');
 }
 
-function safeSrc(u, { allowDataImage=false } = {}){
-	try{
-	const url = new URL(u, location.origin);
-	const okHttp = url.protocol === 'http:' || url.protocol === 'https:';
-	const okData = allowDataImage && url.protocol === 'data:';
-	return (okHttp || okData) ? url.href : '/images/beauty.png';
-	} catch { return '/images/beauty.png'; }
+function safeSrc(u, { allowDataImage=false, allowData=false, allowBlob=false } = {}){
+  try{
+    const url = new URL(u, location.origin);
+    const isHttp = url.protocol === 'http:' || url.protocol === 'https:';
+    const isData = url.protocol === 'data:' && (allowData || allowDataImage);
+    const isBlob = url.protocol === 'blob:' && allowBlob;
+    return (isHttp || isData || isBlob) ? url.href : '/images/beauty.png';
+  } catch {
+    return '/images/beauty.png';
+  }
 }
 	
 function escHTML(v=''){ return String(v)
@@ -1441,11 +1444,11 @@ function setupWordDelegation(){
       handleToggleImage(imgId, tgl.id, base, specific, index);
       return;
     }
-    const play = e.target.closest("button.js-play");
-    if (play) {
-      const url = safeSrc(play.dataset.video);
-      if (url) playVideo(url);
-    }
+	const play = e.target.closest("button.js-play");
+	if (play) {
+	  const url = safeSrc(play.dataset.video, { allowData:true, allowBlob:true });
+	  if (url) playVideo(url);
+	}
   });
 
   root.addEventListener("change", (e) => {
@@ -1490,12 +1493,10 @@ function toggleImage(imgId, btnId, img1, img2, index) {
   test.src = nextSrc;
 }
 
-
-
 function handleToggleImage(imgId, btnId, img1, img2, index) {
   const proceed = () => toggleImage(imgId, btnId, img1, img2, index);
   const total = incBeautyClickCount();
-if (!isPremium() && AD_EVERY_TOGGLE > 0 && total % AD_EVERY_TOGGLE === 0) {
+  if (!isPremium() && Number.isFinite(AD_EVERY_TOGGLE) && AD_EVERY_TOGGLE > 0 && total % AD_EVERY_TOGGLE === 0) {
     showAdModalForToggle(proceed);
     return;
   }
@@ -1581,7 +1582,7 @@ function unlockCasualSuit() {
 }
 
 function playVideo(videoUrl) {
-  const url = safeSrc(videoUrl);
+  const url = safeSrc(videoUrl, { allowData:true, allowBlob:true });
   if (!url) return;
   const modal = document.getElementById("videoModal");
   const player = document.getElementById("videoPlayer");
@@ -1651,7 +1652,6 @@ function toggleStatus(isChecked, wordId, part) {
   });
 }
 
-// 置き換え
 async function updateStatusCount() {
   const tries = [
     `/api/learning/count?part=${encodeURIComponent(selectedPart)}`,
@@ -1662,19 +1662,24 @@ async function updateStatusCount() {
     try {
       const res = await apiFetch(url);
       if (res.ok) {
-        const learnedCount = await res.json();
+        const raw = await res.json();
+        const learnedCount = Number(raw);
         const totalCount = words.length;
-        const unlearnedCount = Math.max(0, totalCount - learnedCount);
+        const safeLearned = Number.isFinite(learnedCount) ? learnedCount : 0;
+        const unlearnedCount = Math.max(0, totalCount - safeLearned);
         document.getElementById("learningStatus").textContent =
-          `学習済み: ${learnedCount} / 未学習: ${unlearnedCount}`;
+          `学習済み: ${safeLearned} / 未学習: ${unlearnedCount}`;
         return;
       }
       if (res.status !== 404) break;
     } catch (_) {}
   }
   document.getElementById("learningStatus").textContent = "学習状況の取得に失敗しました";
+  window.addEventListener('pageshow', () => {
+  // 途中でリロードされても履歴ガードを必ずオフに
+  try { disableSwipeBackGuard(); } catch {}
+});
 }
-
 
 //置き換え版：数値ラベルを表示
 async function loadWeeklyAnswers(){
@@ -1801,45 +1806,34 @@ function showPremiumPopup() {
     showCancelButton: true,
     confirmButtonText: "プレミアムに登録する",
     cancelButtonText: "あとで見る",
-    customClass: {
-      popup: 'premium-popup',
-      confirmButton: 'btn-premium'
-    }
-  }).then(async (result) => {
-    if (result.isConfirmed) {
-      // ここでチェックアウトセッションを作ってリダイレクト
-      try {
-        const r = await apiFetch('/api/payment/create-checkout-session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          // セッション認証なら userId 不要。サーバ仕様に合わせて必要なら付与
-          body: JSON.stringify({ /* userId: getUserId() */ })
-        });
-        const data = await r.json();
-        if (data && data.checkoutUrl) {
-          window.location.href = data.checkoutUrl;
-        } else {
-          // フォールバック
-          window.location.href = "/premium.html";
-        }
-      } catch (e) {
-        console.error(e);
-        window.location.href = "/premium.html";
-      }
+    allowOutsideClick: false,
+    customClass: { popup: 'premium-popup', confirmButton: 'btn-premium' }
+  }).then(async ({ isConfirmed }) => {
+    if (!isConfirmed) return;
+
+    try {
+      const r = await apiFetch('/api/payment/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const ct = r.headers.get('content-type') || '';
+      const data = ct.includes('application/json') ? await r.json() : null;
+
+      const url = data?.checkoutUrl || data?.url;
+      if (!url) throw new Error('no checkout url');
+
+      window.location.href = url;
+    } catch (e) {
+      console.error('checkout failed:', e);
+      window.location.href = '/premium.html';
     }
   });
 }
 	
-apiFetch('/api/payment/create-checkout-session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: getUserId() }) })
-	  .then(res => res.json())
-	  .then(data => { window.location.href = data.checkoutUrl; })
-	  .catch(console.error);
-	}
-	
-
-
-
-	function startTest() {
+function startTest() {
 		  const userId = getUserId();  
 		  const testCount = localStorage.getItem("test_started");
 
