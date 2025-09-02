@@ -615,6 +615,15 @@ const apiFetch = (path, opts = {}) => {
   return fetch(path, { credentials: 'include', ...opts, headers });
 };
 
+// JSONしか受け付けないfetch（Cookie付き・非JSONは例外）
+async function fetchJSON(url, opts) {
+  const res = await apiFetch(url, opts);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const ct = res.headers.get('content-type') || '';
+  if (!ct.includes('application/json')) throw new Error('non-json');
+  return res.json();
+}
+
 // グローバルで使っているのに未宣言だったので用意
 let musouMode = false;
 let words = [];
@@ -696,11 +705,7 @@ async function applyTestParamsAndCommit() {
 
   // 未コミットならここでリトライコミット
   try {
-    const res = await fetch('/api/test/commit', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ mode, correct: score, total })
-    });
+   const res = await apiFetch('/api/test/commit', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ mode, correct: score, total }) });
     if (res.ok) {
       sessionStorage.setItem(committedKey, '1');
     } else {
@@ -731,7 +736,10 @@ const updateMessage = `
 // 置き換え
 async function headOk(u){
   try{
-    const sameOrigin = u.startsWith(location.origin);
+    const sameOrigin = (() => {
+		try { return new URL(u, location.origin).origin === location.origin; }
+		catch { return false; }
+	})();
     const opt1 = { method: 'HEAD', cache: 'no-store', ...(sameOrigin ? {credentials:'include'} : {}) };
     const r = await fetch(u, opt1);
     if (!r.ok) {
@@ -805,10 +813,10 @@ function showUpdateInfoIfNeeded() {
 	
 async function checkPremiumStatus(userId) {
 	  try {
-	   const res = await fetch(`/user/${encodeURIComponent(userId)}`, {
-		     credentials: 'include'
-			});
-	    const u = await res.json();
+			const res = await apiFetch(`/user/${encodeURIComponent(userId)}`);
+		  	const ct = res.headers.get('content-type') || '';
+		    if (!res.ok || !ct.includes('application/json')) return;
+	    	const u = await res.json();
 	    if (u.premium === true) {
 	      // 既存の girlVideo を使用し、存在しない場合はフォールバック
 	      const v = document.getElementById("girlVideo");
@@ -861,10 +869,10 @@ function toSlugForImage(s) {
 // API 1件をフロントで共通形に正規化
 function normalizeWord(raw) {
   const w = {
+    id: raw.id ?? raw.wordId ?? raw.word_id ?? raw._id ?? null,   // ← 追加
     word: raw.word ?? "",
     meaning: raw.meaning ?? "",
     part: (raw.part ?? "").toLowerCase(),
-    // どっちの表記でも拾う
     pictUrl: raw.pict_url ?? raw.pictUrl ?? "",
     pictUrlStatic: raw.pict_url_static ?? raw.pictUrlStatic ?? "",
     pictUrlAnimated: raw.pict_url_animated ?? raw.pictUrlAnimated ?? "",
@@ -900,7 +908,7 @@ function imgTag(src, alt = "") {
 async function uploadAndNormalize(file, mode = "cover") {
   const form = new FormData();
   form.append("file", file);
-  const res = await fetch(`/api/images/normalize/${mode}`, { method: "POST", body: form });
+  const res = await apiFetch(`/api/images/normalize/${mode}`, { method: "POST", body: form });
   if (!res.ok) throw new Error("画像の正規化に失敗");
   return await res.json(); // { url, width, height, mode }
 }
@@ -1105,49 +1113,50 @@ async function readJsonIfPossible(res) {
 }
 
 async function fetchUserInfo() {
-  const uid = getUserIdFromQuery();
+  const uid = getUserIdFromQuery() || localStorage.getItem('userId');
+
+  // 可能性のあるエンドポイントを順に試す
   const candidates = [
     '/user/me',
-    '/api/user/me',                                   // 追加
-    uid ? `/api/user/${encodeURIComponent(uid)}` : null, // /api を先に
-    uid ? `/user/${encodeURIComponent(uid)}` : null,      // ← 一番最後（HTMLに吸われやすい）
-  ].filter(Boolean);
+    ...(uid ? [`/user/${encodeURIComponent(uid)}`] : []),
+    '/api/user/me'
+  ];
 
   for (const url of candidates) {
     try {
-      const res = await fetch(url, {
-        credentials: 'include',
-        headers: { 'Accept': 'application/json' }
-      });
-
-      // 認証切れは即ログインへ
-      if (res.status === 401 || res.status === 403) break;
-      if (!res.ok) continue;
-
-      const data = await readJsonIfPossible(res);   // ★ HTMLだったら null
-      if (!data || typeof data !== 'object' || data.id == null) continue;
-
-      // ここから成功時処理
+      const data = await fetchJSON(url);
       user = data;
-	  user.premium = (data.premium === true || data.premium === 'true' || data.isPremium === true);
+
       localStorage.setItem("userId", String(data.id));
       document.getElementById("username").innerText  = `${data.username} さん、ようこそ！`;
       document.getElementById("planText").innerText  = `プラン: ${data.premium ? "プレミアム" : "無料"}`;
       document.getElementById("userLevel").innerText = `レベル: Lv.${data.level || 1}`;
       updateGirlVisual(data.level || 1);
 
+      // ログボ更新＆表示
       const ok = await updateLoginPointsIfNeeded(data.id);
       if (!ok) {
-        const points = Number.isFinite(data.loginPoints) ? data.loginPoints : 1;
+        const points = (typeof data.loginPoints === 'number') ? data.loginPoints : 1;
         setLoginDays(points);
         showLoginBonusOncePerDay(points);
       }
-      return;
-    } catch { /* 次へ */ }
+      return true;
+    } catch (e) {
+      // 次の候補へ
+    }
   }
 
-  alert("ユーザー情報が取得できません。ログインし直してください。");
-  location.href = "login.html";
+  // どれもダメ（未ログイン or 非JSON）
+  Swal.fire({
+    icon: 'warning',
+    title: 'ログインが必要です',
+    text: 'もう一度ログインしてください。'
+  }).then(() => {
+    // サーバのログインパスに合わせて片方が効くよう二段構え
+    location.href = '/login';
+    setTimeout(() => { location.href = 'login.html'; }, 200);
+  });
+  return false;
 }
 
 async function updateLoginPointsIfNeeded(userId) {
@@ -1666,23 +1675,19 @@ async function updateStatusCount() {
 //置き換え版：数値ラベルを表示
 async function loadWeeklyAnswers(){
   try{
-    const res = await apiFetch('/api/test/weekly', {
-      credentials: 'include',
-      	headers:{ 'Accept':'application/json' },
-    });
-    if (!res.ok) return;
-
-    const data = await readJsonIfPossible(res); // ← ここがポイント
-    if (!data) { console.warn('weekly endpoint returned non-JSON, skip'); return; }
-
-    // 以降は今の描画ロジックのまま
+    const res = await apiFetch('/api/test/weekly');
+    const ct = res.headers.get('content-type') || '';
+    if (!res.ok || !ct.includes('application/json')) {
+      console.warn('weekly endpoint returned non-JSON, skip');
+      return;
+    }
+    const data = await res.json(); // [{ymd, answers, correct}, ...]
     const max = Math.max(1, ...data.map(d => d.answers));
     const bars = document.getElementById('weeklyBars');
     const labels = document.getElementById('weeklyLabels');
     bars.innerHTML = ''; labels.innerHTML = '';
-
     data.forEach(d => {
-      const h = Math.round((d.answers / max) * 120); // 最大120px
+      const h = Math.round((d.answers / max) * 120);
       const wrap = document.createElement('div');
       wrap.style.flex = '1';
       wrap.style.display = 'flex';
@@ -1690,17 +1695,15 @@ async function loadWeeklyAnswers(){
       wrap.style.alignItems = 'center';
       wrap.style.justifyContent = 'flex-end';
 
-      // 上に正解数を表示
       const num = document.createElement('div');
-      num.textContent = d.correct;   // 正解数のみ
+      num.textContent = d.correct;
       num.style.fontSize = '.8rem';
       num.style.color = '#e91e63';
       num.style.marginBottom = '4px';
       wrap.appendChild(num);
 
-      // 棒（解答数を基準にした高さ）
       const bar = document.createElement('div');
-      bar.title = `正解:${d.correct} / 解答:${d.answers}`; // ツールチップで正解/解答
+      bar.title = `正解:${d.correct} / 解答:${d.answers}`;
       bar.style.width = '24px';
       bar.style.height = `${h}px`;
       bar.style.borderRadius = '8px';
@@ -1710,14 +1713,14 @@ async function loadWeeklyAnswers(){
 
       bars.appendChild(wrap);
 
-      // 日付ラベル
       const dd = new Date(d.ymd);
       const label = document.createElement('div');
-      const mmdd = `${(dd.getMonth()+1).toString().padStart(2,'0')}/${dd.getDate().toString().padStart(2,'0')}`;
+      const mm = String(dd.getMonth()+1).padStart(2,'0');
+      const ddn = String(dd.getDate()).padStart(2,'0');
       const youbi = ['日','月','火','水','木','金','土'][dd.getDay()];
       label.style.flex='1';
       label.style.textAlign='center';
-      label.innerHTML = `<div>${mmdd}</div><div style="opacity:.7">${youbi}</div>`;
+      label.innerHTML = `<div>${mm}/${ddn}</div><div style="opacity:.7">${youbi}</div>`;
       labels.appendChild(label);
     });
   }catch(e){
@@ -1805,13 +1808,7 @@ function closeLoginBonus(){
 		  });
 		}
 	
-	function subscribePremium() {
-	  fetch('/api/payment/create-checkout-session', {
-	    method: 'POST',
-	    headers: { 'Content-Type': 'application/json' },
-	    // サーバがセッションで特定するなら body 自体不要。使うなら getUserId()
-	    body: JSON.stringify({ userId: getUserId() })
-	  })
+apiFetch('/api/payment/create-checkout-session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: getUserId() }) })
 	  .then(res => res.json())
 	  .then(data => { window.location.href = data.checkoutUrl; })
 	  .catch(console.error);
@@ -1924,71 +1921,64 @@ function closeLoginBonus(){
 	// 累計正答と学習日数を /user/{id} から更新。
 	// loginPoints がなければ /api/test/weekly から直近7日の「回答>0日数」を表示。
 	async function refreshUserStats() {
-	  try {
-	    const res = await fetch(`/user/me`, { credentials:'include', headers:{Accept:'application/json'} });
-	    if (res.ok) {
-	      const u = await readJsonIfPossible(res);
-		　if (!u) throw new Error('non-JSON');
+  try {
+    const res = await apiFetch(`/user/me`);
+    const ct = res.headers.get('content-type') || '';
+    if (!res.ok || !ct.includes('application/json')) throw new Error('non-json');
+    const u = await res.json();
 
-	      // 学習日数
-	      const days = (typeof u.loginPoints === 'number') ? u.loginPoints : 0;
-	      document.getElementById("loginDays").textContent = `学習日数: ${days}日目`;
+    // 学習日数
+    const days = (typeof u.loginPoints === 'number') ? u.loginPoints : 0;
+    document.getElementById("loginDays").textContent = `学習日数: ${days}日目`;
 
-	      // 累計正答（/api/test/commit で増えるのはこっち）
-	   	  const totalCorrect = Number(u.testCorrectTotal ?? 0);
-	      document.getElementById("testStats").textContent = `正答数（累計）: ${totalCorrect}`;
-	      
-	      // ★ レベルを計算し、DBに反映
-	     const newLevel = Math.max(1, Math.floor(totalCorrect / 10) + 1);
-     const currentLevel = Number(u.level ?? 1);
-     if (currentLevel !== newLevel) {
-       // サーバに保存（URL修正済み）
-      const r = await fetch(`/api/user/updateLevel`, {
-         method: 'PUT',
-	　　　credentials: 'include',
-         headers: { 'Content-Type': 'application/json', 'Accept':'application/json' },
-         body: JSON.stringify({ userId: (u.id ?? getUserId()), level: newLevel })
-       });
-       if (r.ok) {
-         const json = await r.json().catch(() => ({}));
-         u.level = Number(json.level ?? newLevel); // 返却なければ計算値
-       } else {
-         // 保存に失敗してもUIは進める（体験優先／次回再同期）
-         u.level = newLevel;
-       }
-     }
-	   		  // 表示更新（DB値を優先）
-	      	  const levelEl = document.getElementById("userLevel");
-		      const lv = Number(u.level ?? 1);
-		      if (levelEl) levelEl.textContent = `レベル: Lv.${lv}`;
-		      updateGirlVisual(lv);
+    // 累計正答 → レベル更新
+    const totalCorrect = Number(u.testCorrectTotal ?? 0);
+    document.getElementById("testStats").textContent = `正答数（累計）: ${totalCorrect}`;
 
-	      // レベル演出のためにローカルも更新
-	      const prev = parseInt(localStorage.getItem('previousCorrect') || '0', 10);
-	      const prevLv = Math.floor(prev / 10);
-	      const newLv  = Math.floor(totalCorrect / 10);
-	      if (newLv > prevLv) {
-	        for (let lv = prevLv + 1; lv <= newLv; lv++) showLevelUpPopup(lv);
-	      }
-	      localStorage.setItem('previousCorrect', String(totalCorrect));
-	      return;
-	    }
-	  } catch (e) {
-	    console.warn('refreshUserStats /user fetch failed', e);
-	  }
+    const newLevel = Math.max(1, Math.floor(totalCorrect / 10) + 1);
+    const currentLevel = Number(u.level ?? 1);
+    if (currentLevel !== newLevel) {
+      const userId = getUserId(); // ← 追加
+      const r = await apiFetch(`/user/updateLevel`, {
+        method:'PUT',
+        headers:{ 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, level: newLevel })
+      });
+      if (r.ok) {
+        const json = await r.json().catch(() => ({}));
+        u.level = Number(json.level ?? newLevel);
+      } else {
+        u.level = newLevel;
+      }
+    }
+    const levelEl = document.getElementById("userLevel");
+    const lv = Number(u.level ?? 1);
+    if (levelEl) levelEl.textContent = `レベル: Lv.${lv}`;
+    updateGirlVisual(lv);
 
-	  // フォールバック：/weekly から直近7日で「回答>0の日」を学習日数として表示
-	  try {
-	   	const r2 = await fetch('/api/test/weekly');
-	    if (r2.ok) {
-	      const w = await r2.json(); // [{ymd, answers, correct} ...]
-	      const days = w.filter(d => d.answers > 0).length;
-	      document.getElementById("loginDays").textContent = `学習日数(直近7日): ${days}日`;
-	    }
-	  } catch (e) {
-	    /* 無視 */
-	  }
-	}
+    // レベル演出
+    const prev = parseInt(localStorage.getItem('previousCorrect') || '0', 10);
+    const prevLv = Math.floor(prev / 10);
+    const newLv  = Math.floor(totalCorrect / 10);
+    if (newLv > prevLv) {
+      for (let lv2 = prevLv + 1; lv2 <= newLv; lv2++) showLevelUpPopup(lv2);
+    }
+    localStorage.setItem('previousCorrect', String(totalCorrect));
+    return;
+  } catch (e) {
+    console.warn('refreshUserStats /user fetch failed', e);
+  }
+
+  // フォールバック
+  try {
+    const r2 = await apiFetch('/api/test/weekly');
+    if (r2.ok) {
+      const w = await r2.json();
+      const days = w.filter(d => d.answers > 0).length;
+      document.getElementById("loginDays").textContent = `学習日数(直近7日): ${days}日`;
+    }
+  } catch {}
+}
 
 async function setUserPremium(userId) {
   try {
