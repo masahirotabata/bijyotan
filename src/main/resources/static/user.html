@@ -597,19 +597,34 @@ body.modal-open{ overflow:hidden; height:100vh; }
 </div>
 
 <script>
-// すべてのfetchを同一オリジン & Cookie付きで
-// 一番上の apiFetch を置き換え
+// 置き換え：apiFetch の先頭付近
 const apiFetch = (path, opts = {}) => {
   const method = (opts.method || 'GET').toUpperCase();
   const needsCSRF = !['GET','HEAD','OPTIONS'].includes(method);
+
+  // === CSRF を自動検出（Rails or Spring両対応） ===
+  const pickCSRFFromPageOrCookie = () => {
+    const meta = document.querySelector('meta[name="csrf-token"]')?.content; // Rails
+    if (meta) return { header: 'X-CSRF-Token', token: meta };
+
+    const ck = document.cookie;
+    const mSpring = ck.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/); // Spring
+    if (mSpring) return { header: 'X-CSRF-TOKEN', token: decodeURIComponent(mSpring[1]) };
+
+    const mLegacy = ck.match(/(?:^|;\s*)_csrf=([^;]+)/);      // 旧設定
+    if (mLegacy) return { header: 'X-CSRF-Token', token: decodeURIComponent(mLegacy[1]) };
+
+    return null;
+  };
+
   const headers = new Headers({ Accept: 'application/json', ...(opts.headers || {}) });
-  if (needsCSRF) {
-    const m = document.cookie.match(/(?:^|;\s*)_csrf=([^;]+)/);
-    const token = m ? decodeURIComponent(m[1]) : null;
-    if (token && !headers.has('X-CSRF-Token')) headers.set('X-CSRF-Token', token);
+  if (needsCSRF && !headers.has('X-CSRF-Token') && !headers.has('X-CSRF-TOKEN')) {
+    const c = pickCSRFFromPageOrCookie();
+    if (c) headers.set(c.header, c.token);
   }
   return fetch(path, { credentials: 'include', ...opts, headers });
 };
+
 
 // JSONしか受け付けないfetch（Cookie付き・非JSONは例外）
 async function fetchJSON(url, opts) {
