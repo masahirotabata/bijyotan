@@ -1091,38 +1091,52 @@ function selectPart(part) {
   }
 }
 
+// クエリから userId を取る小道具
 function getUserIdFromQuery() {
-  const params = new URLSearchParams(window.location.search);
-  return params.get('userId');
+  const p = new URLSearchParams(location.search);
+  return p.get('userId');
 }
 
-// fetchUserInfo 内の末尾あたりを差し替え
-// 引数なしにしてOK（サーバのセッション本人だけ使う）
+// ← これで置き換え
 async function fetchUserInfo() {
-  const res = await fetch('/user/me', { credentials: 'include' });
-  if (!res.ok) {
-    alert("ユーザー情報が取得できません。ログインし直してください。");
-    location.href = "login.html";
-    return;
-  }
-  const data = await res.json();
-  user = data;
+  const candidates = [
+    '/user/me',
+    // /user/me が無い環境向けフォールバック
+    getUserIdFromQuery() ? `/user/${encodeURIComponent(getUserIdFromQuery())}` : null,
+    getUserIdFromQuery() ? `/api/user/${encodeURIComponent(getUserIdFromQuery())}` : null,
+  ].filter(Boolean);
 
-  localStorage.setItem("userId", String(data.id));
-  document.getElementById("username").innerText  = `${data.username} さん、ようこそ！`;
-  document.getElementById("planText").innerText  = `プラン: ${data.premium ? "プレミアム" : "無料"}`;
-  document.getElementById("userLevel").innerText = `レベル: Lv.${data.level || 1}`;
-  updateGirlVisual(data.level || 1);
+  for (const url of candidates) {
+    try {
+      const res = await fetch(url, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        user = data;
 
-  // 404/400 でも“その日のログボ”は必ず表示するフォールバックは現状ロジックでOK
-  const ok = await updateLoginPointsIfNeeded(data.id);
-  if (!ok) {
-    const points = (typeof data.loginPoints === 'number') ? data.loginPoints : 1;
-    setLoginDays(points);
-    showLoginBonusOncePerDay(points);
+        localStorage.setItem("userId", String(data.id));
+        document.getElementById("username").innerText  = `${data.username} さん、ようこそ！`;
+        document.getElementById("planText").innerText  = `プラン: ${data.premium ? "プレミアム" : "無料"}`;
+        document.getElementById("userLevel").innerText = `レベル: Lv.${data.level || 1}`;
+        updateGirlVisual(data.level || 1);
+
+        // ログボ等は既存ロジックで
+        const ok = await updateLoginPointsIfNeeded(data.id);
+        if (!ok) {
+          const points = (typeof data.loginPoints === 'number') ? data.loginPoints : 1;
+          setLoginDays(points);
+          showLoginBonusOncePerDay(points);
+        }
+        return; // 成功したので終了
+      }
+      // 401/403 は即ログインへ
+      if (res.status === 401 || res.status === 403) break;
+      // 400/404 は次の候補へフォールバック
+    } catch (_) { /* 次へ */ }
   }
+
+  alert("ユーザー情報が取得できません。ログインし直してください。");
+  location.href = "login.html";
 }
-
 
 async function updateLoginPointsIfNeeded(userId) {
   // 候補をいろいろ試す（PUT/GET 両対応）
