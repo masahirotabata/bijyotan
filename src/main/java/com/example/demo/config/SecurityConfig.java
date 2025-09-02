@@ -2,10 +2,10 @@ package com.example.demo.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -14,37 +14,57 @@ import org.springframework.security.web.SecurityFilterChain;
 @EnableWebSecurity
 public class SecurityConfig {
 
+  // BCrypt（ログに出ていた「Encoded password does not look like BCrypt」対策）
   @Bean
-  public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+  public PasswordEncoder passwordEncoder() {
+    return new BCryptPasswordEncoder();
+  }
+
+  // UserDetailsService と PasswordEncoder をひも付け
+  @Bean
+  public DaoAuthenticationProvider authProvider(
+      UserDetailsService uds, PasswordEncoder encoder) {
+    DaoAuthenticationProvider p = new DaoAuthenticationProvider();
+    p.setUserDetailsService(uds);
+    p.setPasswordEncoder(encoder);
+    return p;
+  }
+
+  // 統合版 SecurityFilterChain（これを1つだけ定義してください）
+  @Bean
+  public SecurityFilterChain securityFilterChain(
+      HttpSecurity http, DaoAuthenticationProvider provider) throws Exception {
+
     http
-      // WebSocket/SockJS を使うなら CSRF は全体無効でOK（必要なら限定無効にしても良い）
-      .csrf(csrf -> csrf.disable())
-      .headers(h -> h.frameOptions(frame -> frame.sameOrigin())) // H2 Console 用
+      .csrf(csrf -> csrf.disable())                          // 必要なら限定的に無効化へ調整
+      .headers(h -> h.frameOptions(f -> f.sameOrigin()))     // H2 Console 用
+
+      .authenticationProvider(provider)
 
       .authorizeHttpRequests(auth -> auth
-        // 1) まずは許可パスを全部列挙
+        // 公開パス
         .requestMatchers(
-          "/",
+          "/", "/*.html", "/favicon.*",
           "/login.html", "/register.html",
           "/forgot-password.html", "/reset-password.html",
           "/user/register", "/user/forgot-password",
-          "/user.html",
+          "/login", "/signup",                 // 旧ルートも許可
+          "/user.html",                        // HTML自体は閲覧可（APIは要認証）
           "/battle.html", "/api/battle/**",
-          // STOMP/SockJS (handshake や topic などは匿名でも購読できるようにする想定)
+          // WebSocket / STOMP
           "/ws/**", "/topic/**", "/app/**",
           // 静的ファイル
           "/css/**", "/js/**", "/images/**", "/videos/**", "/se/**", "/static/**",
-          // H2 Console
-          "/h2-console/**",
-          "/images/**", "/videos/**", "/css/**", "/js/**",
-          "/webjars/**", "/*.html", "/favicon.*"
+          // ライブラリ類
+          "/webjars/**",
+          // H2 Console（本番では外すのが安全）
+          "/h2-console/**"
         ).permitAll()
-
-        // 2) 最後に other を認証ありに
+        // それ以外は認証必須
         .anyRequest().authenticated()
       )
 
-      // フォームログインは一度だけ設定
+      // フォームログイン設定（loginProcessingUrl と name 属性に合わせる）
       .formLogin(form -> form
         .loginPage("/login.html")
         .loginProcessingUrl("/login")
@@ -54,18 +74,13 @@ public class SecurityConfig {
         .failureUrl("/login.html?error=true")
         .permitAll()
       )
-      .logout(logout -> logout.permitAll());
+
+      .logout(logout -> logout
+        .logoutUrl("/logout")
+        .logoutSuccessUrl("/login.html?logout")
+        .permitAll()
+      );
 
     return http.build();
-  }
-
-  @Bean
-  public PasswordEncoder passwordEncoder() {
-    return new BCryptPasswordEncoder();
-  }
-
-  @Bean
-  public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
-    return config.getAuthenticationManager();
   }
 }
