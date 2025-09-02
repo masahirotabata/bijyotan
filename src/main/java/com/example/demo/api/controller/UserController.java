@@ -31,7 +31,7 @@ public class UserController {
     private final UserService userService;
     private final UserRepository userRepository;
     private final MailService mailService;
-    private final PasswordEncoder passwordEncoder; // ★ 追加：登録時に必ず使用
+    private final PasswordEncoder passwordEncoder; // ★ 登録時に必ず使用
 
     public UserController(
         UserService userService,
@@ -99,7 +99,7 @@ public class UserController {
         return userService.unlockCasualSuit(id);
     }
 
-    // ユーザー登録（★ パスワードを必ずBCryptで保存）
+    // ユーザー登録（★ パスワードは必ず BCrypt で保存）
     @PostMapping("/register")
     public ResponseEntity<Void> registerUser(
         @RequestParam("email") String email,
@@ -112,18 +112,15 @@ public class UserController {
         UserEntity user = new UserEntity();
         user.setEmail(email);
         user.setUsername(email);
-        user.setPassword(passwordEncoder.encode(password)); // ★ ここが超重要（平文保存を禁止）
-        // 初期値が必要ならここでセット（例）
-        // user.setLevel(1);
-        // user.setLoginPoints(0);
+        user.setPassword(passwordEncoder.encode(password)); // ★ 平文保存禁止
         UserEntity savedUser = userRepository.save(user);
 
-        // 登録後、画面遷移先（静的HTML）はそのまま利用
+        // 登録後、静的ページへリダイレクト（APIはセッションで保護）
         URI redirectUri = URI.create("/user.html?userId=" + savedUser.getId());
         return ResponseEntity.status(HttpStatus.FOUND).location(redirectUri).build();
     }
 
-    // パスワードリセット開始（★ リセットURLを現在のホストで生成）
+    // パスワードリセット開始（★ 現在ホストから動的生成）
     @PostMapping("/forgot-password")
     public ResponseEntity<Void> forgotPassword(@RequestParam("email") String email) {
         Optional<UserEntity> userOpt = userRepository.findByEmail(email);
@@ -138,13 +135,12 @@ public class UserController {
         user.setResetToken(token);
         userRepository.save(user);
 
-        // 例: 本番なら https://bijyotan.onrender.com、ローカルなら http://localhost:8080
         String resetUrl = ServletUriComponentsBuilder
                 .fromCurrentContextPath()
                 .path("/reset-password.html")
                 .queryParam("token", token)
                 .build()
-                .toUriString(); // ★ 動的生成
+                .toUriString(); // ★ 本番/ローカルどちらでもOK
 
         mailService.sendResetPasswordMail(email, resetUrl);
 
@@ -162,7 +158,6 @@ public class UserController {
         }
 
         UserEntity user = optionalUser.get();
-
         if (Boolean.TRUE.equals(user.isPremium())) {
             return ResponseEntity.ok("すでにプレミアムユーザーです");
         }
