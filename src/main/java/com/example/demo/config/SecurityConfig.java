@@ -9,23 +9,23 @@ import org.springframework.security.authentication.dao.DaoAuthenticationProvider
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.http.SessionCreationPolicy; // ★ 既存
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;  // ★ 既存：BCrypt前提
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
-  // ===== 共通Bean =====
+  // 共通Bean
   @Bean
   public PasswordEncoder passwordEncoder() {
-    return new BCryptPasswordEncoder(); // ★ 既存の方針を維持（DBもBCrypt前提）
+    return new BCryptPasswordEncoder();
   }
 
   @Bean
@@ -37,7 +37,7 @@ public class SecurityConfig {
     return p;
   }
 
-  // 任意：同一オリジン想定なら必須ではありません（別オリジン運用なら活かしてください）
+  // 別オリジンで使う場合のみ有効化（同一オリジンなら不要）
   @Bean
   public CorsConfigurationSource corsConfigurationSource() {
     CorsConfiguration c = new CorsConfiguration();
@@ -54,24 +54,21 @@ public class SecurityConfig {
     return s;
   }
 
-  // ===== Chain #1: API向け（/api/**） =====
+  // ===== Chain #1: API（/api/**） =====
   @Bean
   @Order(1)
   public SecurityFilterChain apiSecurity(HttpSecurity http,
                                          DaoAuthenticationProvider provider) throws Exception {
     http
-      .securityMatcher("/api/**") // ★ API専用チェーン
-      .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**")) // ★ APIはCSRF除外
+      .securityMatcher("/api/**")
+      .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**")) // APIはCSRF除外
       .cors(Customizer.withDefaults())
       .authenticationProvider(provider)
       .authorizeHttpRequests(auth -> auth
-        .requestMatchers(
-          "/api/auth/login", "/api/auth/register",
-          "/api/battle/**" // ★ 既存許可を踏襲
-        ).permitAll()
+        .requestMatchers("/api/auth/login", "/api/auth/register", "/api/battle/**").permitAll()
         .anyRequest().authenticated()
       )
-      // ★ APIはリダイレクトさせない：200/401で応答
+      // APIはステータスで返す（リダイレクトしない）
       .formLogin(form -> form
         .loginProcessingUrl("/api/auth/login")
         .usernameParameter("email")
@@ -80,24 +77,21 @@ public class SecurityConfig {
         .failureHandler((req, res, ex) -> res.sendError(401))
         .permitAll()
       )
-      .logout(l -> l
-        .logoutUrl("/api/auth/logout")
-        .logoutSuccessHandler((req, res, auth) -> res.setStatus(200))
-      )
-      .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)); // ★ セッション維持
-
+      .logout(l -> l.logoutUrl("/api/auth/logout")
+        .logoutSuccessHandler((req, res, auth) -> res.setStatus(200)))
+      .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED));
     return http.build();
   }
 
-  // ===== Chain #2: 既存UI向け（全体キャッチ） =====
+  // ===== Chain #2: UI（それ以外） =====
   @Bean
   @Order(2)
   public SecurityFilterChain uiSecurity(HttpSecurity http,
                                         DaoAuthenticationProvider provider) throws Exception {
     http
-      // .securityMatcher() を付けない＝残り全部
-      .csrf(csrf -> csrf.enable()) // ★ UIはCSRF有効（フォーム運用）
-      .headers(h -> h.frameOptions(f -> f.sameOrigin())) // ★ h2-console対策
+      // ★ 修正ポイント：enable()は無し。既定で有効なので defaults か、行ごと削除でOK
+      .csrf(Customizer.withDefaults())
+      .headers(h -> h.frameOptions(f -> f.sameOrigin()))
       .cors(Customizer.withDefaults())
       .authenticationProvider(provider)
       .authorizeHttpRequests(auth -> auth
@@ -106,8 +100,8 @@ public class SecurityConfig {
           "/login.html", "/register.html",
           "/forgot-password.html", "/reset-password.html",
           "/user/register", "/user/forgot-password",
-          "/login", "/signup",        // ★ 既存フォーム経路
-          "/auth/**",                 // ★ 既存許可（必要なら残す）
+          "/login", "/signup",
+          "/auth/**",
           "/user.html",
           "/battle.html",
           "/ws/**", "/topic/**", "/app/**",
@@ -122,7 +116,7 @@ public class SecurityConfig {
         .loginProcessingUrl("/login")
         .usernameParameter("email")
         .passwordParameter("password")
-        .defaultSuccessUrl("/user.html", true)       // ★ 既存のリダイレクト維持
+        .defaultSuccessUrl("/user.html", true)
         .failureUrl("/login.html?error=true")
         .permitAll()
       )
@@ -131,9 +125,7 @@ public class SecurityConfig {
         .logoutSuccessUrl("/login.html?logout")
         .permitAll()
       )
-      // ★ ここを修正: IF_NEEDED -> IF_REQUIRED（またはこの行を削除でもOK）
       .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED));
-
     return http.build();
   }
 }
