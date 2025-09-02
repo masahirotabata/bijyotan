@@ -7,7 +7,7 @@ import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.crypto.password.PasswordEncoder;   // ★ 追加
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder; // ★ 追加
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import com.example.demo.api.dto.UserResponseDto;
 import com.example.demo.api.service.UserService;
@@ -31,96 +31,102 @@ public class UserController {
     private final UserService userService;
     private final UserRepository userRepository;
     private final MailService mailService;
-    private final PasswordEncoder passwordEncoder; // ★ 登録時に必ず使用
+    private final PasswordEncoder passwordEncoder;
 
     public UserController(
-        UserService userService,
-        UserRepository userRepository,
-        MailService mailService,
-        PasswordEncoder passwordEncoder // ★ 追加
+            UserService userService,
+            UserRepository userRepository,
+            MailService mailService,
+            PasswordEncoder passwordEncoder
     ) {
         this.userService = userService;
         this.userRepository = userRepository;
         this.mailService = mailService;
-        this.passwordEncoder = passwordEncoder; // ★ 追加
+        this.passwordEncoder = passwordEncoder;
     }
 
-    // レベル更新
+    /** レベル更新 */
     @PutMapping("/updateLevel")
     public ResponseEntity<Map<String, Object>> updateLevel(@RequestBody Map<String, Object> payload) {
         Long userId = Long.valueOf(String.valueOf(payload.get("userId")));
         int level = Integer.parseInt(String.valueOf(payload.get("level")));
 
-        Optional<UserEntity> opt = userRepository.findById(userId);
-        if (opt.isEmpty()) return ResponseEntity.notFound().build();
-
-        UserEntity user = opt.get();
-        user.setLevel(level);
-        userRepository.save(user);
-
-        return ResponseEntity.ok(Map.of("level", user.getLevel()));
+        return userRepository.findById(userId)
+                .map(u -> {
+                    u.setLevel(level);
+                    userRepository.save(u);
+                    return ResponseEntity.ok(Map.of("level", Optional.ofNullable(u.getLevel()).orElse(1)));
+                })
+                .orElse(ResponseEntity.notFound().build());
     }
 
-    // ユーザー取得
+    /** ユーザー取得 */
     @GetMapping("/{id}")
     public ResponseEntity<UserResponseDto> getUser(@PathVariable("id") Long id) {
         return userService.getUserById(id)
-            .map(user -> ResponseEntity.ok(
-                new UserResponseDto(
-                    user.getId(),
-                    user.getUsername(),  // ★ 追加済み
-                    user.isPremium(),
-                    user.isCanWatchVideo(),
-                    user.getLoginPoints(),
-                    Optional.ofNullable(user.getLevel()).orElse(1),
-                    Optional.ofNullable(user.getTestCorrectTotal()).orElse(0)
-                )
-            ))
-            .orElse(ResponseEntity.notFound().build());
+                .map(user -> ResponseEntity.ok(
+                        new UserResponseDto(
+                                user.getId(),
+                                user.getUsername(),
+                                // ↓ Boolean/boolean 両対応 & null セーフ
+                                Boolean.TRUE.equals(user.getPremium()),
+                                Boolean.TRUE.equals(user.getCanWatchVideo()),
+                                Optional.ofNullable(user.getLoginPoints()).orElse(0),
+                                Optional.ofNullable(user.getLevel()).orElse(1),
+                                Optional.ofNullable(user.getTestCorrectTotal()).orElse(0)
+                        )
+                ))
+                .orElse(ResponseEntity.notFound().build());
     }
 
-    // 動画視聴フラグ ON
+    /** 動画視聴フラグ ON */
     @PutMapping("/{id}/setCanWatchVideo")
     public ResponseEntity<Void> setCanWatchVideo(@PathVariable("id") Long id) {
-        if (userService.setCanWatchVideo(id, true)) return ResponseEntity.noContent().build();
-        return ResponseEntity.notFound().build();
+        return userService.setCanWatchVideo(id, true)
+                ? ResponseEntity.noContent().build()
+                : ResponseEntity.notFound().build();
     }
 
-    // 動画視聴フラグ OFF
+    /** 動画視聴フラグ OFF */
     @PutMapping("/{id}/disableCanWatchVideo")
     public ResponseEntity<Void> disableAdVideo(@PathVariable("id") Long id) {
-        if (userService.setCanWatchVideo(id, false)) return ResponseEntity.noContent().build();
-        return ResponseEntity.notFound().build();
+        return userService.setCanWatchVideo(id, false)
+                ? ResponseEntity.noContent().build()
+                : ResponseEntity.notFound().build();
     }
 
-    // カジュアルスーツ解放
+    /** カジュアルスーツ解放 */
     @PutMapping("/{id}/unlockCasualSuit")
     public ResponseEntity<String> unlockCasualSuit(@PathVariable("id") Long id) {
         return userService.unlockCasualSuit(id);
     }
 
-    // ユーザー登録（★ パスワードは必ず BCrypt で保存）
+    /** ユーザー登録（パスワードは必ず BCrypt） */
     @PostMapping("/register")
     public ResponseEntity<Void> registerUser(
-        @RequestParam("email") String email,
-        @RequestParam("password") String password
+            @RequestParam("email") String email,
+            @RequestParam("password") String password
     ) {
         if (userRepository.findByEmail(email).isPresent()) {
-            return ResponseEntity.badRequest().build(); // すでに存在
+            return ResponseEntity.badRequest().build();
         }
 
         UserEntity user = new UserEntity();
         user.setEmail(email);
         user.setUsername(email);
-        user.setPassword(passwordEncoder.encode(password)); // ★ 平文保存禁止
-        UserEntity savedUser = userRepository.save(user);
+        user.setPassword(passwordEncoder.encode(password));
+        // 初期値（null回避）
+        if (user.getLevel() == null) user.setLevel(1);
+        if (user.getLoginPoints() == null) user.setLoginPoints(0);
+        if (user.getPremium() == null) user.setPremium(false);
+        if (user.getCanWatchVideo() == null) user.setCanWatchVideo(false);
 
-        // 登録後、静的ページへリダイレクト（APIはセッションで保護）
-        URI redirectUri = URI.create("/user.html?userId=" + savedUser.getId());
+        UserEntity saved = userRepository.save(user);
+        URI redirectUri = URI.create("/user.html?userId=" + saved.getId());
         return ResponseEntity.status(HttpStatus.FOUND).location(redirectUri).build();
     }
 
-    // パスワードリセット開始（★ 現在ホストから動的生成）
+    /** パスワードリセット開始（現在ホストから動的生成） */
     @PostMapping("/forgot-password")
     public ResponseEntity<Void> forgotPassword(@RequestParam("email") String email) {
         Optional<UserEntity> userOpt = userRepository.findByEmail(email);
@@ -140,7 +146,7 @@ public class UserController {
                 .path("/reset-password.html")
                 .queryParam("token", token)
                 .build()
-                .toUriString(); // ★ 本番/ローカルどちらでもOK
+                .toUriString();
 
         mailService.sendResetPasswordMail(email, resetUrl);
 
@@ -149,7 +155,7 @@ public class UserController {
                 .build();
     }
 
-    // プレミアム化
+    /** プレミアム化 */
     @PutMapping("/upgrade")
     public ResponseEntity<?> upgradeToPremium(@RequestParam(name = "userId") Long userId) {
         Optional<UserEntity> optionalUser = userRepository.findById(userId);
@@ -158,7 +164,7 @@ public class UserController {
         }
 
         UserEntity user = optionalUser.get();
-        if (Boolean.TRUE.equals(user.isPremium())) {
+        if (Boolean.TRUE.equals(user.getPremium())) {
             return ResponseEntity.ok("すでにプレミアムユーザーです");
         }
 
