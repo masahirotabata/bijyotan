@@ -7,6 +7,7 @@ import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;   // ★ 追加
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder; // ★ 追加
 
 import com.example.demo.api.dto.UserResponseDto;
 import com.example.demo.api.service.UserService;
@@ -28,21 +30,26 @@ public class UserController {
 
     private final UserService userService;
     private final UserRepository userRepository;
-    private final MailService mailService; // ← ★これを追加
+    private final MailService mailService;
+    private final PasswordEncoder passwordEncoder; // ★ 追加：登録時に必ず使用
 
-
-
-    public UserController(UserService userService, UserRepository userRepository, MailService mailService) {
+    public UserController(
+        UserService userService,
+        UserRepository userRepository,
+        MailService mailService,
+        PasswordEncoder passwordEncoder // ★ 追加
+    ) {
         this.userService = userService;
         this.userRepository = userRepository;
         this.mailService = mailService;
+        this.passwordEncoder = passwordEncoder; // ★ 追加
     }
-    
- // UserController.java
+
+    // レベル更新
     @PutMapping("/updateLevel")
     public ResponseEntity<Map<String, Object>> updateLevel(@RequestBody Map<String, Object> payload) {
-        Long userId = Long.valueOf(payload.get("userId").toString());
-        int level = Integer.parseInt(payload.get("level").toString());
+        Long userId = Long.valueOf(String.valueOf(payload.get("userId")));
+        int level = Integer.parseInt(String.valueOf(payload.get("level")));
 
         Optional<UserEntity> opt = userRepository.findById(userId);
         if (opt.isEmpty()) return ResponseEntity.notFound().build();
@@ -51,50 +58,48 @@ public class UserController {
         user.setLevel(level);
         userRepository.save(user);
 
-        // フロントがそのまま使えるように level を返す
         return ResponseEntity.ok(Map.of("level", user.getLevel()));
     }
 
-
+    // ユーザー取得
     @GetMapping("/{id}")
     public ResponseEntity<UserResponseDto> getUser(@PathVariable("id") Long id) {
         return userService.getUserById(id)
-                .map(user -> ResponseEntity.ok(
-                    new UserResponseDto(
-                        user.getId(),
-                        user.getUsername(),  // ← ★ これが抜けていた
-                        user.isPremium(),
-                        user.isCanWatchVideo(),
-                        user.getLoginPoints(),
-                        Optional.ofNullable(user.getLevel()).orElse(1),
-                        Optional.ofNullable(user.getTestCorrectTotal()).orElse(0)// ← 追加
-                    )
-                ))
-                .orElse(ResponseEntity.notFound().build());
+            .map(user -> ResponseEntity.ok(
+                new UserResponseDto(
+                    user.getId(),
+                    user.getUsername(),  // ★ 追加済み
+                    user.isPremium(),
+                    user.isCanWatchVideo(),
+                    user.getLoginPoints(),
+                    Optional.ofNullable(user.getLevel()).orElse(1),
+                    Optional.ofNullable(user.getTestCorrectTotal()).orElse(0)
+                )
+            ))
+            .orElse(ResponseEntity.notFound().build());
     }
 
-
+    // 動画視聴フラグ ON
     @PutMapping("/{id}/setCanWatchVideo")
     public ResponseEntity<Void> setCanWatchVideo(@PathVariable("id") Long id) {
-        if (userService.setCanWatchVideo(id, true)) {
-            return ResponseEntity.noContent().build();
-        }
+        if (userService.setCanWatchVideo(id, true)) return ResponseEntity.noContent().build();
         return ResponseEntity.notFound().build();
     }
 
+    // 動画視聴フラグ OFF
     @PutMapping("/{id}/disableCanWatchVideo")
     public ResponseEntity<Void> disableAdVideo(@PathVariable("id") Long id) {
-        if (userService.setCanWatchVideo(id, false)) {
-            return ResponseEntity.noContent().build();
-        }
+        if (userService.setCanWatchVideo(id, false)) return ResponseEntity.noContent().build();
         return ResponseEntity.notFound().build();
     }
-    
+
+    // カジュアルスーツ解放
     @PutMapping("/{id}/unlockCasualSuit")
     public ResponseEntity<String> unlockCasualSuit(@PathVariable("id") Long id) {
         return userService.unlockCasualSuit(id);
     }
-    
+
+    // ユーザー登録（★ パスワードを必ずBCryptで保存）
     @PostMapping("/register")
     public ResponseEntity<Void> registerUser(
         @RequestParam("email") String email,
@@ -106,20 +111,26 @@ public class UserController {
 
         UserEntity user = new UserEntity();
         user.setEmail(email);
-        user.setPassword(password);
         user.setUsername(email);
-        UserEntity savedUser = userRepository.save(user); // 保存してID取得
+        user.setPassword(passwordEncoder.encode(password)); // ★ ここが超重要（平文保存を禁止）
+        // 初期値が必要ならここでセット（例）
+        // user.setLevel(1);
+        // user.setLoginPoints(0);
+        UserEntity savedUser = userRepository.save(user);
 
-        // リダイレクト先を user.html?userId=〇〇 に設定
+        // 登録後、画面遷移先（静的HTML）はそのまま利用
         URI redirectUri = URI.create("/user.html?userId=" + savedUser.getId());
         return ResponseEntity.status(HttpStatus.FOUND).location(redirectUri).build();
     }
-    
+
+    // パスワードリセット開始（★ リセットURLを現在のホストで生成）
     @PostMapping("/forgot-password")
     public ResponseEntity<Void> forgotPassword(@RequestParam("email") String email) {
         Optional<UserEntity> userOpt = userRepository.findByEmail(email);
         if (userOpt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.FOUND).location(URI.create("/forgot-password.html?error=notfound")).build();
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .location(URI.create("/forgot-password.html?error=notfound"))
+                    .build();
         }
 
         UserEntity user = userOpt.get();
@@ -127,13 +138,22 @@ public class UserController {
         user.setResetToken(token);
         userRepository.save(user);
 
-        String resetUrl = "http://localhost:8080/reset-password.html?token=" + token;
+        // 例: 本番なら https://bijyotan.onrender.com、ローカルなら http://localhost:8080
+        String resetUrl = ServletUriComponentsBuilder
+                .fromCurrentContextPath()
+                .path("/reset-password.html")
+                .queryParam("token", token)
+                .build()
+                .toUriString(); // ★ 動的生成
+
         mailService.sendResetPasswordMail(email, resetUrl);
 
-        return ResponseEntity.status(HttpStatus.FOUND).location(URI.create("/login.html?reset=success")).build();
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(URI.create("/login.html?reset=success"))
+                .build();
     }
-    
- // UserController.java
+
+    // プレミアム化
     @PutMapping("/upgrade")
     public ResponseEntity<?> upgradeToPremium(@RequestParam(name = "userId") Long userId) {
         Optional<UserEntity> optionalUser = userRepository.findById(userId);
@@ -151,6 +171,4 @@ public class UserController {
         userRepository.save(user);
         return ResponseEntity.ok("アップグレード成功");
     }
-
-    
 }
