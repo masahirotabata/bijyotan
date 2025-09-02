@@ -212,13 +212,13 @@
   font-weight: bold;
 }
 
-    #partButtons {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 8px;
-      margin-bottom: 20px;
-    }
+#partButtons{
+  display:flex; gap:8px;
+  overflow-x:auto; -webkit-overflow-scrolling:touch;
+  flex-wrap:nowrap; justify-content:flex-start;
+  padding-top:max(6px, env(safe-area-inset-top));
+}
+#partButtons button{ flex:0 0 auto; }
     
     #statsBox {
   background: #fff3f8;
@@ -389,16 +389,12 @@
 }
 
 /* ===== Desktop layout improvements ===== */
-@media (min-width: 768px){
-  /* メインブロックの幅を広げる */
-#user-info, #levelGirlContainer, #partButtons, #statsBox,
-#test-section, #weeklyAnswersBox, #wordContainer, #pagination, #partPagination{
-   max-width: 900px;
-   margin-left: auto;
-   margin-right: auto;
- }
+/* Desktop */
+/* ===== Desktop layout improvements ===== */
+@media (min-width:768px){
+  #partButtons{ justify-content:center; overflow:visible; flex-wrap:wrap; }
 
-  /* 単語カードを3カラムで横並びに（画像 / テキスト / アクション） */
+  /* 単語カード：3カラム（画像 / テキスト / アクション） */
   .word-card{
     display: grid;
     grid-template-columns: 140px 1fr auto;
@@ -413,7 +409,7 @@
 
   .word-card img{ width: 140px; height: 210px; }
 
-  /* ボタンの無駄な横幅を解除（PCでは自動幅） */
+  /* PCではボタン幅を自動 */
   #test-section button,
   #swipeStartBtn,
   #swipeModeBox .swipe-hud button {
@@ -421,7 +417,7 @@
     max-width: none;
   }
 
-  /* パートボタンやページネーションは中央寄せ・折り返し */
+  /* パートボタン/ページネーションの中央寄せ */
   #partButtons{ justify-content: center; overflow: visible; flex-wrap: wrap; }
   .pagination{ justify-content: center; overflow: visible; }
 }
@@ -549,7 +545,7 @@ body.modal-open{ overflow:hidden; height:100vh; }
 <div id="swipeModeBox" class="hidden">
   <div class="swipe-hud">
     <button id="swipeExitBtn">一覧に戻る</button>
-    <div id="swipeCounter">0 / 0</div>
+   <div id="swipeCounter" aria-live="polite">0 / 0</div>
     <div id="swipeStats" aria-live="polite">覚えた: 0 / 覚えたい: 0</div>
   </div>
 
@@ -616,12 +612,14 @@ const apiFetch = (path, opts = {}) => {
 };
 
 // JSONしか受け付けないfetch（Cookie付き・非JSONは例外）
-const res = await apiFetch(url, opts);
-const ct = res.headers.get('content-type') || '';
-// 302→/login などで HTML が返るケースを確実に未ログイン扱いにする
-const redirectedToLogin =
-  res.redirected && /\/login(?:\.html)?$/.test(new URL(res.url).pathname);
-if (redirectedToLogin || res.status === 401 || res.status === 403) {
+async function fetchJSON(url, opts) {
+  const res = await apiFetch(url, opts);
+  const ct = (res.headers.get('content-type') || '').toLowerCase();
+
+  const redirectedToLogin =
+    res.redirected && /\/login(?:\.html)?$/.test(new URL(res.url, location.origin).pathname);
+
+  if (redirectedToLogin || res.status === 401 || res.status === 403) {
     const err = new Error('unauthorized'); err.code = 'UNAUTHORIZED'; throw err;
   }
   if (!ct.includes('application/json')) {
@@ -634,7 +632,7 @@ if (redirectedToLogin || res.status === 401 || res.status === 403) {
 // グローバルで使っているのに未宣言だったので用意
 let musouMode = false;
 let words = [];
-let user = { id: null, isPremium: false, canWatchVideo: false };
+let user = { id: null, premium: false, canWatchVideo: false }; // isPremium 廃止
 let currentPage = 1;
 const pageSize = 5;
 let selectedPart = "part1"; // ← 初期値を設定
@@ -678,7 +676,7 @@ if (!ok) {
 const urlParams = new URLSearchParams(window.location.search);
 if (urlParams.get("premium") === "true") {
   await setUserPremium(user.id);
-  user.isPremium = true;
+  user.premium = true;        // ローカル状態も反映
 }
 
 renderPartButtons();
@@ -777,14 +775,12 @@ async function ensureHeroVideo(){
   const v = document.getElementById('girlVideo');
   if (!v) return;
 
-  const prefer = (user && (user.premium === true || user.premium === 'true'))
-    ? ['/videos/run_girl_motion.mp4'] : [];
-
-  const candidates = [
-    ...prefer,
-    '/videos/girl_idle_loop.mp4',
-    'https://cdn.jsdelivr.net/gh/masahirotabata/bijyotan@master/src/main/resources/static/videos/girl_idle_loop.mp4'
-  ];
+const prefer = isPremium() ? ['/videos/run_girl_motion.mp4'] : [];
+const candidates = [
+  ...prefer,
+  '/videos/girl_idle_loop.mp4',
+  'https://cdn.jsdelivr.net/gh/masahirotabata/bijyotan@master/src/main/resources/static/videos/girl_idle_loop.mp4'
+];
 
   const ok = await pickFirstAvailable(candidates);
   if (ok){
@@ -808,9 +804,7 @@ function setLoginDays(points){
   if (el) el.textContent = `学習日数: ${points}日目`;
 }
 
-function isPremium(u = user) {
-  return !!(u && (u.premium === true || u.premium === 'true' || u.isPremium === true));
-}
+function isPremium() { return Boolean(user?.premium); } 
 
 // ✅ 初回ログイン or バージョン変更時のみ表示
 function showUpdateInfoIfNeeded() {
@@ -967,7 +961,7 @@ function renderWordCard(word, musouMode, user) {
         ${word.audioUrl ? `<audio controls src="${word.audioUrl}"></audio>` : ""}
         ${word.videoUrl ? `<video controls width="200" src="${word.videoUrl}"></video>` : ""}
         ${imgTag(word.imageUrl, word.word)}
-        <button onclick="${user.premium ? `playAll('${word.word}')` : 'showPremiumPopup()'}">美女を動かす</button>
+        <button onclick="${isPremium() ? `playAll('${word.word}')` : 'showPremiumPopup()'}">美女を動かす</button>
       </div>`;
   } else {
     return `
@@ -977,7 +971,7 @@ function renderWordCard(word, musouMode, user) {
         <br>
         ${imgTag(word.imageUrl, word.word)}
         <br>
-        <button onclick="${user.premium ? `playVideo('${word.videoUrl}')` : 'showPremiumPopup()'}">美女を動かす</button>
+        <button onclick="${isPremium() ? `playVideo('${word.videoUrl}')` : 'showPremiumPopup()'}">美女を動かす</button>
       </div>`;
   }
 }
@@ -1322,10 +1316,26 @@ function resetBeautyClickCount() {
   localStorage.setItem('beauty_clicks', '0');
 }
 
-// 広告モーダルを開いて、閉じたら処理再開できるように保留
+// 既存の showAdModalForToggle / closeAdModal を差し替え
+let removeTrapAd = null;
+
 function showAdModalForToggle(callback) {
   pendingToggle = callback;
-  document.getElementById('adModal').style.display = 'flex';
+  const m = document.getElementById('adModal');
+  m.style.display = 'flex';
+  m.setAttribute('role','dialog');
+  m.setAttribute('aria-modal','true');
+  removeTrapAd = trapFocus(m);
+  document.body.classList.add('modal-open');
+  m.querySelector('#watchAdBtn')?.focus();
+}
+
+function closeAdModal() {
+  const m = document.getElementById('adModal');
+  m.style.display = 'none';
+  removeTrapAd?.(); removeTrapAd = null;
+  document.body.classList.remove('modal-open');
+  pendingToggle = null;
 }
 
 // 既存のモーダルのボタンIDに対応（下のモーダルHTMLそのまま使えます）
@@ -1338,10 +1348,6 @@ function handleAdAccept() {
     pendingToggle = null;
   }
   resetBeautyClickCount(); // 6回カウントをリセット
-}
-function closeAdModal() {
-  document.getElementById('adModal').style.display = 'none';
-  pendingToggle = null;
 }
 
 
@@ -1387,7 +1393,7 @@ function renderWords() {
     const div = document.createElement("div");
     div.className = "word-card";
 
-    const isPremium = !!(user && (user.premium === true || user.premium === 'true'));
+    const premiumUser = isPremium();
     const actionButton = ""; // 無料は非表示
 
     const checkboxId = `status-${word.id}`;
@@ -1437,17 +1443,18 @@ function renderWords() {
 
 <div class="wc-actions">
     <!-- 画像トグル用 -->
-    <button
-      type="button"
-      class="js-toggle"
-      id="${toggleButtonId}"
-      data-img-id="${imageId}"
-      data-base="${esc(baseImg)}"
-      data-specific="${esc(specificImg)}"
-      data-index="${index}"
-      aria-controls="${imageId}"
-      aria-pressed="${initState === '2' ? 'true' : 'false'}"
-    >美女で英単語を表現する</button>
+	<button
+	  type="button"
+	  class="js-toggle"
+	  id="${toggleButtonId}"
+	  data-img-id="${imageId}"
+	  data-base="${esc(baseImg)}"
+	  data-specific="${esc(specificImg)}"
+	  data-index="${index}"
+	  aria-controls="${imageId}"
+	  aria-pressed="${initState === '2' ? 'true' : 'false'}"
+	  aria-label="『${esc(word.word)}』の画像を切り替え"
+	>美女で英単語を表現する</button>
 
     <!-- 動画再生（ある場合だけ） -->
     ${word.videoUrl ? `
@@ -1711,11 +1718,7 @@ async function updateStatusCount() {
     } catch (_) {}
   }
   document.getElementById("learningStatus").textContent = "学習状況の取得に失敗しました";
-  window.addEventListener('pageshow', () => {
-  // 途中でリロードされても履歴ガードを必ずオフに
-  try { disableSwipeBackGuard(); } catch {}
-});
-}
+} // ←★★ これが必要！
 
 //置き換え版：数値ラベルを表示
 async function loadWeeklyAnswers(){
@@ -1857,16 +1860,14 @@ function showPremiumPopup() {
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const ct = r.headers.get('content-type') || '';
       const data = ct.includes('application/json') ? await r.json() : null;
-
-      const url = data?.checkoutUrl || data?.url;
-      if (!url) throw new Error('no checkout url');
-
-      window.location.href = url;
-    } catch (e) {
-      console.error('checkout failed:', e);
-      window.location.href = '/premium.html';
-    }
-  });
+		const url = data?.checkoutUrl || data?.url;
+		if (!/^https?:\/\//.test(url)) throw new Error('bad url');
+			location.assign(url); // ← これだけでOK
+	    } catch (e) {
+	      console.error('checkout failed:', e);
+	      window.location.href = '/premium.html';
+	    }
+	  });
 }
 	
 function startTest() {
@@ -1877,7 +1878,7 @@ function startTest() {
 		    alert("広告を見せる処理（仮）");
 		  }
 
-		  if (user.premium) {
+		  if (isPremium()) {
 		    // プレミアムユーザーはモード選択可能
 		    Swal.fire({
 		      title: "テストモードを選んでね",
@@ -1927,7 +1928,7 @@ function startTest() {
 		    alert("広告を見せる処理（仮）");
 		  }
 
-		  if (user.premium) {
+		  if (isPremium()) {
 		    // プレミアムユーザーはモード選択可能
 		    Swal.fire({
 		      title: "テストモードを選んでね",
@@ -1968,69 +1969,79 @@ function startTest() {
 		    });
 		  }
 		}
-
-
-	// 累計正答と学習日数を /user/{id} から更新。
-	// loginPoints がなければ /api/test/weekly から直近7日の「回答>0日数」を表示。
-	async function refreshUserStats() {
+// 累計正答と学習日数を /user/me から更新。
+// loginPoints がなければ /api/test/weekly から直近7日の学習日数相当を表示。
+let _statsRetry = 0;
+// 累計正答と学習日数を /user/me から更新。
+// loginPoints がなければ /api/test/weekly から直近7日の学習日数相当を表示。
+async function refreshUserStats() {
   try {
-	  const u = await fetchJSON('/user/me');  // ← 共通ロジックに統一
-	     // …既存処理…
-	     return;
-	   } catch (e) {
-	  console.warn('refreshUserStats /user fetch failed', e);
-	　if (e.code === 'NON_JSON') { setTimeout(refreshUserStats, 1000); }
-   }
+    const u = await fetchJSON('/user/me');
+    _statsRetry = 0;
 
-    // 学習日数
-    const days = (typeof u.loginPoints === 'number') ? u.loginPoints : 0;
-    document.getElementById("loginDays").textContent = `学習日数: ${days}日目`;
+    if (u) {
+      // 学習日数
+      const days = (typeof u.loginPoints === 'number') ? u.loginPoints : 0;
+      const loginDaysEl = document.getElementById("loginDays");
+      if (loginDaysEl) loginDaysEl.textContent = `学習日数: ${days}日目`;
 
-    // 累計正答 → レベル更新
-    const totalCorrect = Number(u.testCorrectTotal ?? 0);
-    document.getElementById("testStats").textContent = `正答数（累計）: ${totalCorrect}`;
+      // 累計正答 → レベル更新
+      const totalCorrect = Number(u.testCorrectTotal ?? 0);
+      const testStatsEl = document.getElementById("testStats");
+      if (testStatsEl) testStatsEl.textContent = `正答数（累計）: ${totalCorrect}`;
 
-    const newLevel = Math.max(1, Math.floor(totalCorrect / 10) + 1);
-    const currentLevel = Number(u.level ?? 1);
-    if (currentLevel !== newLevel) {
-      const userId = getUserId(); // ← 追加
-      const r = await apiFetch(`/user/updateLevel`, {
-        method:'PUT',
-        headers:{ 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, level: newLevel })
-      });
-      if (r.ok) {
-        const json = await r.json().catch(() => ({}));
-        u.level = Number(json.level ?? newLevel);
-      } else {
-        u.level = newLevel;
+      const newLevel = Math.max(1, Math.floor(totalCorrect / 10) + 1);
+      const currentLevel = Number(u.level ?? 1);
+      if (currentLevel !== newLevel) {
+        try {
+          const r = await apiFetch(`/user/updateLevel`, {
+            method:'PUT',
+            headers:{ 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: getUserId(), level: newLevel })
+          });
+          if (r.ok) {
+            const json = await r.json().catch(() => ({}));
+            u.level = Number(json.level ?? newLevel);
+          } else {
+            u.level = newLevel;
+          }
+        } catch {
+          u.level = newLevel;
+        }
       }
-    }
-    const levelEl = document.getElementById("userLevel");
-    const lv = Number(u.level ?? 1);
-    if (levelEl) levelEl.textContent = `レベル: Lv.${lv}`;
-    updateGirlVisual(lv);
+      const levelEl = document.getElementById("userLevel");
+      const lv = Number(u.level ?? 1);
+      if (levelEl) levelEl.textContent = `レベル: Lv.${lv}`;
+      updateGirlVisual(lv);
 
-    // レベル演出
-    const prev = parseInt(localStorage.getItem('previousCorrect') || '0', 10);
-    const prevLv = Math.floor(prev / 10);
-    const newLv  = Math.floor(totalCorrect / 10);
-    if (newLv > prevLv) {
-      for (let lv2 = prevLv + 1; lv2 <= newLv; lv2++) showLevelUpPopup(lv2);
+      // レベル演出
+      const prev = parseInt(localStorage.getItem('previousCorrect') || '0', 10);
+      const prevLv = Math.floor(prev / 10);
+      const newLv  = Math.floor(totalCorrect / 10);
+      if (newLv > prevLv) {
+        for (let lv2 = prevLv + 1; lv2 <= newLv; lv2++) showLevelUpPopup(lv2);
+      }
+      localStorage.setItem('previousCorrect', String(totalCorrect));
+      return; // 正常終了
     }
-    localStorage.setItem('previousCorrect', String(totalCorrect));
-    return;
   } catch (e) {
-    console.warn('refreshUserStats /user fetch failed', e);
+    if (e.code === 'NON_JSON' && _statsRetry < 5) {
+      _statsRetry++;
+      setTimeout(refreshUserStats, Math.min(1000 * (2 ** _statsRetry), 8000));
+      return;
+    }
+    // 失敗時はフォールバックへ
   }
 
-  // フォールバック
+  // ----- フォールバック：/api/test/weekly から学習日数相当を表示 -----
   try {
     const r2 = await apiFetch('/api/test/weekly');
-    if (r2.ok) {
+    const ct = r2.headers.get('content-type') || '';
+    if (r2.ok && ct.includes('application/json')) {
       const w = await r2.json();
-      const days = w.filter(d => d.answers > 0).length;
-      document.getElementById("loginDays").textContent = `学習日数(直近7日): ${days}日`;
+      const days = Array.isArray(w) ? w.filter(d => (d.answers ?? 0) > 0).length : 0;
+      const loginDaysEl = document.getElementById("loginDays");
+      if (loginDaysEl) loginDaysEl.textContent = `学習日数(直近7日): ${days}日`;
     }
   } catch {}
 }
@@ -2108,6 +2119,8 @@ function setSwipeModeVisible(show){
   document.getElementById('test-section').classList.toggle('hidden', show);
   document.getElementById('weeklyAnswersBox').classList.toggle('hidden', show);
 
+  document.querySelectorAll('button:not([type])').forEach(b => b.type = 'button');
+
   // ★ スマホだけ全画面
   const isMobile = window.matchMedia('(max-width:480px)').matches;
   if (show && isMobile){
@@ -2144,27 +2157,23 @@ window.addEventListener('resize', () => {
 
 	  const lockedParts = ["part4", "part5", "part6", "partHealing", "musou"];
 	  const isLocked = lockedParts.includes(selectedPart);
-	  if(!user.premium && isLocked && !isAdEnabled()){
-	    showPremiumPopup();
-	    return;
-	  }
+	  const premium = isPremium();
+  const htmlMsg = premium
+    ? "プレミアムのため広告は表示されません。<br>学習を始めます！"
+    : "学習開始前と終了時に広告が表示されます（計2回）<br>美女と一緒に楽しく学習しましょう！";
 
-	  // ✅ 開始時に広告表示
-	  Swal.fire({
-	    title: "美女スワイプ学習🎀",
-	    html: "「学習開始前と終了時に広告が表示されます（計2回）<br>美女と一緒に楽しく学習しましょう！」",
-	    icon: "info",
-	    confirmButtonText: "広告を見る",
-	    confirmButtonColor: "#e91e63",
-	    allowOutsideClick: false
-	  }).then(() => {
-	    // 実際に広告表示（ここでAdMob等の動画広告を再生する）
-	    watchAdGlobal();
-
-	    // 終了後にモード選択へ
-	    showSwipeModeSelection();
-	  });
-	}
+  Swal.fire({
+    title: "美女スワイプ学習🎀",
+    html: htmlMsg,
+    icon: "info",
+    confirmButtonText: premium ? "学習を始める" : "広告を見る",
+    confirmButtonColor: "#e91e63",
+    allowOutsideClick: false
+  }).then(() => {
+    if (!premium) watchAdGlobal();
+    showSwipeModeSelection();
+  });
+}
 
 	// ✅ モード選択ダイアログ（分離して使いやすく）
 	function showSwipeModeSelection() {
@@ -2475,7 +2484,7 @@ async function decideSwipe(card, dir){
   updateSwipeHUD();
 
   // スワイプの定期広告
-  if (!user.premium &&
+  if (!isPremium()&&
       AD_EVERY_SWIPE > 0 &&
       swipeIndex % AD_EVERY_SWIPE === 0 &&
       swipeIndex < swipeWords.length) {
