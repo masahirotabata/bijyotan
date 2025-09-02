@@ -550,7 +550,7 @@ body.modal-open{ overflow:hidden; height:100vh; }
   <div class="swipe-hud">
     <button id="swipeExitBtn">一覧に戻る</button>
     <div id="swipeCounter">0 / 0</div>
-    <div id="swipeStats">覚えた: 0 / 覚えたい: 0</div>
+    <div id="swipeStats" aria-live="polite">覚えた: 0 / 覚えたい: 0</div>
   </div>
 
   <div id="swipeDeck">
@@ -565,7 +565,7 @@ body.modal-open{ overflow:hidden; height:100vh; }
 
 
 <div id="statsBox">
-  <div id="learningStatus"></div>
+  <div id="learningStatus" aria-live="polite"></div>
   <div id="subStats">
     <div id="loginDays"></div>
     <div id="testStats"></div>
@@ -978,7 +978,7 @@ function showLevelUpPopup(newLevel) {
 	        const shareText = `私は今レベル${newLevel}で「${title}」に到達しました！ #美女単`;
 	        const shareUrl = encodeURIComponent("https://your-app-url.com");
 	        const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${shareUrl}`;
-	       	window.open(tweetUrl, '_blank', 'noopener');
+	       	window.open(tweetUrl, '_blank', 'noopener,noreferrer');
 	      });
 	    }
 	  });
@@ -1097,41 +1097,53 @@ function getUserIdFromQuery() {
   return p.get('userId');
 }
 
-// ← これで置き換え
+// どこか上の方に追加
+async function readJsonIfPossible(res) {
+  const ct = (res.headers.get('content-type') || '').toLowerCase();
+  if (!ct.includes('application/json')) return null; // HTML等は弾く
+  try { return await res.json(); } catch { return null; }
+}
+
 async function fetchUserInfo() {
+  const uid = getUserIdFromQuery();
   const candidates = [
     '/user/me',
-    // /user/me が無い環境向けフォールバック
-    getUserIdFromQuery() ? `/user/${encodeURIComponent(getUserIdFromQuery())}` : null,
-    getUserIdFromQuery() ? `/api/user/${encodeURIComponent(getUserIdFromQuery())}` : null,
+    '/api/user/me',                                   // 追加
+    uid ? `/api/user/${encodeURIComponent(uid)}` : null, // /api を先に
+    uid ? `/user/${encodeURIComponent(uid)}` : null,      // ← 一番最後（HTMLに吸われやすい）
   ].filter(Boolean);
 
   for (const url of candidates) {
     try {
-      const res = await fetch(url, { credentials: 'include' });
-      if (res.ok) {
-        const data = await res.json();
-        user = data;
+      const res = await fetch(url, {
+        credentials: 'include',
+        headers: { 'Accept': 'application/json' }
+      });
 
-        localStorage.setItem("userId", String(data.id));
-        document.getElementById("username").innerText  = `${data.username} さん、ようこそ！`;
-        document.getElementById("planText").innerText  = `プラン: ${data.premium ? "プレミアム" : "無料"}`;
-        document.getElementById("userLevel").innerText = `レベル: Lv.${data.level || 1}`;
-        updateGirlVisual(data.level || 1);
-
-        // ログボ等は既存ロジックで
-        const ok = await updateLoginPointsIfNeeded(data.id);
-        if (!ok) {
-          const points = (typeof data.loginPoints === 'number') ? data.loginPoints : 1;
-          setLoginDays(points);
-          showLoginBonusOncePerDay(points);
-        }
-        return; // 成功したので終了
-      }
-      // 401/403 は即ログインへ
+      // 認証切れは即ログインへ
       if (res.status === 401 || res.status === 403) break;
-      // 400/404 は次の候補へフォールバック
-    } catch (_) { /* 次へ */ }
+      if (!res.ok) continue;
+
+      const data = await readJsonIfPossible(res);   // ★ HTMLだったら null
+      if (!data || typeof data !== 'object' || data.id == null) continue;
+
+      // ここから成功時処理
+      user = data;
+	  user.premium = (data.premium === true || data.premium === 'true' || data.isPremium === true);
+      localStorage.setItem("userId", String(data.id));
+      document.getElementById("username").innerText  = `${data.username} さん、ようこそ！`;
+      document.getElementById("planText").innerText  = `プラン: ${data.premium ? "プレミアム" : "無料"}`;
+      document.getElementById("userLevel").innerText = `レベル: Lv.${data.level || 1}`;
+      updateGirlVisual(data.level || 1);
+
+      const ok = await updateLoginPointsIfNeeded(data.id);
+      if (!ok) {
+        const points = Number.isFinite(data.loginPoints) ? data.loginPoints : 1;
+        setLoginDays(points);
+        showLoginBonusOncePerDay(points);
+      }
+      return;
+    } catch { /* 次へ */ }
   }
 
   alert("ユーザー情報が取得できません。ログインし直してください。");
@@ -1218,15 +1230,16 @@ async function fetchWordsFromServer(part) {
 
   for (const url of tries) {
     try {
-      const res = await apiFetch(url);
+      const res = await apiFetch(url, { headers:{ 'Accept':'application/json' } });
       if (res.ok) {
-        const data = await res.json();
+        const data = await readJsonIfPossible(res);
+		if (!Array.isArray(data)) continue;
         console.log('words fetched from', url, 'count=', data.length);
         return data.map(w => {
           const s = w.status ?? w.learned;
           const learned =
             s === true || s === 1 || s === '1' || s === 'true' || s === 'LEARNED';
-          return { ...w, status: !!learned };
+          return normalizeWord({ ...w, status: !!learned });
         });
       }
       if (res.status !== 404) {
@@ -1282,6 +1295,7 @@ function closeAdModal() {
   pendingToggle = null;
 }
 
+
 // スクリプト上部のどこか（他関数の外）に置く
 function esc(s=''){
   return String(s)
@@ -1292,13 +1306,15 @@ function esc(s=''){
     .replace(/'/g,'&#39;');
 }
 
-function safeSrc(u){
-  try{
-    const url = new URL(u, location.origin);
-    return /^(https?:|data:)/i.test(url.protocol) ? url.href : '/images/beauty.png';
-  }catch{ return '/images/beauty.png'; }
+function safeSrc(u, { allowDataImage=false } = {}){
+	try{
+	const url = new URL(u, location.origin);
+	const okHttp = url.protocol === 'http:' || url.protocol === 'https:';
+	const okData = allowDataImage && url.protocol === 'data:';
+	return (okHttp || okData) ? url.href : '/images/beauty.png';
+	} catch { return '/images/beauty.png'; }
 }
-
+	
 function escHTML(v=''){ return String(v)
   .replace(/&/g,'&amp;').replace(/</g,'&lt;')
   .replace(/>/g,'&gt;').replace(/"/g,'&quot;')
@@ -1649,13 +1665,17 @@ async function updateStatusCount() {
 
 //置き換え版：数値ラベルを表示
 async function loadWeeklyAnswers(){
-  const userId = getUserIdFromQuery() || localStorage.getItem('userId') || 1;
   try{
-    const res = await fetch(`/api/test/weekly`);  // userId 送らない
-    if(!res.ok) return;
-    const data = await res.json(); // [{ymd, answers, correct} ×7]
+    const res = await apiFetch('/api/test/weekly', {
+      credentials: 'include',
+      	headers:{ 'Accept':'application/json' },
+    });
+    if (!res.ok) return;
 
-    // 棒の高さは解答数を基準に
+    const data = await readJsonIfPossible(res); // ← ここがポイント
+    if (!data) { console.warn('weekly endpoint returned non-JSON, skip'); return; }
+
+    // 以降は今の描画ロジックのまま
     const max = Math.max(1, ...data.map(d => d.answers));
     const bars = document.getElementById('weeklyBars');
     const labels = document.getElementById('weeklyLabels');
@@ -1711,49 +1731,41 @@ async function loadWeeklyAnswers(){
 	document.addEventListener("DOMContentLoaded", loadWeeklyAnswers);
 
 
-function showLoginBonus(points){
-  const grid = document.getElementById('stampGrid');
-  grid.innerHTML = '';
-  const displayPoints = Math.max(points, 1);
-
-  for (let i = 1; i <= 30; i++) {
-    const cell = document.createElement('div');
-    cell.style.width = '60px';
-    cell.style.height = '60px';
-    cell.style.border = '1px solid #999';
-    cell.style.display = 'flex';
-    cell.style.justifyContent = 'center';
-    cell.style.alignItems = 'center';
-    cell.style.backgroundColor = '#eee';
-
-    if (i <= displayPoints) {
-      const img = document.createElement('img');
-      img.src = '/images/stamp_beauty.png';
-      img.alt = 'スタンプ';
-      img.style.width = '100%';
-      img.style.height = '100%';
-      img.style.objectFit = 'cover';
-      img.style.borderRadius = '50%';
-      img.style.border = '2px solid pink';
-      if (i === displayPoints) img.style.animation = 'pop 0.6s ease';
-      cell.appendChild(img);
-    } else {
-      const label = document.createElement('div');
-      label.textContent = `${i}日目`;
-      label.style.fontSize = '12px';
-      cell.appendChild(label);
-    }
-    grid.appendChild(cell);
+// フォーカストラップ
+function trapFocus(modal){
+  const SEL = 'a,button,input,select,textarea,[tabindex]:not([tabindex="-1"])';
+  const getNodes = ()=> Array.from(modal.querySelectorAll(SEL)).filter(el=>!el.disabled && el.offsetParent!==null);
+  function onKeydown(e){
+    if (e.key !== 'Tab') return;
+    const nodes = getNodes(); if (!nodes.length) return;
+    const first = nodes[0], last = nodes[nodes.length-1];
+    if (e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
   }
-
-  document.getElementById('loginBonusPopup').style.display = 'flex'; // ← block→flex
-  document.body.classList.add('modal-open');                         // ← 背景停止
+  modal.addEventListener('keydown', onKeydown);
+  return ()=> modal.removeEventListener('keydown', onKeydown);
 }
 
+// 例：ログインボーナス
+let removeTrapLoginBonus = null;
+function showLoginBonus(points){
+  /* ...既存... */
+  const popup = document.getElementById('loginBonusPopup');
+  popup.setAttribute('role','dialog');
+  popup.setAttribute('aria-modal','true');
+  popup.setAttribute('aria-labelledby','loginBonusTitle');
+  popup.style.display = 'flex';
+  removeTrapLoginBonus = trapFocus(popup);
+  popup.querySelector('button, [href], [tabindex]:not([tabindex="-1"])')?.focus();
+  document.body.classList.add('modal-open');
+}
 function closeLoginBonus(){
-  document.getElementById('loginBonusPopup').style.display = 'none';
-  document.body.classList.remove('modal-open'); // ← 背景再開
+  const popup = document.getElementById('loginBonusPopup');
+  popup.style.display = 'none';
+  removeTrapLoginBonus?.();
+  document.body.classList.remove('modal-open');
 }
+
 
 	
 	function getTitleByLevel(level) {
@@ -1912,12 +1924,11 @@ function closeLoginBonus(){
 	// 累計正答と学習日数を /user/{id} から更新。
 	// loginPoints がなければ /api/test/weekly から直近7日の「回答>0日数」を表示。
 	async function refreshUserStats() {
-	  const userId = getUserIdFromQuery() || localStorage.getItem('userId') || 1;
-
 	  try {
-	   	const res = await fetch(`/user/me`);
+	    const res = await fetch(`/user/me`, { credentials:'include', headers:{Accept:'application/json'} });
 	    if (res.ok) {
-	      const u = await res.json();
+	      const u = await readJsonIfPossible(res);
+		　if (!u) throw new Error('non-JSON');
 
 	      // 学習日数
 	      const days = (typeof u.loginPoints === 'number') ? u.loginPoints : 0;
@@ -1932,10 +1943,11 @@ function closeLoginBonus(){
      const currentLevel = Number(u.level ?? 1);
      if (currentLevel !== newLevel) {
        // サーバに保存（URL修正済み）
-       const r = await fetch(`/user/updateLevel`, {
+      const r = await fetch(`/api/user/updateLevel`, {
          method: 'PUT',
-         headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify({ userId, level: newLevel })
+	　　　credentials: 'include',
+         headers: { 'Content-Type': 'application/json', 'Accept':'application/json' },
+         body: JSON.stringify({ userId: (u.id ?? getUserId()), level: newLevel })
        });
        if (r.ok) {
          const json = await r.json().catch(() => ({}));
@@ -2493,17 +2505,31 @@ async function onSwipeRightLearned(word){
       }).then(()=> localStorage.setItem(SWIPE_TUTOR_KEY,'1'));
     }
 
-document.addEventListener('keydown', e=>{
-  if(e.key==='Escape'){
+document.addEventListener('keydown', (e) => {
+  // Esc でモーダル類を閉じる
+  if (e.key === 'Escape') {
     const ad = document.getElementById('adModal');
-    if(ad?.style.display==='flex') closeAdModal();
+    if (ad?.style.display === 'flex') closeAdModal();
 
     const vm = document.getElementById('videoModal');
     const vp = document.getElementById('videoPlayer');
-    if(vm?.style.display==='flex'){ vm.style.display='none'; vp?.pause(); }
+    if (vm?.style.display === 'flex') { vm.style.display = 'none'; vp?.pause(); }
+
+    const box = document.getElementById('swipeModeBox');
+    if (!box.classList.contains('hidden')) exitSwipeMode();
+    return;
   }
+
+  // スワイプ中のみ ← / → を効かせる
+  const box = document.getElementById('swipeModeBox');
+  if (box.classList.contains('hidden')) return;
+
+  const top = document.querySelector(`.swipe-card[data-index="${swipeIndex}"]`);
+  if (!top) return;
+
+  if (e.key === 'ArrowRight') { e.preventDefault(); decideSwipe(top, 'right'); }
+  if (e.key === 'ArrowLeft')  { e.preventDefault(); decideSwipe(top, 'left');  }
 });
-	
 	</script>
 　　<!-- カスタム広告・プレミアムモーダル -->
 <div id="adModal" role="dialog" aria-modal="true" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background-color:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center;">
