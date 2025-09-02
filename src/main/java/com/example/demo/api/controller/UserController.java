@@ -45,9 +45,9 @@ public class UserController {
         this.passwordEncoder = passwordEncoder;
     }
 
-    /** レベル更新 */
+    /** レベル更新（戻り値の型を Map<String, Integer> に統一） */
     @PutMapping("/updateLevel")
-    public ResponseEntity<Map<String, Object>> updateLevel(@RequestBody Map<String, Object> payload) {
+    public ResponseEntity<Map<String, Integer>> updateLevel(@RequestBody Map<String, Object> payload) {
         Long userId = Long.valueOf(String.valueOf(payload.get("userId")));
         int level = Integer.parseInt(String.valueOf(payload.get("level")));
 
@@ -55,9 +55,10 @@ public class UserController {
                 .map(u -> {
                     u.setLevel(level);
                     userRepository.save(u);
-                    return ResponseEntity.ok(Map.of("level", Optional.ofNullable(u.getLevel()).orElse(1)));
+                    return ResponseEntity.ok(Map.of("level", u.getLevel()));
                 })
-                .orElse(ResponseEntity.notFound().build());
+                // notFound() のビルダー型を明示して型不一致を回避
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).<Map<String, Integer>>build());
     }
 
     /** ユーザー取得 */
@@ -68,11 +69,11 @@ public class UserController {
                         new UserResponseDto(
                                 user.getId(),
                                 user.getUsername(),
-                                // ↓ Boolean/boolean 両対応 & null セーフ
-                                Boolean.TRUE.equals(user.getPremium()),
-                                Boolean.TRUE.equals(user.getCanWatchVideo()),
-                                Optional.ofNullable(user.getLoginPoints()).orElse(0),
-                                Optional.ofNullable(user.getLevel()).orElse(1),
+                                // boolean アクセサに修正
+                                user.isPremium(),
+                                user.isCanWatchVideo(),
+                                user.getLoginPoints(),
+                                user.getLevel(),
                                 Optional.ofNullable(user.getTestCorrectTotal()).orElse(0)
                         )
                 ))
@@ -115,11 +116,12 @@ public class UserController {
         user.setEmail(email);
         user.setUsername(email);
         user.setPassword(passwordEncoder.encode(password));
-        // 初期値（null回避）
-        if (user.getLevel() == null) user.setLevel(1);
-        if (user.getLoginPoints() == null) user.setLoginPoints(0);
-        if (user.getPremium() == null) user.setPremium(false);
-        if (user.getCanWatchVideo() == null) user.setCanWatchVideo(false);
+
+        // primitive なので null チェック不要。初期値を明示セット
+        user.setLevel(1);
+        user.setLoginPoints(0);
+        user.setPremium(false);
+        user.setCanWatchVideo(false);
 
         UserEntity saved = userRepository.save(user);
         URI redirectUri = URI.create("/user.html?userId=" + saved.getId());
@@ -164,7 +166,7 @@ public class UserController {
         }
 
         UserEntity user = optionalUser.get();
-        if (Boolean.TRUE.equals(user.getPremium())) {
+        if (user.isPremium()) { // アクセサ修正
             return ResponseEntity.ok("すでにプレミアムユーザーです");
         }
 
