@@ -1,6 +1,7 @@
 package com.example.demo.config;
 
 import java.util.List;
+import jakarta.servlet.http.HttpServletResponse; // ★ 追加
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,7 +23,6 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableWebSecurity
 public class SecurityConfig {
 
-  // 共通Bean
   @Bean
   public PasswordEncoder passwordEncoder() {
     return new BCryptPasswordEncoder();
@@ -37,14 +37,14 @@ public class SecurityConfig {
     return p;
   }
 
-  // 別オリジンで使う場合のみ有効化（同一オリジンなら不要）
+  // 別オリジンを使う時のみ必要（同一オリジンなら不要）
   @Bean
   public CorsConfigurationSource corsConfigurationSource() {
     CorsConfiguration c = new CorsConfiguration();
     c.setAllowedOrigins(List.of(
-        "https://bijyotan.onrender.com",
-        "http://localhost:8080",
-        "http://127.0.0.1:8080"
+      "https://bijyotan.onrender.com",
+      "http://localhost:8080",
+      "http://127.0.0.1:8080"
     ));
     c.setAllowedMethods(List.of("GET","POST","PUT","DELETE","OPTIONS"));
     c.setAllowedHeaders(List.of("*"));
@@ -54,7 +54,7 @@ public class SecurityConfig {
     return s;
   }
 
-  // ===== Chain #1: API（/api/**） =====
+  // ===== Chain #1: API向け (/api/**) =====
   @Bean
   @Order(1)
   public SecurityFilterChain apiSecurity(HttpSecurity http,
@@ -68,7 +68,14 @@ public class SecurityConfig {
         .requestMatchers("/api/auth/login", "/api/auth/register", "/api/battle/**").permitAll()
         .anyRequest().authenticated()
       )
-      // APIはステータスで返す（リダイレクトしない）
+      // ★ 未認証時は 401 を返す（デフォルトの /login リダイレクトを無効化）
+      .exceptionHandling(ex -> ex
+        .authenticationEntryPoint((req, res, e) ->
+          res.sendError(HttpServletResponse.SC_UNAUTHORIZED))
+        .accessDeniedHandler((req, res, e) ->
+          res.sendError(HttpServletResponse.SC_FORBIDDEN))
+      )
+      // APIのログインはリダイレクトさせない（成功200 / 失敗401）
       .formLogin(form -> form
         .loginProcessingUrl("/api/auth/login")
         .usernameParameter("email")
@@ -83,14 +90,13 @@ public class SecurityConfig {
     return http.build();
   }
 
-  // ===== Chain #2: UI（それ以外） =====
+  // ===== Chain #2: UI向け（それ以外） =====
   @Bean
   @Order(2)
   public SecurityFilterChain uiSecurity(HttpSecurity http,
                                         DaoAuthenticationProvider provider) throws Exception {
     http
-      // ★ 修正ポイント：enable()は無し。既定で有効なので defaults か、行ごと削除でOK
-      .csrf(Customizer.withDefaults())
+      .csrf(Customizer.withDefaults()) // UIは既定で有効
       .headers(h -> h.frameOptions(f -> f.sameOrigin()))
       .cors(Customizer.withDefaults())
       .authenticationProvider(provider)
