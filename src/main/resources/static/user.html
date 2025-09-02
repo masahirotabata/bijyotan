@@ -51,6 +51,40 @@
 /* ===== モバイル最適化 ===== */
 @media (max-width: 480px){
 
+   body.swipe-open{ overflow:hidden; }               /* 背景スクロール停止 */
+
+  #swipeModeBox.fullscreen{
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;            /* 旧端末フォールバック */
+    height: 100svh;           /* iOS 15+ */
+    height: 100dvh;           /* 新しい動的vh */
+    background:#fff;
+    z-index: 10000;
+    margin: 0;
+    padding:
+      max(8px, env(safe-area-inset-top))
+      8px
+      max(10px, env(safe-area-inset-bottom));
+    display: grid;
+    grid-template-rows: auto 1fr auto;  /* 上:HUD / 中:デッキ / 下:ヒント */
+    gap: 6px;
+  }
+
+  /* 中央のデッキは残り領域をフルで使う */
+  #swipeDeck{ height: auto; display: grid; align-items: center; }
+
+  /* カードを画面いっぱいに拡大（はみ出さないよう clamp） */
+  .swipe-card{
+    width: min(92vw, 560px);
+    height: clamp(320px, 74dvh, 720px);
+  }
+
+  /* HUD/ヒントを固定っぽく見せる（スクロールでずれない） */
+  .swipe-hud{ position: sticky; top: 0; background:#fff; padding-bottom: 4px; }
+  .swipe-hints{ position: sticky; bottom: 0; background:#fff; padding-top: 4px; }
+
   /* 以前の「全ボタン幅90%」をやめる：縦の伸び防止 */
   button{ font-size: 0.95rem; padding: 10px; }
 
@@ -1949,16 +1983,46 @@ async function setUserPremium(userId) {
 	  localStorage.setItem(key, JSON.stringify([...set]));
 	}
 	
-	function setSwipeModeVisible(show){
-		  document.getElementById('swipeModeBox').classList.toggle('hidden', !show);
-		  // 一覧系を隠す/戻す
-		  document.getElementById('wordContainer').classList.toggle('hidden', show);
-		  document.getElementById('pagination').classList.toggle('hidden', show);
-		  const pagTop = document.getElementById('paginationTop');
-		  if (pagTop) pagTop.classList.toggle('hidden', show);
-		  document.getElementById('test-section').classList.toggle('hidden', show);
-		  document.getElementById('weeklyAnswersBox').classList.toggle('hidden', show);
-		}
+function setSwipeModeVisible(show){
+  const box = document.getElementById('swipeModeBox');
+  box.classList.toggle('hidden', !show);
+
+  // 一覧系を隠す/戻す（既存）
+  document.getElementById('wordContainer').classList.toggle('hidden', show);
+  document.getElementById('pagination').classList.toggle('hidden', show);
+  const pagTop = document.getElementById('paginationTop');
+  if (pagTop) pagTop.classList.toggle('hidden', show);
+  document.getElementById('test-section').classList.toggle('hidden', show);
+  document.getElementById('weeklyAnswersBox').classList.toggle('hidden', show);
+
+  // ★ スマホだけ全画面
+  const isMobile = window.matchMedia('(max-width:480px)').matches;
+  if (show && isMobile){
+    box.classList.add('fullscreen');
+    document.body.classList.add('swipe-open');
+    requestAnimationFrame(resizeSwipeDeck); // 後述
+  }else{
+    box.classList.remove('fullscreen');
+    document.body.classList.remove('swipe-open');
+  }
+}
+
+function resizeSwipeDeck(){
+  const box = document.getElementById('swipeModeBox');
+  const deck = document.getElementById('swipeDeck');
+  if (!box || !deck) return;
+  // グリッドで1frにしているので明示指定は不要だが、
+  // iOSの一部で高さが足りなく見える時の保険として最低高さだけ与える
+  const h = Math.max(320, box.clientHeight - 96); // だいたいHUD+ヒントぶん
+  deck.style.minHeight = h + 'px';
+}
+window.addEventListener('resize', () => {
+  if (!document.getElementById('swipeModeBox').classList.contains('hidden')) {
+    resizeSwipeDeck();
+  }
+});
+
+
 
 	// ✅ スワイプ学習開始時：最初に広告 → 終了後モード選択
 	function startSwipeMode(partValue = selectedPart){
