@@ -1,7 +1,7 @@
 package com.example.demo.config;
 
 import java.util.List;
-import jakarta.servlet.http.HttpServletResponse; // ★ 追加
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -29,15 +29,14 @@ public class SecurityConfig {
   }
 
   @Bean
-  public DaoAuthenticationProvider authProvider(
-      UserDetailsService uds, PasswordEncoder encoder) {
+  public DaoAuthenticationProvider authProvider(UserDetailsService uds, PasswordEncoder encoder) {
     DaoAuthenticationProvider p = new DaoAuthenticationProvider();
     p.setUserDetailsService(uds);
     p.setPasswordEncoder(encoder);
     return p;
   }
 
-  // 別オリジンを使う時のみ必要（同一オリジンなら不要）
+  // 別オリジンから叩く想定がある場合のみ有効に（同一オリジンのみなら不要）
   @Bean
   public CorsConfigurationSource corsConfigurationSource() {
     CorsConfiguration c = new CorsConfiguration();
@@ -46,7 +45,7 @@ public class SecurityConfig {
       "http://localhost:8080",
       "http://127.0.0.1:8080"
     ));
-    c.setAllowedMethods(List.of("GET","POST","PUT","DELETE","OPTIONS"));
+    c.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
     c.setAllowedHeaders(List.of("*"));
     c.setAllowCredentials(true);
     UrlBasedCorsConfigurationSource s = new UrlBasedCorsConfigurationSource();
@@ -57,25 +56,23 @@ public class SecurityConfig {
   // ===== Chain #1: API向け (/api/**) =====
   @Bean
   @Order(1)
-  public SecurityFilterChain apiSecurity(HttpSecurity http,
-                                         DaoAuthenticationProvider provider) throws Exception {
+  public SecurityFilterChain apiSecurity(HttpSecurity http, DaoAuthenticationProvider provider) throws Exception {
     http
       .securityMatcher("/api/**")
-      .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**")) // APIはCSRF除外
+      // APIはCSRF対象外（セッションは使うがトークン検証はしない）
+      .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**"))
       .cors(Customizer.withDefaults())
       .authenticationProvider(provider)
       .authorizeHttpRequests(auth -> auth
         .requestMatchers("/api/auth/login", "/api/auth/register", "/api/battle/**").permitAll()
         .anyRequest().authenticated()
       )
-      // ★ 未認証時は 401 を返す（デフォルトの /login リダイレクトを無効化）
+      // 未認証=401, 権限不足=403（/login へリダイレクトさせない）
       .exceptionHandling(ex -> ex
-        .authenticationEntryPoint((req, res, e) ->
-          res.sendError(HttpServletResponse.SC_UNAUTHORIZED))
-        .accessDeniedHandler((req, res, e) ->
-          res.sendError(HttpServletResponse.SC_FORBIDDEN))
+        .authenticationEntryPoint((req, res, e) -> res.sendError(HttpServletResponse.SC_UNAUTHORIZED))
+        .accessDeniedHandler((req, res, e) -> res.sendError(HttpServletResponse.SC_FORBIDDEN))
       )
-      // APIのログインはリダイレクトさせない（成功200 / 失敗401）
+      // フォームログインをAPI用に：成功200/失敗401・リダイレクト無し
       .formLogin(form -> form
         .loginProcessingUrl("/api/auth/login")
         .usernameParameter("email")
@@ -84,19 +81,23 @@ public class SecurityConfig {
         .failureHandler((req, res, ex) -> res.sendError(401))
         .permitAll()
       )
-      .logout(l -> l.logoutUrl("/api/auth/logout")
-        .logoutSuccessHandler((req, res, auth) -> res.setStatus(200)))
+      .logout(l -> l
+        .logoutUrl("/api/auth/logout")
+        .logoutSuccessHandler((req, res, auth) -> res.setStatus(200))
+      )
+      // セッションは必要時に作成（JSESSIONIDを使って継続認証）
       .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED));
+
     return http.build();
   }
 
   // ===== Chain #2: UI向け（それ以外） =====
   @Bean
   @Order(2)
-  public SecurityFilterChain uiSecurity(HttpSecurity http,
-                                        DaoAuthenticationProvider provider) throws Exception {
+  public SecurityFilterChain uiSecurity(HttpSecurity http, DaoAuthenticationProvider provider) throws Exception {
     http
-      .csrf(Customizer.withDefaults()) // UIは既定で有効
+      // UIはCSRF有効（loginフォームはCSRFトークン埋め込みが必要）
+      .csrf(Customizer.withDefaults())
       .headers(h -> h.frameOptions(f -> f.sameOrigin()))
       .cors(Customizer.withDefaults())
       .authenticationProvider(provider)
@@ -132,6 +133,7 @@ public class SecurityConfig {
         .permitAll()
       )
       .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED));
+
     return http.build();
   }
 }
