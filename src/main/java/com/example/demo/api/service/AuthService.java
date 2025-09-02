@@ -21,7 +21,7 @@ public class AuthService {
 
     /**
      * 既存ユーザーの平文パスワードを BCrypt へ再エンコード
-     * （$2 で始まらないものだけ対象）
+     * （"$2" で始まらないものだけ対象）
      */
     @Transactional
     public void reencodePlainPasswords() {
