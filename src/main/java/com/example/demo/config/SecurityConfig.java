@@ -44,6 +44,7 @@ public class SecurityConfig {
           "/forgot-password.html", "/reset-password.html",
           "/user/register", "/user/forgot-password",
           "/login", "/signup",
+           "/auth/**",                 // ★ 追加: APIログインを許可
           "/user.html",
           "/battle.html", "/api/battle/**",
           "/ws/**", "/topic/**", "/app/**",
