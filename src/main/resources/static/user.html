@@ -616,10 +616,12 @@ const apiFetch = (path, opts = {}) => {
 };
 
 // JSONしか受け付けないfetch（Cookie付き・非JSONは例外）
-async function fetchJSON(url, opts) {
-  const res = await apiFetch(url, opts);
-  const ct = res.headers.get('content-type') || '';
-  if (res.status === 401 || res.status === 403) {
+const res = await apiFetch(url, opts);
+const ct = res.headers.get('content-type') || '';
+// 302→/login などで HTML が返るケースを確実に未ログイン扱いにする
+const redirectedToLogin =
+  res.redirected && /\/login(?:\.html)?$/.test(new URL(res.url).pathname);
+if (redirectedToLogin || res.status === 401 || res.status === 403) {
     const err = new Error('unauthorized'); err.code = 'UNAUTHORIZED'; throw err;
   }
   if (!ct.includes('application/json')) {
@@ -661,23 +663,31 @@ const parts = [
   { label: "癒しPart", value: "partHealing" } */
 ];
 
-document.addEventListener("DOMContentLoaded", async () => {
-  await fetchUserInfo();          // サーバのセッションから本人取得
-  const userId = user.id;         // 以降必要ならこれを使う
+document.addEventListener("DOMContentLoaded", initApp);
 
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get("premium") === "true") {
-    await setUserPremium(userId);
-    user.isPremium = true;
-  }
+async function initApp() {
+const ok = await fetchUserInfo();
+if (!ok) {
+  // サーバ起動待ちや一時的な HTML 応答。UIに案内を出して自動再試行
+  const s = document.getElementById("learningStatus");
+  if (s) s.textContent = "サーバ起動中…自動で再試行します";
+  setTimeout(initApp, 1200);
+  return;
+}
 
-  renderPartButtons();
-  await loadWords();
-  refreshUserStats();
-  showUpdateInfoIfNeeded();
-  ensureHeroVideo();
-  placeSwipeBoxAboveStartButton();
-});
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get("premium") === "true") {
+  await setUserPremium(user.id);
+  user.isPremium = true;
+}
+
+renderPartButtons();
+await loadWords();
+await refreshUserStats();
+showUpdateInfoIfNeeded();
+ensureHeroVideo();
+placeSwipeBoxAboveStartButton();
+}
 
 //URLのテスト結果をUIへ反映し、必要ならコミットも打つ
 async function applyTestParamsAndCommit() {
@@ -1290,7 +1300,7 @@ async function fetchWordsFromServer(part) {
     }
   }
 
-  alert('単語の取得に失敗しました（エンドポイント未検出）');
+  console.warn('words endpoint not ready (server starting?)');
   return [];
 }
 
@@ -1964,10 +1974,13 @@ function startTest() {
 	// loginPoints がなければ /api/test/weekly から直近7日の「回答>0日数」を表示。
 	async function refreshUserStats() {
   try {
-    const res = await apiFetch(`/user/me`);
-    const ct = res.headers.get('content-type') || '';
-    if (!res.ok || !ct.includes('application/json')) throw new Error('non-json');
-    const u = await res.json();
+	  const u = await fetchJSON('/user/me');  // ← 共通ロジックに統一
+	     // …既存処理…
+	     return;
+	   } catch (e) {
+	  console.warn('refreshUserStats /user fetch failed', e);
+	　if (e.code === 'NON_JSON') { setTimeout(refreshUserStats, 1000); }
+   }
 
     // 学習日数
     const days = (typeof u.loginPoints === 'number') ? u.loginPoints : 0;
