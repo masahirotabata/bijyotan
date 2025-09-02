@@ -519,7 +519,7 @@ body.modal-open{ overflow:hidden; height:100vh; }
 
 <!-- スタンプカードポップアップ -->
 <div id="loginBonusPopup">
-  <h3>ログインボーナス</h3>
+  <h3 id="loginBonusTitle">ログインボーナス</h3>
   <div id="stampScroll"><div id="stampGrid"></div></div>
   <button id="loginBonusOkBtn" onclick="closeLoginBonus()">OK</button>
 </div>
@@ -791,6 +791,10 @@ async function ensureHeroVideo(){
 function setLoginDays(points){
   const el = document.getElementById('loginDays');
   if (el) el.textContent = `学習日数: ${points}日目`;
+}
+
+function isPremium(u = user) {
+  return !!(u && (u.premium === true || u.premium === 'true' || u.isPremium === true));
 }
 
 // ✅ 初回ログイン or バージョン変更時のみ表示
@@ -1075,7 +1079,7 @@ function selectPart(part) {
     loadWords();
   };
 
-  if (!user.premium && isLockedPart && !isAdEnabled()) {
+  if (!isPremium() && isLockedPart && !isAdEnabled()) {
     Swal.fire({
       title: "このパートは広告視聴が必要です",
       html: `<p>広告を見れば<strong>5分間だけ開放</strong>されます。<br>
@@ -1491,7 +1495,7 @@ function toggleImage(imgId, btnId, img1, img2, index) {
 function handleToggleImage(imgId, btnId, img1, img2, index) {
   const proceed = () => toggleImage(imgId, btnId, img1, img2, index);
   const total = incBeautyClickCount();
-  if (!user.premium && AD_EVERY_TOGGLE > 0 && total % AD_EVERY_TOGGLE === 0) {
+if (!isPremium() && AD_EVERY_TOGGLE > 0 && total % AD_EVERY_TOGGLE === 0) {
     showAdModalForToggle(proceed);
     return;
   }
@@ -1771,42 +1775,60 @@ function closeLoginBonus(){
 
 
 	
-	function getTitleByLevel(level) {
+function getTitleByLevel(level) {
 		  if (level >= 20) return "ホットパンツの覇者";
 		  if (level >= 15) return "セクシー学習王";
 		  if (level >= 10) return "フリフリ美女マスター";
 		  if (level >= 5) return "Newbie";
 		  return "ビギナー";
-		}
+}
 	
-	function showPremiumPopup() {
-		  Swal.fire({
-		    title: '🎀 美女単プレミアムプラン 🎀',
-		    html: `
-		      <div style="text-align:left; font-size: 0.95rem;">
-		        <p>全モード解放＆広告なしの贅沢体験</p>
-		        <ul style="line-height:1.6;">
-		          <li>✔ リスニングモード解放</li>
-		          <li>✔ テスト回数無制限＆成績履歴も保存</li>
-		        </ul>
-		        <p style="font-weight:bold; font-size:1.1rem;">💰 月額500円（税込）</p>
-		        <p style="color:red;">✨ 今だけ初月300円キャンペーン中 ✨</p>
-		        <small>SNSでシェアすると1週間無料体験🎁</small>
-		      </div>
-		    `,
-		    showCancelButton: true,
-		    confirmButtonText: "プレミアムに登録する",
-		    cancelButtonText: "あとで見る",
-		    customClass: {
-		      popup: 'premium-popup',
-		      confirmButton: 'btn-premium'
-		    }
-		  }).then(result => {
-		    if (result.isConfirmed) {
-		      window.location.href = "/premium.html"; // プラン登録ページへ遷移
-		    }
-		  });
-		}
+function showPremiumPopup() {
+  Swal.fire({
+    title: '🎀 美女単プレミアムプラン 🎀',
+    html: `
+      <div style="text-align:left; font-size: 0.95rem;">
+        <p>全モード解放＆広告なしの贅沢体験</p>
+        <ul style="line-height:1.6;">
+          <li>✔ リスニングモード解放</li>
+          <li>✔ テスト回数無制限＆成績履歴も保存</li>
+        </ul>
+        <p style="font-weight:bold; font-size:1.1rem;">💰 月額500円（税込）</p>
+        <p style="color:red;">✨ 今だけ初月300円キャンペーン中 ✨</p>
+        <small>SNSでシェアすると1週間無料体験🎁</small>
+      </div>
+    `,
+    showCancelButton: true,
+    confirmButtonText: "プレミアムに登録する",
+    cancelButtonText: "あとで見る",
+    customClass: {
+      popup: 'premium-popup',
+      confirmButton: 'btn-premium'
+    }
+  }).then(async (result) => {
+    if (result.isConfirmed) {
+      // ここでチェックアウトセッションを作ってリダイレクト
+      try {
+        const r = await apiFetch('/api/payment/create-checkout-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          // セッション認証なら userId 不要。サーバ仕様に合わせて必要なら付与
+          body: JSON.stringify({ /* userId: getUserId() */ })
+        });
+        const data = await r.json();
+        if (data && data.checkoutUrl) {
+          window.location.href = data.checkoutUrl;
+        } else {
+          // フォールバック
+          window.location.href = "/premium.html";
+        }
+      } catch (e) {
+        console.error(e);
+        window.location.href = "/premium.html";
+      }
+    }
+  });
+}
 	
 apiFetch('/api/payment/create-checkout-session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: getUserId() }) })
 	  .then(res => res.json())
@@ -2193,7 +2215,7 @@ function exitSwipeMode(){
   renderWords();
   updateStatusCount();
   disableSwipeBackGuard();
-  if (!user.premium) watchAdGlobal();
+  if (!isPremium()) watchAdGlobal();
   // ダミー履歴を1つ戻す（実ページ遷移は抑止）
   _ignoreNextPop = true; history.back();
 }
