@@ -606,7 +606,7 @@ body.modal-open{ overflow:hidden; height:100vh; }
 const apiFetch = (path, opts = {}) => {
   const method = (opts.method || 'GET').toUpperCase();
   const needsCSRF = !['GET','HEAD','OPTIONS'].includes(method);
-  const headers = new Headers(opts.headers || {});
+  const headers = new Headers({ Accept: 'application/json', ...(opts.headers || {}) });
   if (needsCSRF) {
     const m = document.cookie.match(/(?:^|;\s*)_csrf=([^;]+)/);
     const token = m ? decodeURIComponent(m[1]) : null;
@@ -618,11 +618,16 @@ const apiFetch = (path, opts = {}) => {
 // JSONしか受け付けないfetch（Cookie付き・非JSONは例外）
 async function fetchJSON(url, opts) {
   const res = await apiFetch(url, opts);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const ct = res.headers.get('content-type') || '';
-  if (!ct.includes('application/json')) throw new Error('non-json');
+  if (res.status === 401 || res.status === 403) {
+    const err = new Error('unauthorized'); err.code = 'UNAUTHORIZED'; throw err;
+  }
+  if (!ct.includes('application/json')) {
+    const err = new Error('non-json'); err.code = 'NON_JSON'; err.status = res.status; throw err;
+  }
   return res.json();
 }
+
 
 // グローバルで使っているのに未宣言だったので用意
 let musouMode = false;
@@ -1150,17 +1155,38 @@ async function fetchUserInfo() {
     }
   }
 
-  // どれもダメ（未ログイン or 非JSON）
-  Swal.fire({
-    icon: 'warning',
-    title: 'ログインが必要です',
-    text: 'もう一度ログインしてください。'
-  }).then(() => {
-    // サーバのログインパスに合わせて片方が効くよう二段構え
-    location.href = '/login';
-    setTimeout(() => { location.href = 'login.html'; }, 200);
-  });
-  return false;
+// 最大3回、non-json は待って再試行（Render の起動待ちなどを吸収）
+for (let attempt = 0; attempt < 3; attempt++) {
+  for (const url of candidates) {
+    try {
+      const data = await fetchJSON(url);
+      user = data;
+      localStorage.setItem("userId", String(data.id));
+      document.getElementById("username").innerText  = `${data.username} さん、ようこそ！`;
+      document.getElementById("planText").innerText  = `プラン: ${data.premium ? "プレミアム" : "無料"}`;
+      document.getElementById("userLevel").innerText = `レベル: Lv.${data.level || 1}`;
+      updateGirlVisual(data.level || 1);
+      const ok = await updateLoginPointsIfNeeded(data.id);
+      if (!ok) {
+        const points = (typeof data.loginPoints === 'number') ? data.loginPoints : 1;
+        setLoginDays(points);
+        showLoginBonusOncePerDay(points);
+      }
+      return true;
+    } catch (e) {
+      if (e.code === 'UNAUTHORIZED') {
+        Swal.fire({ icon:'warning', title:'ログインが必要です', text:'もう一度ログインしてください。'})
+          .then(() => location.assign('/login'));
+        return false;
+      }
+      // NON_JSON は待って再試行
+    }
+  }
+  await new Promise(r => setTimeout(r, 800)); // 0.8秒待ち
+}
+// ここまで来たらサーバ起動遅延か想定外エラー。リダイレクトせず画面に残す
+console.warn('user info could not be fetched as JSON after retries');
+return false;
 }
 
 async function updateLoginPointsIfNeeded(userId) {
