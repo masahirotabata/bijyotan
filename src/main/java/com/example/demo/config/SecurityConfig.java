@@ -114,6 +114,7 @@ public class SecurityConfig {
           "/auth/**",
           "/user.html",
           "/battle.html",
+          "/register.html",
           "/ws/**", "/topic/**", "/app/**",
           "/css/**", "/js/**", "/images/**", "/videos/**", "/se/**", "/static/**",
           "/webjars/**",
