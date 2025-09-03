@@ -2396,29 +2396,41 @@
       }
 
       // 例：ログインボーナス
-      let removeTrapLoginBonus = null;
-      function showLoginBonus(points) {
-        const title = document.getElementById("loginBonusTitle");
-        const grid = document.getElementById("stampGrid");
-        title.textContent = "ログインボーナス（学習日数: " + points + "日目）";
-        grid.innerHTML = "";
-        for (let i = 1; i <= 7; i++) {
-          const cell = document.createElement("div");
-          cell.style.cssText =
-            "aspect-ratio:1/1;border:1px dashed #f48fb1;border-radius:8px;display:flex;align-items:center;justify-content:center;";
-          cell.textContent = i <= (points % 7 || 7) ? "✅" : "—";
-          grid.appendChild(cell);
-        }
-        const popup = document.getElementById("loginBonusPopup");
-        popup.style.display = "flex";
-        popup.style.flexDirection = "column";
-        popup.setAttribute("role", "dialog");
-        popup.setAttribute("aria-modal", "true");
-        popup.setAttribute("aria-labelledby", "loginBonusTitle");
-        removeTrapLoginBonus = trapFocus(popup);
-        document.body.classList.add("modal-open");
-      }
-
+	  let removeTrapLoginBonus = null;
+	  async function showLoginBonus(points){
+		  const title = document.getElementById('loginBonusTitle');
+		  const grid  = document.getElementById('stampGrid');
+		  title.textContent = 'ログインボーナス（学習日数: ' + points + '日目）';
+		
+		  // ★ 画像を上部に表示（存在チェック付き）
+		  const heroSrc = await pickImage([
+		    '/images/hotpants_beauty.png',
+		    'https://cdn.jsdelivr.net/gh/masahirotabata/bijyotan@master/src/main/resources/static/images/hotpants_beauty.png'
+		  ]);
+		  const hero = document.createElement('img');
+		  hero.src = heroSrc;
+		  hero.alt = 'hotpants beauty';
+		  hero.style.cssText = 'display:block;margin:6px auto 8px;max-width:160px;height:auto;border-radius:10px;';
+		
+		  grid.innerHTML = '';
+		  grid.parentElement.insertAdjacentElement('afterbegin', hero);
+		
+		  for (let i=1;i<=7;i++){
+		    const cell = document.createElement('div');
+		    cell.style.cssText = 'aspect-ratio:1/1;border:1px dashed #f48fb1;border-radius:8px;display:flex;align-items:center;justify-content:center;';
+		    cell.textContent = (i <= (points%7||7)) ? '✅' : '—';
+		    grid.appendChild(cell);
+		  }
+		  const popup = document.getElementById('loginBonusPopup');
+		  popup.style.display = 'flex';
+		  popup.style.flexDirection = 'column';
+		  popup.setAttribute('role','dialog');
+		  popup.setAttribute('aria-modal','true');
+		  popup.setAttribute('aria-labelledby','loginBonusTitle');
+		  removeTrapLoginBonus = trapFocus(popup);
+		  document.body.classList.add('modal-open');
+	  }
+		
       function closeLoginBonus() {
         const popup = document.getElementById("loginBonusPopup");
         popup.style.display = "none";
