@@ -142,22 +142,34 @@ async function handleRegister(e){
       body: JSON.stringify(body)
     });
 
-    if (res.status === 201 || res.status === 200 || res.status === 204) {
-      let data=null;
-      try{
-        const ct=(res.headers.get('content-type')||'').toLowerCase();
-        if (ct.includes('application/json')) data=await res.json();
-      }catch{}
+     if (res.status === 201 || res.status === 200 || res.status === 204) {
+      // APIがJSONを返す場合だけ拾う（なくてもOK）
+      let data = null;
+      try {
+        const ct = (res.headers.get('content-type') || '').toLowerCase();
+        if (ct.includes('application/json')) data = await res.json();
+      } catch {}
 
-      let userId = data?.userId ?? data?.id;
-      if (!userId) userId = await getUserIdFallback();
+      // 1) もしサーバが自動ログイン(cookie発行)しているなら /api/me で判定
+      let userId = data?.userId ?? data?.id ?? await getUserIdFallback();
+      // 2) 遷移方針
+      let nextUrl = '';
+      if (userId) {
+        // 既にログイン状態ならダッシュボードへ
+        nextUrl = `/user.html?userId=${encodeURIComponent(userId)}`;
+      } else {
+        // ログイン状態でなければログイン画面へ誘導（メールを埋め込んでおくと親切）
+        const email = encodeURIComponent(document.getElementById('regEmail').value.trim());
+        nextUrl = `/login.html?from=register&email=${email}&registered=1`;
+      }
 
-      const go = () => {
-        if (userId) location.href = `/user.html?userId=${encodeURIComponent(userId)}`;
-        else        location.href = `/user.html`;
-      };
-      if (window.Swal) await Swal.fire({icon:'success', text:'登録できました！'}).then(go);
-      else { alert('登録できました！'); go(); }
+      const done = () => location.href = nextUrl;
+      if (window.Swal)
+        await Swal.fire({icon:'success', text:'登録できました！'}).then(done);
+      else {
+        alert('登録できました！');
+        done();
+      }
       return;
     }
 
