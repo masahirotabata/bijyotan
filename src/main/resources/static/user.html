@@ -1663,6 +1663,7 @@ function renderWords() {
 	      width="88" height="132" decoding="async" draggable="false"
 	      data-state="${initState}"
 	      data-word-id="${word.id ?? ''}"
+	      data-key="${stateKey}"
 	      onerror="this.onerror=null;this.src='${baseImg}';this.dataset.state='1';document.getElementById('imgpath-${index}').textContent='${baseImg}';localStorage.setItem('${stateKey}','1');"
 	    >
 	  </div>
@@ -1750,10 +1751,11 @@ function toggleImage(imgId, btnId, img1, img2, index) {
   const imgElem   = document.getElementById(imgId);
   const pathLabel = document.getElementById(`imgpath-${index}`);
   const btn       = document.getElementById(btnId);
-  const wordId    = imgElem?.dataset?.wordId;
-  const stateKey  = wordId ? `imgState:${wordId}` : null;
 
-  // 現在の状態は data-state（'1' or '2'）
+  // ← ここがポイント：renderWordsと同じキーを使う
+  const stateKey  = imgElem?.dataset?.key ||
+                    (imgElem?.dataset?.wordId ? `imgState:id:${imgElem.dataset.wordId}` : null);
+
   const nextState = (imgElem.dataset.state === '2') ? '1' : '2';
   const nextSrc   = (nextState === '2') ? img2 : img1;
 
