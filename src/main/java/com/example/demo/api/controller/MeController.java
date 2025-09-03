@@ -1,7 +1,8 @@
-// src/main/java/com/example/demo/api/MeController.java
 package com.example.demo.api;
 
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
+
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -11,29 +12,36 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-// ★ 追加
-import org.springframework.beans.factory.annotation.Autowired;
 import com.example.demo.domain.repository.UserRepository;
 
 @RestController
 @RequestMapping("/api")
 public class MeController {
 
-  @Autowired
-  private UserRepository userRepository; // ★ 追加
+  private final UserRepository userRepository;
+
+  public MeController(UserRepository userRepository) {
+    this.userRepository = userRepository;
+  }
 
   @GetMapping("/me")
-  public ResponseEntity<?> me(Authentication auth) {
+  public Map<String, Object> me(Authentication auth) {
+    // 未認証なら 401
     if (auth == null || !auth.isAuthenticated() || auth instanceof AnonymousAuthenticationToken) {
-      return ResponseEntity.status(401).build();
+      throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
     }
+
+    Long id = userRepository.findByEmail(auth.getName())
+        .map(u -> u.getId())        // UserEntity::getId の代わり（import不要）
+        .orElse(null);
+
     Map<String, Object> body = new HashMap<>();
-    body.put("name", auth.getName());
-    body.put("authorities", auth.getAuthorities()
-        .stream().map(GrantedAuthority::getAuthority).collect(Collectors.toList()));
-    // ★ ここで userId を付与
-    Long id = userRepository.findByEmail(auth.getName()).map(u -> u.getId()).orElse(null);
     body.put("id", id);
-    return ResponseEntity.ok(body);
+    body.put("name", auth.getName());
+    body.put("authorities",
+        auth.getAuthorities().stream()
+            .map(GrantedAuthority::getAuthority)
+            .collect(Collectors.toList()));
+    return body;
   }
 }
