@@ -70,15 +70,17 @@
       text-decoration: underline;
     }
   </style>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
 
   <h2>新規ユーザー登録</h2>
 
 <form id="registerForm" onsubmit="return handleRegister(event)" style="text-align:center;margin:16px 0">
-  <input id="regName"  required placeholder="ユーザー名">
-  <input id="regEmail" required type="email" placeholder="メール">
-  <input id="regPass"  required type="password" placeholder="パスワード">
+  <input id="regName"  name="name"  autocomplete="username"     required placeholder="ユーザー名">
+<input id="regEmail" name="email" autocomplete="email"        required type="email"    placeholder="メール">
+<input id="regPass"  name="pass"  autocomplete="new-password" required type="password" placeholder="パスワード">
+
   <button>新規登録</button>
 </form>
 
@@ -87,24 +89,76 @@
   </div>
 
 <script>
-  async function handleRegister(e){
-  e.preventDefault();
-  const body = {
-    name:  document.getElementById('regName').value.trim(),
-    email: document.getElementById('regEmail').value.trim(),
-    password: document.getElementById('regPass').value
-  };
-  try{
-    const j = await fetchJSON('/api/auth/register',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(body)
-    });
-    Swal.fire({icon:'success', text:'登録できました！'}).then(()=>location.href='/login.html');
-  }catch(err){
-    Swal.fire({icon:'error', text:'登録に失敗しました（入力やメール重複を確認してください）'});
+  // 同一オリジン＆Cookie付きfetch（CSRFメタ対応/RailsやSpringでもOK）
+  function apiFetch(path, opts = {}) {
+    const method = (opts.method || 'GET').toUpperCase();
+    const needsCSRF = !['GET','HEAD','OPTIONS'].includes(method);
+    const headers = new Headers({ Accept: 'application/json', ...(opts.headers || {}) });
+
+    if (needsCSRF && !headers.has('X-CSRF-Token') && !headers.has('X-CSRF-TOKEN')) {
+      const meta = document.querySelector('meta[name="csrf-token"]')?.content;
+      if (meta) headers.set('X-CSRF-Token', meta);
+      const m1 = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
+      if (m1) headers.set('X-CSRF-TOKEN', decodeURIComponent(m1[1]));
+    }
+    return fetch(path, { credentials: 'include', ...opts, headers });
   }
-}
+
+  async function handleRegister(e){
+    e.preventDefault();
+    const btn = e.submitter || document.querySelector('#registerForm button');
+    btn.disabled = true;
+    
+    const body = {
+      name:  document.getElementById('regName').value.trim(),
+      email: document.getElementById('regEmail').value.trim(),
+      password: document.getElementById('regPass').value
+    };
+
+    try{
+      const res = await apiFetch('/api/auth/register', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(body)
+      });
+
+      // Renderのコールドスタート等でHTMLが返ることがあるのでstatusで判定
+      if (res.status === 201 || res.status === 200 || res.status === 204) {
+        // JSONが返るなら拾う（userId等をURLに付けたい場合用）
+        let data = null;
+        try {
+          const ct = (res.headers.get('content-type')||'').toLowerCase();
+          if (ct.includes('application/json')) data = await res.json();
+        } catch {}
+
+        // 登録と同時にログインセッションが付与される前提で user.html へ
+        // （もし付与されない実装なら /login.html に飛ばしてください）
+        if (window.Swal) {
+         await Swal.fire({icon:'success', text:'登録できました！'}).then(()=>{
+            location.href = '/user.html' + (data?.userId ? `?userId=${encodeURIComponent(data.userId)}` : '');
+          });
+        } else {
+          alert('登録できました！');
+          location.href = '/user.html' + (data?.userId ? `?userId=${encodeURIComponent(data.userId)}` : '');
+        }
+        return;
+      }
+
+      // 422/409など入力エラー
+      const msg = res.status === 409
+        ? 'このメールは既に使われています'
+        : '登録に失敗しました（入力内容をご確認ください）';
+      if (window.Swal) Swal.fire({icon:'error', text: msg});
+      else alert(msg);
+
+    }catch(err){
+      if (window.Swal) Swal.fire({icon:'error', text:'通信エラーが発生しました。時間をおいてお試しください。'});
+      else alert('通信エラーが発生しました。');
+      console.error(err);
+    } finally {
+      btn.disabled = false;
+    }
+  }
 </script>
 
 </body>
