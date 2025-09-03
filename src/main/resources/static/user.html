@@ -2493,34 +2493,33 @@ function preventIOSBackSwipe(){
 let _ignoreNextPop = false;
 let _backGuardHandler = null;
 
-function enableSwipeBackGuard(){
+function enableSwipeBackGuard() {
   if (_backGuardHandler) return;
-  history.pushState({swipe:'on'}, '');
+  history.pushState({ swipe: 'on' }, '');
   _backGuardHandler = () => {
-    if (_ignoreNextPop) { _ignoreNextPop=false; return; }
-    history.pushState({swipe:'on'}, '');
-    exitSwipeMode();
+    // ← 追加の pushState はしない
+    exitSwipeMode(true); // fromBack = true
   };
   window.addEventListener('popstate', _backGuardHandler);
 }
 
-function disableSwipeBackGuard(){
-  if(!_backGuardHandler) return;
+function disableSwipeBackGuard() {
+  if (!_backGuardHandler) return;
   window.removeEventListener('popstate', _backGuardHandler);
   _backGuardHandler = null;
 }
 
-function exitSwipeMode(){
+function exitSwipeMode(fromBack = false) {
   setSwipeModeVisible(false);
   renderWords();
   updateStatusCount();
   disableSwipeBackGuard();
   if (!isPremium()) watchAdGlobal();
-  // ダミー履歴を1つ戻す（実ページ遷移は抑止）
-  _ignoreNextPop = true; history.back();
+
+  // ← 「一覧に戻る」ボタン等で閉じたときだけ、ガード分の1つを戻す
+  if (!fromBack) history.back();
 }
-
-
+	
 async function initSwipeMode(mode = "unlearned"){
   currentSwipeMode = mode;
   setSwipeModeVisible(true);
@@ -2541,7 +2540,7 @@ async function initSwipeMode(mode = "unlearned"){
   swipeIndex = 0; swipeLearned = 0; swipeUnlearned = 0;
   await renderSwipeDeck();
   updateSwipeHUD();
-  document.getElementById('swipeExitBtn').onclick = exitSwipeMode;
+  document.getElementById('swipeExitBtn').onclick = () => exitSwipeMode(false);
 
   // iOSの横スワイプ干渉対策（下の 3) とセット）
   preventIOSBackSwipe();
