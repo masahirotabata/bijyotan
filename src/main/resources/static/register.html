@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>美女単 - 新規登録</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <style>
     body {
       margin: 0;
@@ -70,25 +71,43 @@
       text-decoration: underline;
     }
   </style>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
 
   <h2>新規ユーザー登録</h2>
 
-<form id="registerForm" onsubmit="return handleRegister(event)" style="text-align:center;margin:16px 0">
-  <input id="regName"  name="name"  autocomplete="username"     required placeholder="ユーザー名">
-<input id="regEmail" name="email" autocomplete="email"        required type="email"    placeholder="メール">
-<input id="regPass"  name="pass"  autocomplete="new-password" required type="password" placeholder="パスワード">
-
-  <button>新規登録</button>
-</form>
+  <form id="registerForm" onsubmit="return handleRegister(event)" style="text-align:center;margin:16px 0">
+    <input id="regName"  name="name"  autocomplete="username"     required placeholder="ユーザー名">
+    <input id="regEmail" name="email" autocomplete="email"        required type="email"    placeholder="メール">
+    <input id="regPass"  name="pass"  autocomplete="new-password" required type="password" placeholder="パスワード">
+    <button>新規登録</button>
+  </form>
 
   <div class="links">
     <a href="login.html">ログイン画面に戻る</a>
   </div>
 
 <script>
+/* ===== 共通 fetch ラッパー ===== */
+const API_BASE = ''; // 同一オリジンなら空でOK
+async function apiFetch(path, init = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try {
+    const url = path.startsWith('http') ? path : (API_BASE + path);
+    return await fetch(url, {
+      credentials: 'include',
+      cache: 'no-store',
+      signal: controller.signal,
+      ...init,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/* ===== フォールバックで userId を探す ===== */
 async function getUserIdFallback(){
   const candidates = ['/api/me','/user/me','/api/user/me'];
   for (const url of candidates){
@@ -101,10 +120,10 @@ async function getUserIdFallback(){
       if (id != null) return String(id);
     }catch{}
   }
-  // Locationヘッダに /users/123 のように載る実装にも対応
   return null;
 }
 
+/* ===== 登録処理 ===== */
 async function handleRegister(e){
   e.preventDefault();
   const btn = e.submitter || document.querySelector('#registerForm button');
@@ -130,14 +149,12 @@ async function handleRegister(e){
         if (ct.includes('application/json')) data=await res.json();
       }catch{}
 
-      // 1) レスポンスJSON最優先
       let userId = data?.userId ?? data?.id;
-      // 2) 無ければ /api/me 系から取得
       if (!userId) userId = await getUserIdFallback();
 
       const go = () => {
         if (userId) location.href = `/user.html?userId=${encodeURIComponent(userId)}`;
-        else        location.href = `/user.html`; // 最終フォールバック
+        else        location.href = `/user.html`;
       };
       if (window.Swal) await Swal.fire({icon:'success', text:'登録できました！'}).then(go);
       else { alert('登録できました！'); go(); }
@@ -147,36 +164,15 @@ async function handleRegister(e){
     const msg = res.status === 409
       ? 'このメールは既に使われています'
       : '登録に失敗しました（入力内容をご確認ください）';
-    window.Swal ? Swal.fire({icon:'error', text: msg}) : alert(msg);
+    Swal.fire({icon:'error', text: msg});
 
   }catch(err){
-    window.Swal ? Swal.fire({icon:'error', text:'通信エラーが発生しました。時間をおいてお試しください。'})
-                : alert('通信エラーが発生しました。');
+    Swal.fire({icon:'error', text:'通信エラーが発生しました。時間をおいてお試しください。'});
     console.error(err);
   } finally {
     btn.disabled = false;
   }
 }
-
-  // APIのベースURL。 同一オリジンなら空文字でOK。
-  const API_BASE = '';
-
-  // タイムアウト付き fetch ラッパー
-  async function apiFetch(path, init = {}) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000); // 15秒で中断
-    try {
-      const url = path.startsWith('http') ? path : (API_BASE + path);
-      return await fetch(url, {
-        credentials: 'include',   // セッション管理がCookieなら付ける
-        cache: 'no-store',
-        signal: controller.signal,
-        ...init,
-      });
-    } finally {
-      clearTimeout(timeout);
-    }
-  }
 </script>
 
 </body>
