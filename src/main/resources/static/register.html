@@ -75,10 +75,11 @@
 
   <h2>新規ユーザー登録</h2>
 
- <form method="post" action="/user/register">
-  <input type="email" name="email" required>
-  <input type="password" name="password" required>
-  <button type="submit">登録</button>
+<form id="registerForm" onsubmit="return handleRegister(event)" style="text-align:center;margin:16px 0">
+  <input id="regName"  required placeholder="ユーザー名">
+  <input id="regEmail" required type="email" placeholder="メール">
+  <input id="regPass"  required type="password" placeholder="パスワード">
+  <button>新規登録</button>
 </form>
 
   <div class="links">
