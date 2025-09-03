@@ -4,45 +4,28 @@
   <meta charset="UTF-8">
   <title>美女単 - ログイン</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
   <style>
-    body {
-      margin: 0;
-      padding: 0;
-      background: linear-gradient(135deg, #f8e8f0, #f0f8ff);
-      font-family: 'Arial', sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      flex-direction: column;
-      text-align: center;
-      padding: 20px;
-    }
-    h2 { color: #e91e63; font-size: 1.8rem; margin-bottom: 20px; }
-    form { display: flex; flex-direction: column; align-items: stretch; gap: 15px; width: 100%; max-width: 320px; }
-    input { padding: 14px; font-size: 1rem; border-radius: 10px; border: 1px solid #ccc; box-sizing: border-box; }
-    button {
-      font-size: 1.2rem; padding: 14px; background-color: #ff4081; border: none; border-radius: 30px;
-      color: white; cursor: pointer; transition: background-color 0.3s; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    button:hover { background-color: #f50057; }
-    .links { margin-top: 20px; font-size: 0.95rem; display: flex; flex-direction: column; gap: 10px; }
-    .links a { color: #e91e63; text-decoration: none; }
-    .links a:hover { text-decoration: underline; }
-    @media (max-width: 480px) {
-      body { padding: 30px 15px; }
-      h2 { font-size: 1.6rem; }
-      button { font-size: 1rem; }
-    }
+    body { margin:0; padding:0; background:linear-gradient(135deg,#f8e8f0,#f0f8ff);
+           font-family:'Arial',sans-serif; display:flex; justify-content:center;
+           align-items:center; min-height:100vh; flex-direction:column; text-align:center; padding:20px; }
+    h2 { color:#e91e63; font-size:1.8rem; margin-bottom:20px; }
+    form { display:flex; flex-direction:column; align-items:stretch; gap:15px; width:100%; max-width:320px; }
+    input { padding:14px; font-size:1rem; border-radius:10px; border:1px solid #ccc; box-sizing:border-box; }
+    button { font-size:1.2rem; padding:14px; background-color:#ff4081; border:none; border-radius:30px;
+             color:#fff; cursor:pointer; transition:background-color .3s; box-shadow:0 4px 6px rgba(0,0,0,.1); }
+    button:hover { background-color:#f50057; }
+    .links { margin-top:20px; font-size:.95rem; display:flex; flex-direction:column; gap:10px; }
+    .links a { color:#e91e63; text-decoration:none; }
+    .links a:hover { text-decoration:underline; }
+    @media (max-width:480px) { body { padding:30px 15px; } h2 { font-size:1.6rem; } button { font-size:1rem; } }
   </style>
 </head>
 <body>
 
   <h2>美女単 ログイン</h2>
 
-  <!-- JS無効時フォールバックも効くように action を /auth/login に -->
-  <form id="loginForm" method="post" action="/auth/login" novalidate>
+  <!-- JS無効時もサーバ側リダイレクトが効くように /login へ通常送信 -->
+  <form id="loginForm" method="post" action="/login" novalidate>
     <input type="email" name="email" placeholder="メールアドレス" autocomplete="username" required>
     <input type="password" name="password" placeholder="パスワード" autocomplete="current-password" required>
     <button type="submit" id="loginBtn">ログイン</button>
@@ -54,31 +37,27 @@
   </div>
 
   <script>
-    // 画面遷移パラメータの通知
+    // クエリパラメータから通知
     (function(){
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("reset") === "success") {
-        alert("パスワード再設定リンクをメール送信しました！");
-      } else if (params.get("error") === "notfound") {
-        alert("メールアドレスが見つかりませんでした。");
-      } else if (params.get("error")) {
-        alert("ログインに失敗しました");
-      }
+      const p = new URLSearchParams(location.search);
+      if (p.get("reset")==="success")      alert("パスワード再設定リンクをメール送信しました！");
+      else if (p.get("error")==="notfound") alert("メールアドレスが見つかりませんでした。");
+      else if (p.get("error"))              alert("ログインに失敗しました");
     })();
 
-    // CSRFトークン（あれば付与）
+    // CSRFトークン（/login は CSRF 除外済みだが、将来の拡張向けに残しておく）
     function pickCSRFFromPageOrCookie() {
       const meta = document.querySelector('meta[name="csrf-token"]')?.content;
-      if (meta) return { header: 'X-CSRF-Token', token: meta };
+      if (meta) return { header:'X-CSRF-Token', token:meta };
       const ck = document.cookie || '';
-      const mSpring = ck.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
-      if (mSpring) return { header: 'X-CSRF-TOKEN', token: decodeURIComponent(mSpring[1]) };
-      const mLegacy = ck.match(/(?:^|;\s*)_csrf=([^;]+)/);
-      if (mLegacy) return { header: 'X-CSRF-Token', token: decodeURIComponent(mLegacy[1]) };
+      const m1 = ck.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
+      if (m1) return { header:'X-CSRF-TOKEN', token:decodeURIComponent(m1[1]) };
+      const m2 = ck.match(/(?:^|;\s*)_csrf=([^;]+)/);
+      if (m2) return { header:'X-CSRF-Token', token:decodeURIComponent(m2[1]) };
       return null;
     }
 
-    // ↑のご指定コードをフォーム送信に統合
+    // fetch で送る（成功時はサーバの 302 を検知して画面遷移）
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
 
@@ -86,46 +65,34 @@
       const btn  = document.getElementById('loginBtn');
       const email = form.email.value.trim();
       const password = form.password.value;
-
-      if (!email || !password) {
-        alert('メールアドレスとパスワードを入力してください');
-        return;
-      }
+      if (!email || !password) { alert('メールアドレスとパスワードを入力してください'); return; }
 
       btn.disabled = true; btn.textContent = '送信中…';
 
       try {
-        const body = new URLSearchParams({ email, password });
-
         const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
-        const csrf = pickCSRFFromPageOrCookie();
-        if (csrf) headers[csrf.header] = csrf.token;
+        const csrf = pickCSRFFromPageOrCookie(); if (csrf) headers[csrf.header] = csrf.token;
 
-        const res = await fetch('/auth/login', {
+        const res = await fetch('/login', {
           method: 'POST',
           headers,
-          body,
-          credentials: 'same-origin', // セッションCookieを確実に
+          body: new URLSearchParams({ email, password }),
+          credentials: 'same-origin',
           redirect: 'follow'
         });
 
-        // 成功扱いの条件を広めに
-        if (res.redirected) {
-          // サーバが302でリダイレクトした場合
+        if (res.redirected) {                // /user.html?userId=<ID> へ
           window.location.assign(res.url);
           return;
         }
-        if (res.ok || res.status === 204) {
-          // 明示遷移（アプリのメインへ）
+        if (res.ok || res.status === 204) {  // 念のためのフォールバック
           window.location.assign('/user.html');
           return;
         }
-
-        // 401/403/400など
         alert('ログインに失敗しました。メールまたはパスワードをご確認ください。');
       } catch (err) {
         console.error('login error:', err);
-        // ネットワーク等で fetch できない時はフォールバック送信
+        // ネットワーク等で fetch 失敗時は通常送信でフォールバック
         form.submit();
       } finally {
         btn.disabled = false; btn.textContent = 'ログイン';
