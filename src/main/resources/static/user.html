@@ -694,15 +694,6 @@
       /* 単語カードの画像サイズを固定（崩れ防止） */
       .word-card img { width: 88px; height: 132px; object-fit: cover; }
 
-      /* ④ PC時にアクション列が狭くなり過ぎないように幅を確保 */
-      @media (min-width: 481px){
-        .word-card { grid-template-columns: 110px 1fr 180px; }
-      }
-      @media (max-width: 480px){
-        .wc-actions { width: 100%; }
-        .wc-actions button { width: 100%; }
-      }
-
       /* ⑤ 念のため全ボタンも強制横書き */
       button { writing-mode: horizontal-tb; }
 
@@ -727,6 +718,75 @@
       @media (min-width: 481px){
         .word-card{ grid-template-columns: 110px 1fr 180px; }
       }
+
+	/* ▼ 単語カードのボタンを常に横書き・横長ピル型に */
+.wc-actions{ width:100%; display:flex; flex-direction:column; gap:10px; }
+.wc-actions button{
+  writing-mode: horizontal-tb !important;
+  text-orientation: mixed !important;
+  transform:none !important;
+  white-space: nowrap !important;
+  display:inline-flex !important;
+  align-items:center; justify-content:center;
+  border-radius:9999px !important;
+  font-size: 15px !important;
+  line-height: 1.1 !important;
+  padding: 12px 20px !important;    /* ← 余白ゆったり */
+  min-height: 44px;                 /* タップしやすさ */
+}
+
+/* ▼ モバイル：カード下に“横長”で出す（幅固定でスクショ風） */
+@media (max-width:480px){
+  .word-card{
+    grid-template-columns: 88px 1fr;
+    grid-template-areas:
+      "img text"
+      "img action";
+    align-items:center;
+    gap:10px 12px;
+  }
+  .wc-actions{ grid-area: action; justify-self:start; }
+  .wc-actions button{
+    width: 280px !important;    /* ← 横長感を出す */
+    max-width: 90vw;
+    margin-top: 6px;
+  }
+}
+
+/* ▼ デスクトップ：右列にすっきり配置 */
+@media (min-width:481px){
+  .word-card{
+    grid-template-columns: 110px 1fr 200px; /* アクション列を広めに */
+  }
+  .wc-actions{ grid-area: action; justify-self:end; }
+  .wc-actions button{ width: 200px; }
+}
+
+/* ▼ カードとボタンの“間隔”をスクショっぽく */
+.word-card{ margin: 18px auto 26px; }
+.wc-body .meta{ margin-bottom: 6px; display:block; }
+
+/* ▼ 週間グラフを必ず横並びのバーにする（テキスト羅列になるのを防止） */
+#weeklyBars, #weeklyLabels { display:flex !important; }
+#weeklyBars{
+  gap:12px; justify-content:space-between; align-items:flex-end;
+  height:160px; width:100%;
+}
+.weekly-day{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+.weekly-num{ font-size:.8rem; color:#e91e63; margin-bottom:6px; }
+.weekly-bar{
+  width:26px; min-height:6px; border-radius:10px; 
+  background:linear-gradient(180deg,#ff7bbd,#ffb3d9);
+  box-shadow:0 2px 6px rgba(0,0,0,.08);
+}
+#weeklyLabels{ gap:12px; justify-content:space-between; margin-top:6px; }
+.weekly-label{ flex:1; text-align:center; font-size:.8rem; color:#555; }
+@media (max-width:480px){
+  #weeklyBars{ height:140px; gap:8px; }
+  .weekly-bar{ width:22px; }
+}
+
+
     </style>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link
