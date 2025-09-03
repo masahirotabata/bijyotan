@@ -1,4 +1,3 @@
-// src/main/java/com/example/demo/api/MeController.java
 package com.example.demo.api;
 
 import org.springframework.http.ResponseEntity;
