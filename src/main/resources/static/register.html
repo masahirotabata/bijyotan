@@ -89,76 +89,74 @@
   </div>
 
 <script>
-  // 同一オリジン＆Cookie付きfetch（CSRFメタ対応/RailsやSpringでもOK）
-  function apiFetch(path, opts = {}) {
-    const method = (opts.method || 'GET').toUpperCase();
-    const needsCSRF = !['GET','HEAD','OPTIONS'].includes(method);
-    const headers = new Headers({ Accept: 'application/json', ...(opts.headers || {}) });
-
-    if (needsCSRF && !headers.has('X-CSRF-Token') && !headers.has('X-CSRF-TOKEN')) {
-      const meta = document.querySelector('meta[name="csrf-token"]')?.content;
-      if (meta) headers.set('X-CSRF-Token', meta);
-      const m1 = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
-      if (m1) headers.set('X-CSRF-TOKEN', decodeURIComponent(m1[1]));
-    }
-    return fetch(path, { credentials: 'include', ...opts, headers });
-  }
-
-  async function handleRegister(e){
-    e.preventDefault();
-    const btn = e.submitter || document.querySelector('#registerForm button');
-    btn.disabled = true;
-    
-    const body = {
-      name:  document.getElementById('regName').value.trim(),
-      email: document.getElementById('regEmail').value.trim(),
-      password: document.getElementById('regPass').value
-    };
-
+async function getUserIdFallback(){
+  const candidates = ['/api/me','/user/me','/api/user/me'];
+  for (const url of candidates){
     try{
-      const res = await apiFetch('/api/auth/register', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify(body)
-      });
-
-      // Renderのコールドスタート等でHTMLが返ることがあるのでstatusで判定
-      if (res.status === 201 || res.status === 200 || res.status === 204) {
-        // JSONが返るなら拾う（userId等をURLに付けたい場合用）
-        let data = null;
-        try {
-          const ct = (res.headers.get('content-type')||'').toLowerCase();
-          if (ct.includes('application/json')) data = await res.json();
-        } catch {}
-
-        // 登録と同時にログインセッションが付与される前提で user.html へ
-        // （もし付与されない実装なら /login.html に飛ばしてください）
-        if (window.Swal) {
-         await Swal.fire({icon:'success', text:'登録できました！'}).then(()=>{
-            location.href = '/user.html' + (data?.userId ? `?userId=${encodeURIComponent(data.userId)}` : '');
-          });
-        } else {
-          alert('登録できました！');
-          location.href = '/user.html' + (data?.userId ? `?userId=${encodeURIComponent(data.userId)}` : '');
-        }
-        return;
-      }
-
-      // 422/409など入力エラー
-      const msg = res.status === 409
-        ? 'このメールは既に使われています'
-        : '登録に失敗しました（入力内容をご確認ください）';
-      if (window.Swal) Swal.fire({icon:'error', text: msg});
-      else alert(msg);
-
-    }catch(err){
-      if (window.Swal) Swal.fire({icon:'error', text:'通信エラーが発生しました。時間をおいてお試しください。'});
-      else alert('通信エラーが発生しました。');
-      console.error(err);
-    } finally {
-      btn.disabled = false;
-    }
+      const r = await fetch(url, {credentials:'include'});
+      const ct = (r.headers.get('content-type')||'').toLowerCase();
+      if (!r.ok || !ct.includes('application/json')) continue;
+      const j = await r.json();
+      const id = j?.id ?? j?.userId;
+      if (id != null) return String(id);
+    }catch{}
   }
+  // Locationヘッダに /users/123 のように載る実装にも対応
+  return null;
+}
+
+async function handleRegister(e){
+  e.preventDefault();
+  const btn = e.submitter || document.querySelector('#registerForm button');
+  btn.disabled = true;
+
+  const body = {
+    name:  document.getElementById('regName').value.trim(),
+    email: document.getElementById('regEmail').value.trim(),
+    password: document.getElementById('regPass').value
+  };
+
+  try{
+    const res = await apiFetch('/api/auth/register', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    });
+
+    if (res.status === 201 || res.status === 200 || res.status === 204) {
+      let data=null;
+      try{
+        const ct=(res.headers.get('content-type')||'').toLowerCase();
+        if (ct.includes('application/json')) data=await res.json();
+      }catch{}
+
+      // 1) レスポンスJSON最優先
+      let userId = data?.userId ?? data?.id;
+      // 2) 無ければ /api/me 系から取得
+      if (!userId) userId = await getUserIdFallback();
+
+      const go = () => {
+        if (userId) location.href = `/user.html?userId=${encodeURIComponent(userId)}`;
+        else        location.href = `/user.html`; // 最終フォールバック
+      };
+      if (window.Swal) await Swal.fire({icon:'success', text:'登録できました！'}).then(go);
+      else { alert('登録できました！'); go(); }
+      return;
+    }
+
+    const msg = res.status === 409
+      ? 'このメールは既に使われています'
+      : '登録に失敗しました（入力内容をご確認ください）';
+    window.Swal ? Swal.fire({icon:'error', text: msg}) : alert(msg);
+
+  }catch(err){
+    window.Swal ? Swal.fire({icon:'error', text:'通信エラーが発生しました。時間をおいてお試しください。'})
+                : alert('通信エラーが発生しました。');
+    console.error(err);
+  } finally {
+    btn.disabled = false;
+  }
+}
 </script>
 
 </body>
