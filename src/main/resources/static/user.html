@@ -27,7 +27,7 @@
     }
     
 /* 画面を狭める：主要ブロックは最大幅を統一して中央に */
-#user-info, #levelGirlContainer, #partButtons, #statsBox, #test-section, #weeklyAnswersBox, #wordContainer, #pagination, #partPagination  {
+#levelGirlContainer, #partButtons, #statsBox, #test-section, #weeklyAnswersBox, #wordContainer, #pagination, #partPagination  {
   max-width: 420px;
   margin-left: auto;
   margin-right: auto;
@@ -89,36 +89,10 @@
 
   /* 必要な場所だけ幅広ボタンにする */
   #wordContainer .word-card button,
-  #test-section button,
   #swipeStartBtn,
   #swipeModeBox .swipe-hud button {
     width: 100%;
     max-width: 320px;
-  }
-
-  #partButtons button{ flex: 0 0 auto; }
-
-  /* ページネーションも横並びスクロールで省スペース */
-  .pagination{
-    display:flex;
-    gap:8px;
-    overflow-x:auto;
-    -webkit-overflow-scrolling:touch;
-    flex-wrap:nowrap;
-    justify-content:center;
-    padding:6px 2px;
-  }
-  .pagination button{
-    flex:0 0 auto;
-    min-width:44px;
-    height:36px;
-  }
-  #partPagination, .pagination{
-    display:flex;
-    justify-content:center;
-    width:100%;
-    max-width:420px;
-    margin:0 auto;
   }
 
   /* 単語カード：2カラム化で縦長を解消 */
@@ -212,13 +186,60 @@
   font-weight: bold;
 }
 
+/* Partボタン（共通） */
 #partButtons{
-  display:flex; gap:8px;
-  overflow-x:auto; -webkit-overflow-scrolling:touch;
-  flex-wrap:nowrap; justify-content:flex-start;
+  display:flex;
+  gap:8px;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  flex-wrap:nowrap;
+  justify-content:flex-start; /* PCで中央寄せに上書き */
   padding-top:max(6px, env(safe-area-inset-top));
 }
 #partButtons button{ flex:0 0 auto; }
+@media (min-width: 768px){
+  .word-card{ /* ...(既存のPC用スタイル) */ }
+  #partButtons{ justify-content: center; overflow: visible; flex-wrap: wrap; }
+  .pagination{ justify-content: center; overflow: visible; }
+} 
+
+  /* ページネーションも横並びスクロールで省スペース */
+  .pagination{
+    display:flex;
+    gap:8px;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    flex-wrap:nowrap;
+    justify-content:center;
+    padding:6px 2px;
+  }
+  .pagination button{
+    flex:0 0 auto;
+    min-width:44px;
+    height:36px;
+  }
+  #partPagination, .pagination{
+    display:flex;
+    justify-content:center;
+    width:100%;
+    max-width:420px;
+    margin:0 auto;
+  }
+
+  /* ページネーション（共通/凝縮） */
+.pagination{
+  display:flex;
+  gap:8px;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  flex-wrap:nowrap;
+  justify-content:center;
+  padding:6px 2px;
+}
+	  
+.pagination .ellipsis{ padding:0 6px; color:#888; align-self:center; }
+.pagination button.active{ background-color:#d81b60; font-weight:700; }
+.pagination button[disabled]{ opacity:.5; cursor:default; }
     
     #statsBox {
   background: #fff3f8;
@@ -304,7 +325,6 @@
     }
 
   /* 必要な場所だけ個別に幅を広げたい場合は明示的に指定 */
-  #test-section button,
   #swipeStartBtn,
   #swipeModeBox .swipe-hud button {
     width: 90%;
@@ -391,8 +411,6 @@
 /* ===== Desktop layout improvements ===== */
 /* Desktop */
 /* ===== Desktop layout improvements ===== */
-@media (min-width:768px){
-  #partButtons{ justify-content:center; overflow:visible; flex-wrap:wrap; }
 
   /* 単語カード：3カラム（画像 / テキスト / アクション） */
   .word-card{
@@ -523,6 +541,19 @@ body.modal-open{ overflow:hidden; height:100vh; }
 
 #partButtons { justify-content: center !important; }
 #test-section button, #swipeStartBtn { width: min(320px, 90%); }
+
+/* テストボタンを横並びに */
+#test-section{
+  display:flex;
+  justify-content:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+#test-section button{
+  width:auto !important;   /* 上の “幅100%” 指定を打ち消す */
+}
+
+button:focus-visible { outline: 3px solid #e91e63; outline-offset: 2px; }
 	  
   
   </style>
@@ -588,7 +619,7 @@ body.modal-open{ overflow:hidden; height:100vh; }
 
 <!-- 広告と課金 -->
 <div style="margin: 10px;">
-  <button onclick="watchAdGlobal()">広告を見て美女が英単語を表現（5枚有効）</button>
+  <button onclick="watchAdGlobal()">広告を見て美女が英単語を表現（5有効）</button>
 </div>
 <!-- <div style="margin: 10px;">
   <button onclick="showPremiumPopup()">100円でホットパンツ美女解放</button>
@@ -718,6 +749,7 @@ await refreshUserStats();
 showUpdateInfoIfNeeded();
 ensureHeroVideo();
 placeSwipeBoxAboveStartButton();
+await loadWeeklyAnswers(); 
 }
 
 //URLのテスト結果をUIへ反映し、必要ならコミットも打つ
@@ -942,9 +974,10 @@ function imageUrlForWord(w) {
 
 // 画像404時のフォールバック
 function imgTag(src, alt = "") {
-  return `<img src="${src}" alt="${alt}"
-           width="100"
-           onerror="this.onerror=null;this.src='/images/beauty.png';">`;
+  return `<img src="${safeSrc(src,{allowDataImage:true})}" alt="${escHTML(alt)}"
+           width="88" height="132" loading="lazy" decoding="async"
+           style="object-fit:cover;border-radius:8px"
+           onerror="this.onerror=null;this.src='/images/beauty.png'">`;
 }
 
 // ▼ 使い方例：取得後に正規化
@@ -1075,11 +1108,18 @@ function renderPartPagination() {
   containers.forEach(c => c.classList.remove("hidden"));
 
   const build = (wrap) => {
-    const makeBtn = (label, page, disabled = false, active = false) => {
-      const btn = document.createElement("button");
-      btn.textContent = label;
-      if (disabled) btn.disabled = true;
-      if (active) { btn.classList.add("active"); btn.setAttribute("aria-current","page"); }
+const makeBtn = (label, page, disabled = false, active = false) => {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.textContent = label;
+  btn.setAttribute(
+    "aria-label",
+    label === "‹" ? "前のページ" :
+    label === "›" ? "次のページ" :
+    `ページ ${label}`
+  );
+  if (disabled) btn.disabled = true;
+  if (active) { btn.classList.add("active"); btn.setAttribute("aria-current","page"); }
       btn.addEventListener("click", () => {
         if (disabled || !page || page === partsPage) return;
         const oldTop = wrap.getBoundingClientRect().top;
@@ -1546,12 +1586,15 @@ function toggleImage(imgId, btnId, img1, img2, index) {
 
 function handleToggleImage(imgId, btnId, img1, img2, index) {
   const proceed = () => toggleImage(imgId, btnId, img1, img2, index);
-  const total = incBeautyClickCount();
-  if (!isPremium() && Number.isFinite(AD_EVERY_TOGGLE) && AD_EVERY_TOGGLE > 0 && total % AD_EVERY_TOGGLE === 0) {
-    showAdModalForToggle(proceed);
+
+  // プレミアム or 直近5分以内に広告視聴済みなら即実行
+  if (isPremium() || isAdEnabled()) {
+    proceed();
     return;
   }
-  proceed();
+
+  // それ以外は広告モーダルを出し、視聴したら実行
+  showAdModalForToggle(proceed);
 }
 
 function renderPagination(totalItems) {
@@ -1645,6 +1688,7 @@ function playVideo(videoUrl) {
     modal.style.display = "none";
     player.pause();
     player.currentTime = 0;
+	player.src = ""; // ★追加
     player.removeEventListener('click', stop);
   };
 }
@@ -1686,7 +1730,7 @@ function toggleStatus(isChecked, wordId, part) {
     }
 
     // 成功時のみフロント状態を反映
-    const w = words.find(w => w.id === wordId);
+    const w = words.find(w => String(w.id) === String(wordId));  // ← 文字列比較に
     if (w) {
       w.status = isChecked;
       const statusSpan = document.getElementById(`status-label-${wordId}`);
@@ -1701,6 +1745,19 @@ function toggleStatus(isChecked, wordId, part) {
     console.error(err);
     alert("通信エラーが発生しました");
   });
+}
+
+
+function getSwipeExcludedSet(userId){
+  const raw = localStorage.getItem(swipeTodayKey(userId));
+  return new Set(raw ? JSON.parse(raw) : []); // ["123","456"]
+}
+
+function addToSwipeExcluded(userId, wordId){
+  const key = swipeTodayKey(userId);
+  const set = getSwipeExcludedSet(userId);
+  set.add(String(wordId));
+  localStorage.setItem(key, JSON.stringify([...set]));
 }
 
 // 学習済み件数
@@ -1727,7 +1784,7 @@ async function updateStatusCount() {
   document.getElementById("learningStatus").textContent = "学習状況の取得に失敗しました";
 }
 
-async function loadWeeklyAnswers(){
+function loadWeeklyAnswers(){ if (!user?.id) return; 
   const bases = ['/api/test/weekly'];
   for (const base of bases) {
     for (const url of [base, `${base}?userId=${encodeURIComponent(getUserId())}`]) {
@@ -1765,12 +1822,6 @@ async function loadWeeklyAnswers(){
   }
   console.warn('weekly endpoint returned non-JSON, skip');
 }
-
-
-
-	// DOMContentLoaded 後のどこかで呼ぶ
-	document.addEventListener("DOMContentLoaded", loadWeeklyAnswers);
-
 
 // フォーカストラップ
 function trapFocus(modal){
@@ -1827,8 +1878,8 @@ function showPremiumPopup() {
           <li>✔ リスニングモード解放</li>
           <li>✔ テスト回数無制限＆成績履歴も保存</li>
         </ul>
-        <p style="font-weight:bold; font-size:1.1rem;">💰 月額500円（税込）</p>
-        <p style="color:red;">✨ 今だけ初月300円キャンペーン中 ✨</p>
+        <p style="font-weight:bold; font-size:1.1rem;">💰 月額300円（税込）</p>
+        <p style="color:red;">✨ 今だけ初月100円キャンペーン中 ✨</p>
         <small>SNSでシェアすると1週間無料体験🎁</small>
       </div>
     `,
@@ -2080,20 +2131,6 @@ async function setUserPremium(userId) {
 		  set.add(wordId);
 		  localStorage.setItem(todayKey(type), JSON.stringify([...set]));
 		}
-
-
-	// 🔸 今日の除外セットを取得 / 追加保存
-	function getSwipeExcludedSet(userId){
-	  // 日付が変わったら自動的にリセット（キーも変わる）
-	  const raw = localStorage.getItem(swipeTodayKey(userId));
-	  return new Set(raw ? JSON.parse(raw) : []);
-	}
-	function addToSwipeExcluded(userId, wordId){
-	  const key = swipeTodayKey(userId);
-	  const set = getSwipeExcludedSet(userId);
-	  set.add(wordId);
-	  localStorage.setItem(key, JSON.stringify([...set]));
-	}
 	
 function setSwipeModeVisible(show){
   const box = document.getElementById('swipeModeBox');
@@ -2255,7 +2292,7 @@ async function initSwipeMode(mode = "unlearned"){
   showSwipeHowToIfNeeded(); // setSwipeModeVisible(true) の直後など
   requestAnimationFrame(scrollToSwipeTop);  // ← 追加
 
-  const userId = getUserIdFromQuery() || 1;
+  const userId = getUserIdFromQuery() || getUserId();
 	// 該当部分のみ置き換え
 	if (!Array.isArray(words) || words.length === 0) {
 	  words = await fetchWordsFromServer(selectedPart); // ← userIdを渡さない
@@ -2293,38 +2330,27 @@ function shuffle(arr){
  */
 //shuffle はそのまま利用
 
-//既存の buildSwipeDeck を丸ごと置き換え
 async function buildSwipeDeck(mode = "unlearned"){
   const userId   = getUserIdFromQuery() || getUserId();
   const excluded = getSwipeExcludedSet(userId);
 
+  // ここを追加
   const allUnlearned = words.filter(w => !w.status);
   const allLearned   = words.filter(w =>  w.status);
 
-  // 既定は「今日の除外を外す」
-  let unlearned = allUnlearned.filter(w => !excluded.has(w.id));
-  let learned   = allLearned.filter(w   => !excluded.has(w.id));
+  let unlearned = allUnlearned.filter(w => !excluded.has(String(w.id)));
+  let learned   = allLearned  .filter(w => !excluded.has(String(w.id)));
 
-  // ★ 復習モードで候補0なら、除外を無視してでも出す（起動できないのを防ぐ）
+  // 復習候補ゼロの救済はそのまま
   if (mode === "review" && learned.length === 0 && allLearned.length > 0) {
     learned = allLearned.slice();
   }
-
-  shuffle(unlearned);
-  shuffle(learned);
-
+  shuffle(unlearned); shuffle(learned);
   if (mode === "unlearned") return shuffle(unlearned.slice(0, 10));
   if (mode === "review")    return shuffle(learned.slice(0, 10));
-
-  return shuffle([
-    ...unlearned.slice(0,25),
-    ...learned.slice(0,5)
-  ]);
+  return shuffle([...unlearned.slice(0,25), ...learned.slice(0,5)]);
 }
-
-
-
-
+	
 	// デッキ描画（先頭3枚だけ積む）
 // デッキ描画（先頭3枚だけ積む）
 async function renderSwipeDeck(){
@@ -2572,7 +2598,7 @@ document.addEventListener('keydown', (e) => {
 });
 	</script>
 　　<!-- カスタム広告・プレミアムモーダル -->
-<div id="adModal" role="dialog" aria-modal="true" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background-color:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center;">
+<div id="adModal" role="dialog" aria-modal="true" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background-color:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center; aria-labelledby="adModalTitle"">
   <div class="modal-content" style="background:white; padding:30px; border-radius:10px; max-width:90%; text-align:center;">
     <h2 style="color:#e91e63;"><i class="fas fa-info-circle"></i> このパートは広告視聴が必要です</h2>
     <p>広告を見ると5枚だけ美女で英単語を表現するボタンが開放されます。<br>有料プランなら無制限で開放されます。</p>
