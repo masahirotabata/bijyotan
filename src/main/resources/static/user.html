@@ -197,49 +197,6 @@
   padding-top:max(6px, env(safe-area-inset-top));
 }
 #partButtons button{ flex:0 0 auto; }
-@media (min-width: 768px){
-  .word-card{ /* ...(既存のPC用スタイル) */ }
-  #partButtons{ justify-content: center; overflow: visible; flex-wrap: wrap; }
-  .pagination{ justify-content: center; overflow: visible; }
-} 
-
-  /* ページネーションも横並びスクロールで省スペース */
-  .pagination{
-    display:flex;
-    gap:8px;
-    overflow-x:auto;
-    -webkit-overflow-scrolling:touch;
-    flex-wrap:nowrap;
-    justify-content:center;
-    padding:6px 2px;
-  }
-  .pagination button{
-    flex:0 0 auto;
-    min-width:44px;
-    height:36px;
-  }
-  #partPagination, .pagination{
-    display:flex;
-    justify-content:center;
-    width:100%;
-    max-width:420px;
-    margin:0 auto;
-  }
-
-  /* ページネーション（共通/凝縮） */
-.pagination{
-  display:flex;
-  gap:8px;
-  overflow-x:auto;
-  -webkit-overflow-scrolling:touch;
-  flex-wrap:nowrap;
-  justify-content:center;
-  padding:6px 2px;
-}
-	  
-.pagination .ellipsis{ padding:0 6px; color:#888; align-self:center; }
-.pagination button.active{ background-color:#d81b60; font-weight:700; }
-.pagination button[disabled]{ opacity:.5; cursor:default; }
     
     #statsBox {
   background: #fff3f8;
@@ -410,7 +367,6 @@
 
 /* ===== Desktop layout improvements ===== */
 /* Desktop */
-/* ===== Desktop layout improvements ===== */
 
   /* 単語カード：3カラム（画像 / テキスト / アクション） */
   .word-card{
@@ -438,26 +394,10 @@
   /* パートボタン/ページネーションの中央寄せ */
   #partButtons{ justify-content: center; overflow: visible; flex-wrap: wrap; }
   .pagination{ justify-content: center; overflow: visible; }
-}
 
 /* ヒーロー背景のピンク丸はモバイルだけ表示、PCでは非表示 */
 #levelGirlContainer{ position: relative; }
 @media (min-width: 600px){ #bgEffect{ display:none; } }
-
-/* pagination condensed */
-.pagination .ellipsis{
-  padding: 0 6px;
-  color:#888;
-  align-self:center;
-}
-.pagination button.active{
-  background-color:#d81b60;
-  font-weight:700;
-}
-.pagination button[disabled]{
-  opacity:.5;
-  cursor: default;
-}
 
 /* --- Login Bonus modal --- */
 /* これに統一：JSで display を切り替える（flexはJSで当てる） */
@@ -529,7 +469,6 @@ body.modal-open{ overflow:hidden; height:100vh; }
 #levelGirlContainer,
 #test-section,
 #weeklyAnswersBox,
-#user-info,
 #partButtons,
 #wordContainer,
 #pagination,
@@ -554,6 +493,87 @@ body.modal-open{ overflow:hidden; height:100vh; }
 }
 
 button:focus-visible { outline: 3px solid #e91e63; outline-offset: 2px; }
+
+/* pagination condensed */
+.pagination .ellipsis{
+  padding: 0 6px;
+  color:#888;
+  align-self:center;
+}
+.pagination button.active{
+  background-color:#d81b60;
+  font-weight:700;
+}
+.pagination button[disabled]{
+  opacity:.5;
+  cursor: default;
+}
+
+	
+  #partButtons{ justify-content: center; overflow: visible; flex-wrap: wrap; }
+  .pagination{ justify-content: center; overflow: visible; }
+}
+
+  /* ページネーションも横並びスクロールで省スペース */
+  .pagination{
+    display:flex;
+    gap:8px;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    flex-wrap:nowrap;
+    justify-content:center;
+    padding:6px 2px;
+  }
+  .pagination button{
+    flex:0 0 auto;
+    min-width:44px;
+    height:36px;
+  }
+  #partPagination, .pagination{
+    display:flex;
+    justify-content:center;
+    width:100%;
+    max-width:420px;
+    margin:0 auto;
+  }
+
+  /* ページネーション（共通/凝縮） */
+.pagination{
+  display:flex;
+  gap:8px;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  flex-wrap:nowrap;
+  justify-content:center;
+  padding:6px 2px;
+}
+	  
+.pagination .ellipsis{ padding:0 6px; color:#888; align-self:center; }
+.pagination button.active{ background-color:#d81b60; font-weight:700; }
+.pagination button[disabled]{ opacity:.5; cursor:default; }
+
+@media (min-width: 768px){
+  /* 単語カード：3カラム（画像 / テキスト / アクション） */
+  .word-card{
+    display: grid;
+    grid-template-columns: 140px 1fr auto;
+    grid-template-areas: "img text action";
+    align-items: center;
+    gap: 12px 16px;
+    padding: 14px 16px;
+  }
+  .wc-img{ grid-area: img; }
+  .wc-body{ grid-area: text; }
+  .wc-actions{ grid-area: action; justify-self: end; }
+
+  .word-card img{ width: 140px; height: 210px; }
+
+  #test-section button,
+  #swipeStartBtn,
+  #swipeModeBox .swipe-hud button {
+    width: auto;
+    max-width: none;
+  }
 	  
   
   </style>
@@ -686,8 +706,16 @@ async function fetchJSON(url, opts) {
   if (redirectedToLogin || res.status === 401 || res.status === 403) {
     const err = new Error('unauthorized'); err.code = 'UNAUTHORIZED'; throw err;
   }
+
+　  // ← ここを追加：204は素通し
+  if (res.status === 204) return null;
+	
   if (!ct.includes('application/json')) {
     const err = new Error('non-json'); err.code = 'NON_JSON'; err.status = res.status; throw err;
+  }
+  if (!res.ok) { // ★ 追加：4xx/5xx は例外
+    const err = new Error(`bad-status:${res.status}`);
+    err.code = 'BAD_STATUS'; err.status = res.status; throw err;
   }
   return res.json();
 }
@@ -738,9 +766,13 @@ if (!ok) {
 }
 
 const urlParams = new URLSearchParams(window.location.search);
-if (urlParams.get("premium") === "true") {
-  await setUserPremium(user.id);
-  user.premium = true;        // ローカル状態も反映
+const sessionId = urlParams.get('session_id');
+if (sessionId) {
+  try {
+    const r = await apiFetch(`/api/payment/confirm?session_id=${encodeURIComponent(sessionId)}`);
+    const j = await r.json();
+    user.premium = !!j.premium;
+  } catch {}
 }
 
 renderPartButtons();
@@ -797,6 +829,8 @@ async function applyTestParamsAndCommit() {
 // 既存の DOMContentLoaded 後や loadWords() 完了後に呼んでOK
 document.addEventListener('DOMContentLoaded', () => {
   applyTestParamsAndCommit();
+  document.getElementById('watchAdBtn') ?.addEventListener('click', handleAdAccept);
+  document.getElementById('cancelAdBtn')?.addEventListener('click', closeAdModal);
 });
 
 
@@ -1006,6 +1040,28 @@ async function onFileChange(e, currentWord) {
 // userId は一切使わず、セッションで本人認可
 // 互換のため第1引数は未使用
 function goToPart(_unused, partName) {
+  const locked = ["無双Part", "part4", "part5", "part6", "partHealing", "musou"];
+  if (!isPremium() && locked.includes(partName) && !isAdEnabled()) {
+    Swal.fire({
+      title: "このパートは広告視聴が必要です",
+      html: `<p>広告を見れば<strong>5分間だけ開放</strong>されます。<br>
+             <span style="color:#e91e63;font-weight:bold;">🎀プレミアム</span>なら<strong>無制限で開放</strong>！</p>`,
+      icon: "info",
+      showCancelButton: true,
+      showDenyButton: true,
+      confirmButtonText: "広告を見る",
+      cancelButtonText: "やめる",
+      denyButtonText: "🎀 プレミアムへ"
+    }).then(result => {
+      if (result.isConfirmed) {
+        watchAdGlobal();
+        location.href = `musou.html?part=${encodeURIComponent(partName)}`;
+      } else if (result.isDenied) {
+        showPremiumPopup();
+      }
+    });
+    return;
+  }
   location.href = `musou.html?part=${encodeURIComponent(partName)}`;
 }
 
@@ -1370,6 +1426,7 @@ let removeTrapAd = null;
 function showAdModalForToggle(callback) {
   pendingToggle = callback;
   const m = document.getElementById('adModal');
+  if (!m) { console.error('adModal not found'); return; }
   m.style.display = 'flex';
   m.setAttribute('role','dialog');
   m.setAttribute('aria-modal','true');
@@ -1587,14 +1644,15 @@ function toggleImage(imgId, btnId, img1, img2, index) {
 function handleToggleImage(imgId, btnId, img1, img2, index) {
   const proceed = () => toggleImage(imgId, btnId, img1, img2, index);
 
-  // プレミアム or 直近5分以内に広告視聴済みなら即実行
-  if (isPremium() || isAdEnabled()) {
-    proceed();
-    return;
-  }
+  if (isPremium() || isAdEnabled()) { proceed(); return; }
 
-  // それ以外は広告モーダルを出し、視聴したら実行
-  showAdModalForToggle(proceed);
+  // 6回に1回だけ広告を出す
+  const n = incBeautyClickCount(); // ← 既存ユーティリティを活用
+  if (n % AD_EVERY_TOGGLE === 0) {
+    showAdModalForToggle(proceed);
+  } else {
+    proceed();
+  }
 }
 
 function renderPagination(totalItems) {
@@ -1784,36 +1842,59 @@ async function updateStatusCount() {
   document.getElementById("learningStatus").textContent = "学習状況の取得に失敗しました";
 }
 
-function loadWeeklyAnswers(){ if (!user?.id) return; 
+async function loadWeeklyAnswers(){
+  if (!user?.id) return;
+
   const bases = ['/api/test/weekly'];
   for (const base of bases) {
     for (const url of [base, `${base}?userId=${encodeURIComponent(getUserId())}`]) {
       try {
         const res = await apiFetch(url);
         const ct = (res.headers.get('content-type') || '').toLowerCase();
-        if (!res.ok || !ct.includes('application/json')) continue; // ← HTMLならスキップ
+        if (!res.ok || !ct.includes('application/json')) continue;
+
         const data = await res.json();
 
-        const max = Math.max(1, ...data.map(d => d.answers));
+        // ★ ここで型ガード（配列でなければ何もしない）
+        if (!Array.isArray(data) || data.length === 0) {
+          document.getElementById('weeklyBars').innerHTML = '';
+          document.getElementById('weeklyLabels').innerHTML = '';
+          return;
+        }
+
+        const max = Math.max(1, ...data.map(d => Number(d.answers || 0)));
         const bars = document.getElementById('weeklyBars');
         const labels = document.getElementById('weeklyLabels');
         bars.innerHTML = ''; labels.innerHTML = '';
+
         data.forEach(d => {
-          const h = Math.round((d.answers / max) * 120);
+          const answers = Number(d.answers || 0);
+          const correct  = Number(d.correct || 0);
+          const h = Math.round((answers / max) * 120);
+
           const wrap = document.createElement('div');
-          wrap.style.flex='1';wrap.style.display='flex';wrap.style.flexDirection='column';
-          wrap.style.alignItems='center';wrap.style.justifyContent='flex-end';
-          const num=document.createElement('div');num.textContent=d.correct;num.style.fontSize='.8rem';
-          num.style.color='#e91e63';num.style.marginBottom='4px';wrap.appendChild(num);
-          const bar=document.createElement('div');bar.title=`正解:${d.correct} / 解答:${d.answers}`;
-          bar.style.width='24px';bar.style.height=`${h}px`;bar.style.borderRadius='8px';
-          bar.style.background='linear-gradient(180deg,#ff7bbd,#ffb3d9)';bar.style.boxShadow='0 2px 6px rgba(0,0,0,.08)';
-          wrap.appendChild(bar); bars.appendChild(wrap);
-          const dd=new Date(d.ymd);const lab=document.createElement('div');
-          const mm=String(dd.getMonth()+1).padStart(2,'0');const dn=String(dd.getDate()).padStart(2,'0');
-          const youbi=['日','月','火','水','木','金','土'][dd.getDay()];
-          lab.style.flex='1';lab.style.textAlign='center';
-          lab.innerHTML=`<div>${mm}/${dn}</div><div style="opacity:.7">${youbi}</div>`;
+          wrap.style.cssText = 'flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;';
+
+          const num = document.createElement('div');
+          num.textContent = correct;
+          num.style.cssText = 'font-size:.8rem;color:#e91e63;margin-bottom:4px;';
+          wrap.appendChild(num);
+
+          const bar = document.createElement('div');
+          bar.title = `正解:${correct} / 解答:${answers}`;
+          bar.style.cssText = 'width:24px;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.08);';
+          bar.style.height = `${h}px`;
+          bar.style.background = 'linear-gradient(180deg,#ff7bbd,#ffb3d9)';
+          wrap.appendChild(bar);
+          bars.appendChild(wrap);
+
+          const dd = new Date(d.ymd);
+          const mm = String(dd.getMonth()+1).padStart(2,'0');
+          const dn = String(dd.getDate()).padStart(2,'0');
+          const youbi = ['日','月','火','水','木','金','土'][dd.getDay()];
+          const lab = document.createElement('div');
+          lab.style.cssText = 'flex:1;text-align:center;';
+          lab.innerHTML = `<div>${mm}/${dn}</div><div style="opacity:.7">${youbi}</div>`;
           labels.appendChild(lab);
         });
         return;
@@ -1822,7 +1903,6 @@ function loadWeeklyAnswers(){ if (!user?.id) return;
   }
   console.warn('weekly endpoint returned non-JSON, skip');
 }
-
 // フォーカストラップ
 function trapFocus(modal){
   const SEL = 'a,button,input,select,textarea,[tabindex]:not([tabindex="-1"])';
@@ -1841,16 +1921,26 @@ function trapFocus(modal){
 // 例：ログインボーナス
 let removeTrapLoginBonus = null;
 function showLoginBonus(points){
-  /* ...既存... */
+  const title = document.getElementById('loginBonusTitle');
+  const grid  = document.getElementById('stampGrid');
+  title.textContent = 'ログインボーナス（学習日数: ' + points + '日目）';
+  grid.innerHTML = '';
+  for (let i=1;i<=7;i++){
+    const cell = document.createElement('div');
+    cell.style.cssText = 'aspect-ratio:1/1;border:1px dashed #f48fb1;border-radius:8px;display:flex;align-items:center;justify-content:center;';
+    cell.textContent = (i <= (points%7||7)) ? '✅' : '—';
+    grid.appendChild(cell);
+  }
   const popup = document.getElementById('loginBonusPopup');
+  popup.style.display = 'flex';
+  popup.style.flexDirection = 'column';
   popup.setAttribute('role','dialog');
   popup.setAttribute('aria-modal','true');
   popup.setAttribute('aria-labelledby','loginBonusTitle');
-  popup.style.display = 'flex';
   removeTrapLoginBonus = trapFocus(popup);
-  popup.querySelector('button, [href], [tabindex]:not([tabindex="-1"])')?.focus();
   document.body.classList.add('modal-open');
 }
+	
 function closeLoginBonus(){
   const popup = document.getElementById('loginBonusPopup');
   popup.style.display = 'none';
@@ -2154,6 +2244,9 @@ function setSwipeModeVisible(show){
     box.classList.remove('fullscreen');
     document.body.classList.remove('swipe-open');
   }
+  ['partButtons','partPagination'].forEach(id=>{
+  document.getElementById(id)?.classList.toggle('hidden', show);
+});
 }
 
 function resizeSwipeDeck(){
@@ -2458,58 +2551,50 @@ function attachSwipeHandlers(card){
 
 	// 反映＆次のカードへ
 // 既存の decideSwipe を丸ごと置き換え
-// ← これで上書き
 async function decideSwipe(card, dir){
   const i = swipeIndex;
   const w = swipeWords[i];
-  const isRight = (dir === 'right'); // 右=良い判定
+  const isRight = (dir === 'right');
 
-  // 見た目アニメ
+  // アニメ
   card.style.transition = '.2s ease';
   const off = (isRight ? 600 : -600);
   card.style.transform = `translate(${off}px,-40px) rotate(${off>0?15:-15}deg)`;
   setTimeout(() => card.remove(), 200);
 
-  // “今日のメモ”に保存（DBは onSwipeRightLearned 内だけで反映）
   if (currentSwipeMode === "unlearned") {
     if (isRight) {
       addTodaySet('learned', w.id);
       addToSwipeExcluded(getUserId(), w.id);
       swipeLearned++;
-      onSwipeRightLearned(w); // 失敗しても体験は継続
+      onSwipeRightLearned(w);
+      swipeIndex++; // 右は確定なので進める
     } else {
+      // ← 左は今の要素を末尾へ移動（重複させない）
+      const [cur] = swipeWords.splice(i, 1);
+      swipeWords.push(cur);
       addTodaySet('unlearned', w.id);
       swipeUnlearned++;
+      // swipeIndex は据え置き：同じ i に次のカードが入る
     }
   } else { // review
-    if (isRight) {
-      swipeLearned++;
-      addTodaySet('review_ok', w.id);
-    } else {
-      swipeUnlearned++;
-      addTodaySet('review_ng', w.id);
-    }
-    addToSwipeExcluded(getUserId(), w.id); // 復習でも今日は重複させない
+    if (isRight) { swipeLearned++; addTodaySet('review_ok', w.id); }
+    else         { swipeUnlearned++; addTodaySet('review_ng', w.id); }
+    addToSwipeExcluded(getUserId(), w.id);
+    swipeIndex++;
   }
 
-  swipeIndex++;
   updateSwipeHUD();
 
-  // スワイプの定期広告
-  if (!isPremium()&&
-      AD_EVERY_SWIPE > 0 &&
+  if (!isPremium() && AD_EVERY_SWIPE > 0 &&
       swipeIndex % AD_EVERY_SWIPE === 0 &&
       swipeIndex < swipeWords.length) {
     watchAdGlobal();
   }
 
-  if (swipeIndex < swipeWords.length) {
-    await renderSwipeDeck();
-  } else {
-    exitSwipeMode(); // 一覧へ戻る（DB更新なし）
-  }
+  if (swipeIndex < swipeWords.length) await renderSwipeDeck();
+  else                                 exitSwipeMode();
 }
-
 
 
 
@@ -2598,14 +2683,19 @@ document.addEventListener('keydown', (e) => {
 });
 	</script>
 　　<!-- カスタム広告・プレミアムモーダル -->
-<div id="adModal" role="dialog" aria-modal="true" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background-color:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center; aria-labelledby="adModalTitle"">
-  <div class="modal-content" style="background:white; padding:30px; border-radius:10px; max-width:90%; text-align:center;">
-    <h2 style="color:#e91e63;"><i class="fas fa-info-circle"></i> このパートは広告視聴が必要です</h2>
-    <p>広告を見ると5枚だけ美女で英単語を表現するボタンが開放されます。<br>有料プランなら無制限で開放されます。</p>
-    <div class="modal-buttons" style="margin-top:20px;">
-      <button id="watchAdBtn" class="btn btn-primary" onclick="handleAdAccept()">広告を見る</button>
-      <button id="closeModalBtn" class="btn btn-secondary" onclick="closeAdModal()">やめる</button>
-      <button id="upgradeBtn" class="btn btn-premium" onclick="location.href='/premium.html'">🎀 プレミアムで無制限開放 (月額300円)🎀</button>
+<div
+  id="adModal"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="adModalTitle"
+  style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:10000;"
+>
+  <div role="document" style="margin:auto; background:#fff; border-radius:12px; padding:16px; width:min(420px,90%); box-shadow:0 8px 20px rgba(0,0,0,.2)">
+    <h3 id="adModalTitle" style="margin-top:0">広告を見る</h3>
+    <p style="margin:8px 0 0">視聴すると<strong>5分間</strong>プレミアム機能が解放されます。</p>
+    <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:16px">
+      <button id="cancelAdBtn" class="btn btn-secondary" type="button">キャンセル</button>
+      <button id="watchAdBtn" class="btn btn-primary" type="button">視聴する</button>
     </div>
   </div>
 </div>
