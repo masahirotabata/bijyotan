@@ -506,6 +506,24 @@ body.modal-open{ overflow:hidden; height:100vh; }
     height: 340px;            /* ← 通常表示のときだけ適用 */
   }
 }
+
+/* ===== Centering fixes (override) ===== */
+#levelGirlContainer,
+#test-section,
+#weeklyAnswersBox,
+#user-info,
+#partButtons,
+#wordContainer,
+#pagination,
+#partPagination {
+  margin-left: auto !important;
+  margin-right: auto !important;
+  text-align: center !important;
+}
+
+#partButtons { justify-content: center !important; }
+#test-section button, #swipeStartBtn { width: min(320px, 90%); }
+	  
   
   </style>
 	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -1206,62 +1224,40 @@ async function fetchUserInfo() {
   console.warn('user info could not be fetched as JSON');
   return false;
 }
+	
+// 「/user/undefined/update-login-points」にならないよう、/user 系は使わずに揃える
 async function updateLoginPointsIfNeeded(userId) {
-  // 候補をいろいろ試す（PUT/GET 両対応）
+  if (!userId) return false;
+
   const tries = [
-    { url: `/user/${encodeURIComponent(userId)}/update-login-points`, method: 'PUT', withBody: true },
-    { url: `/api/user/${encodeURIComponent(userId)}/update-login-points`, method: 'PUT', withBody: true },
-    { url: `/api/user/update-login-points?userId=${encodeURIComponent(userId)}`, method: 'PUT', withBody: false },
-    { url: `/api/user/update-login-points?userId=${encodeURIComponent(userId)}`, method: 'GET', withBody: false },
-    { url: `/user/update-login-points?userId=${encodeURIComponent(userId)}`, method: 'GET', withBody: false },
+    { url: `/api/user/update-login-points`, method: 'PUT', body: { userId } },
+    { url: `/api/test/weekly?userId=${encodeURIComponent(userId)}`, method: 'GET' }
   ];
 
   for (const t of tries) {
     try {
       const res = await apiFetch(t.url, {
         method: t.method,
-        headers: t.withBody ? { 'Content-Type': 'application/json' } : undefined,
-        body: t.withBody ? JSON.stringify({ userId }) : undefined
+        headers: t.body ? { 'Content-Type':'application/json' } : undefined,
+        body: t.body ? JSON.stringify(t.body) : undefined
       });
-      if (res.ok) {
-        const updated = await res.json().catch(() => null);
-        const points = (updated && typeof updated.loginPoints === 'number') ? updated.loginPoints : undefined;
-        if (typeof points === 'number') {
-          setLoginDays(points);
-          showLoginBonusOncePerDay(points);
-        }
-        return true;
-      }
-      if (res.status !== 404) return false; // 404以外はそこで終了
-    } catch (_) { /* 次の候補へ */ }
-  }
+      if (!res.ok) continue;
 
-  // ---- フォールバック：/user → /api/test/weekly ----
-  try {
-    const uRes = await apiFetch(`/user/${encodeURIComponent(userId)}`);
-    if (uRes.ok) {
-      const u = await uRes.json();
-      if (typeof u.loginPoints === 'number') {
-        setLoginDays(u.loginPoints);
-        showLoginBonusOncePerDay(u.loginPoints);
-        return true;
+      // 1つ目: {loginPoints: n} を期待
+      if (t.body) {
+        const j = await res.json().catch(()=>null);
+        const p = Number(j?.loginPoints);
+        if (Number.isFinite(p)) { setLoginDays(p); showLoginBonusOncePerDay(p); return true; }
       }
-    }
-  } catch {}
 
-  try {
-    const wRes = await apiFetch(`/api/test/weekly?userId=${encodeURIComponent(userId)}`);
-    if (wRes.ok) {
-      const w = await wRes.json();
+      // 2つ目: weekly から擬似算出
+      const w = await res.json().catch(()=>[]);
       const days = Array.isArray(w) ? w.filter(d => (d.answers ?? 0) > 0).length : 0;
-      const points = Math.max(1, days); // 少なくとも1日目表示
-      setLoginDays(points);
-      showLoginBonusOncePerDay(points);
+      const p = Math.max(1, days);
+      setLoginDays(p); showLoginBonusOncePerDay(p); 
       return true;
-    }
-  } catch {}
-
-  console.warn('update-login-points endpoint が見つかりませんでした');
+    } catch {}
+  }
   return false;
 }
 
@@ -1275,42 +1271,41 @@ function showLoginBonusOncePerDay(points){
   localStorage.setItem(key, '1');
 }
 
-
-
-// セッションで本人認可。userId は一切送らない
+// 単語取得：まずセッション認可、空なら userId 付きで再試行
 async function fetchWordsFromServer(part) {
-  const tries = [
+  const tryUrls = [
     `/api/words?part=${encodeURIComponent(part)}`,
     `/words?part=${encodeURIComponent(part)}`
   ];
+  const withUserId = (u) => `${u}&userId=${encodeURIComponent(getUserId())}`;
 
-  for (const url of tries) {
+  for (const base of tryUrls) {
+    // 1st: セッションのみ
+    for (const url of [base]) {
+      try {
+        const res = await apiFetch(url, { headers:{Accept:'application/json'} });
+        if (res.ok) {
+          const data = await readJsonIfPossible(res);
+          if (Array.isArray(data) && data.length) {
+            return data.map(w => normalizeWord({ ...w, status: !!(w.status ?? w.learned) }));
+          }
+        }
+      } catch {}
+    }
+    // 2nd: userId を付けて再試行
     try {
-      const res = await apiFetch(url, { headers:{ 'Accept':'application/json' } });
+      const res = await apiFetch(withUserId(base), { headers:{Accept:'application/json'} });
       if (res.ok) {
         const data = await readJsonIfPossible(res);
-		if (!Array.isArray(data)) continue;
-        console.log('words fetched from', url, 'count=', data.length);
-        return data.map(w => {
-          const s = w.status ?? w.learned;
-          const learned =
-            s === true || s === 1 || s === '1' || s === 'true' || s === 'LEARNED';
-          return normalizeWord({ ...w, status: !!learned });
-        });
+        if (Array.isArray(data)) {
+          return data.map(w => normalizeWord({ ...w, status: !!(w.status ?? w.learned) }));
+        }
       }
-      if (res.status !== 404) {
-        console.error('words fetch failed', res.status, await res.text().catch(() => ''));
-        break;
-      }
-    } catch (_) {
-      // 次の候補へ
-    }
+    } catch {}
   }
-
-  console.warn('words endpoint not ready (server starting?)');
+  console.warn('words endpoint not ready');
   return [];
 }
-
 
 
 //=== 広告表示トリガ用のカウンタと保留実行 ===
@@ -1708,87 +1703,69 @@ function toggleStatus(isChecked, wordId, part) {
   });
 }
 
+// 学習済み件数
 async function updateStatusCount() {
-  const tries = [
+  const bases = [
     `/api/learning/count?part=${encodeURIComponent(selectedPart)}`,
     `/learning/count?part=${encodeURIComponent(selectedPart)}`
   ];
-
-  for (const url of tries) {
-    try {
-      const res = await apiFetch(url);
-      if (res.ok) {
-        const raw = await res.json();
-        const learnedCount = Number(raw);
-        const totalCount = words.length;
-        const safeLearned = Number.isFinite(learnedCount) ? learnedCount : 0;
-        const unlearnedCount = Math.max(0, totalCount - safeLearned);
-        document.getElementById("learningStatus").textContent =
-          `学習済み: ${safeLearned} / 未学習: ${unlearnedCount}`;
-        return;
-      }
-      if (res.status !== 404) break;
-    } catch (_) {}
+  for (const base of bases) {
+    for (const url of [base, `${base}&userId=${encodeURIComponent(getUserId())}`]) {
+      try {
+        const res = await apiFetch(url);
+        if (res.ok) {
+          const n = Number(await res.json());
+          const learned = Number.isFinite(n) ? n : 0;
+          const total = words.length;
+          document.getElementById("learningStatus").textContent =
+            `学習済み: ${learned} / 未学習: ${Math.max(0, total - learned)}`;
+          return;
+        }
+      } catch {}
+    }
   }
   document.getElementById("learningStatus").textContent = "学習状況の取得に失敗しました";
-} // ←★★ これが必要！
-
-//置き換え版：数値ラベルを表示
-async function loadWeeklyAnswers(){
-  try{
-    const res = await apiFetch('/api/test/weekly');
-    const ct = res.headers.get('content-type') || '';
-    if (!res.ok || !ct.includes('application/json')) {
-      console.warn('weekly endpoint returned non-JSON, skip');
-      return;
-    }
-    const data = await res.json(); // [{ymd, answers, correct}, ...]
-    const max = Math.max(1, ...data.map(d => d.answers));
-    const bars = document.getElementById('weeklyBars');
-    const labels = document.getElementById('weeklyLabels');
-    bars.innerHTML = ''; labels.innerHTML = '';
-    data.forEach(d => {
-      const h = Math.round((d.answers / max) * 120);
-      const wrap = document.createElement('div');
-      wrap.style.flex = '1';
-      wrap.style.display = 'flex';
-      wrap.style.flexDirection = 'column';
-      wrap.style.alignItems = 'center';
-      wrap.style.justifyContent = 'flex-end';
-
-      const num = document.createElement('div');
-      num.textContent = d.correct;
-      num.style.fontSize = '.8rem';
-      num.style.color = '#e91e63';
-      num.style.marginBottom = '4px';
-      wrap.appendChild(num);
-
-      const bar = document.createElement('div');
-      bar.title = `正解:${d.correct} / 解答:${d.answers}`;
-      bar.style.width = '24px';
-      bar.style.height = `${h}px`;
-      bar.style.borderRadius = '8px';
-      bar.style.background = 'linear-gradient(180deg,#ff7bbd,#ffb3d9)';
-      bar.style.boxShadow = '0 2px 6px rgba(0,0,0,.08)';
-      wrap.appendChild(bar);
-
-      bars.appendChild(wrap);
-
-      const dd = new Date(d.ymd);
-      const label = document.createElement('div');
-      const mm = String(dd.getMonth()+1).padStart(2,'0');
-      const ddn = String(dd.getDate()).padStart(2,'0');
-      const youbi = ['日','月','火','水','木','金','土'][dd.getDay()];
-      label.style.flex='1';
-      label.style.textAlign='center';
-      label.innerHTML = `<div>${mm}/${ddn}</div><div style="opacity:.7">${youbi}</div>`;
-      labels.appendChild(label);
-    });
-  }catch(e){
-    console.warn('weekly chart load failed', e);
-  }
 }
 
+// 週間バー
+async function loadWeeklyAnswers(){
+  const bases = ['/api/test/weekly'];
+  for (const base of bases) {
+    for (const url of [base, `${base}?userId=${encodeURIComponent(getUserId())}`]) {
+      try {
+        const res = await apiFetch(url);
+        const ct = res.headers.get('content-type') || '';
+        if (!res.ok || !ct.includes('application/json')) continue;
+        const data = await res.json();
+        // ……以下はあなたの元の描画処理そのまま……
+        const max = Math.max(1, ...data.map(d => d.answers));
+        const bars = document.getElementById('weeklyBars');
+        const labels = document.getElementById('weeklyLabels');
+        bars.innerHTML = ''; labels.innerHTML = '';
+        data.forEach(d => {
+          const h = Math.round((d.answers / max) * 120);
+          const wrap = document.createElement('div');
+          wrap.style.flex='1';wrap.style.display='flex';wrap.style.flexDirection='column';
+          wrap.style.alignItems='center';wrap.style.justifyContent='flex-end';
+          const num=document.createElement('div');num.textContent=d.correct;num.style.fontSize='.8rem';
+          num.style.color='#e91e63';num.style.marginBottom='4px';wrap.appendChild(num);
+          const bar=document.createElement('div');bar.title=`正解:${d.correct} / 解答:${d.answers}`;
+          bar.style.width='24px';bar.style.height=`${h}px`;bar.style.borderRadius='8px';
+          bar.style.background='linear-gradient(180deg,#ff7bbd,#ffb3d9)';bar.style.boxShadow='0 2px 6px rgba(0,0,0,.08)';
+          wrap.appendChild(bar); bars.appendChild(wrap);
+          const dd=new Date(d.ymd);const lab=document.createElement('div');
+          const mm=String(dd.getMonth()+1).padStart(2,'0');const dn=String(dd.getDate()).padStart(2,'0');
+          const youbi=['日','月','火','水','木','金','土'][dd.getDay()];
+          lab.style.flex='1';lab.style.textAlign='center';
+          lab.innerHTML=`<div>${mm}/${dn}</div><div style="opacity:.7">${youbi}</div>`;
+          labels.appendChild(lab);
+        });
+        return;
+      } catch {}
+    }
+  }
+  console.warn('weekly endpoint returned non-JSON, skip');
+}
 
 
 	// DOMContentLoaded 後のどこかで呼ぶ
@@ -1987,66 +1964,62 @@ function startTest() {
 let _statsRetry = 0;
 // 累計正答と学習日数を /user/me から更新。
 // loginPoints がなければ /api/test/weekly から直近7日の学習日数相当を表示。
+// 置き換え：/api/me 優先＋フォールバック
 async function refreshUserStats() {
-  try {
-    const u = await fetchJSON('/user/me');
-    _statsRetry = 0;
+  const candidates = ['/api/me', '/user/me', '/api/user/me'];
+  let u = null;
 
-    if (u) {
-      // 学習日数
-      const days = (typeof u.loginPoints === 'number') ? u.loginPoints : 0;
-      const loginDaysEl = document.getElementById("loginDays");
-      if (loginDaysEl) loginDaysEl.textContent = `学習日数: ${days}日目`;
-
-      // 累計正答 → レベル更新
-      const totalCorrect = Number(u.testCorrectTotal ?? 0);
-      const testStatsEl = document.getElementById("testStats");
-      if (testStatsEl) testStatsEl.textContent = `正答数（累計）: ${totalCorrect}`;
-
-      const newLevel = Math.max(1, Math.floor(totalCorrect / 10) + 1);
-      const currentLevel = Number(u.level ?? 1);
-      if (currentLevel !== newLevel) {
-        try {
-          const r = await apiFetch(`/user/updateLevel`, {
-            method:'PUT',
-            headers:{ 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: getUserId(), level: newLevel })
-          });
-          if (r.ok) {
-            const json = await r.json().catch(() => ({}));
-            u.level = Number(json.level ?? newLevel);
-          } else {
-            u.level = newLevel;
-          }
-        } catch {
-          u.level = newLevel;
-        }
-      }
-      const levelEl = document.getElementById("userLevel");
-      const lv = Number(u.level ?? 1);
-      if (levelEl) levelEl.textContent = `レベル: Lv.${lv}`;
-      updateGirlVisual(lv);
-
-      // レベル演出
-      const prev = parseInt(localStorage.getItem('previousCorrect') || '0', 10);
-      const prevLv = Math.floor(prev / 10);
-      const newLv  = Math.floor(totalCorrect / 10);
-      if (newLv > prevLv) {
-        for (let lv2 = prevLv + 1; lv2 <= newLv; lv2++) showLevelUpPopup(lv2);
-      }
-      localStorage.setItem('previousCorrect', String(totalCorrect));
-      return; // 正常終了
-    }
-  } catch (e) {
-    if (e.code === 'NON_JSON' && _statsRetry < 5) {
-      _statsRetry++;
-      setTimeout(refreshUserStats, Math.min(1000 * (2 ** _statsRetry), 8000));
-      return;
-    }
-    // 失敗時はフォールバックへ
+  for (const url of candidates) {
+    try { u = await fetchJSON(url); break; } catch { /* 次の候補へ */ }
   }
 
-  // ----- フォールバック：/api/test/weekly から学習日数相当を表示 -----
+  if (u) {
+    // 学習日数
+    const days = (typeof u.loginPoints === 'number') ? u.loginPoints : 0;
+    const loginDaysEl = document.getElementById("loginDays");
+    if (loginDaysEl) loginDaysEl.textContent = `学習日数: ${days}日目`;
+
+    // 累計正答 → レベル更新
+    const totalCorrect = Number(u.testCorrectTotal ?? 0);
+    const testStatsEl = document.getElementById("testStats");
+    if (testStatsEl) testStatsEl.textContent = `正答数（累計）: ${totalCorrect}`;
+
+    const newLevel = Math.max(1, Math.floor(totalCorrect / 10) + 1);
+    const currentLevel = Number(u.level ?? 1);
+    if (currentLevel !== newLevel) {
+      try {
+        const r = await apiFetch(`/api/user/updateLevel`, {  // ← /api に統一
+          method:'PUT',
+          headers:{ 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: getUserId(), level: newLevel })
+        });
+        if (r.ok) {
+          const j = await r.json().catch(()=>({}));
+          u.level = Number(j.level ?? newLevel);
+        } else {
+          u.level = newLevel;
+        }
+      } catch {
+        u.level = newLevel;
+      }
+    }
+    const levelEl = document.getElementById("userLevel");
+    const lv = Number(u.level ?? 1);
+    if (levelEl) levelEl.textContent = `レベル: Lv.${lv}`;
+    updateGirlVisual(lv);
+
+    // レベル演出（前回との差分）
+    const prev = parseInt(localStorage.getItem('previousCorrect') || '0', 10);
+    const prevLv = Math.floor(prev / 10);
+    const newLv  = Math.floor(totalCorrect / 10);
+    if (newLv > prevLv) {
+      for (let lv2 = prevLv + 1; lv2 <= newLv; lv2++) showLevelUpPopup(lv2);
+    }
+    localStorage.setItem('previousCorrect', String(totalCorrect));
+    return;
+  }
+
+  // フォールバック：直近7日の学習日数相当
   try {
     const r2 = await apiFetch('/api/test/weekly');
     const ct = r2.headers.get('content-type') || '';
@@ -2058,7 +2031,7 @@ async function refreshUserStats() {
     }
   } catch {}
 }
-
+	
 async function setUserPremium(userId) {
   try {
     const res = await apiFetch(`/api/user/updatePremium`, {
