@@ -19,6 +19,9 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import com.example.demo.domain.entity.UserEntity;
+import com.example.demo.domain.repository.UserRepository;
+
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -59,20 +62,18 @@ public class SecurityConfig {
   public SecurityFilterChain apiSecurity(HttpSecurity http, DaoAuthenticationProvider provider) throws Exception {
     http
       .securityMatcher("/api/**")
-      // APIはCSRF対象外（セッションは使うがトークン検証はしない）
-      .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**"))
+      .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**")) // APIはCSRF対象外
       .cors(Customizer.withDefaults())
       .authenticationProvider(provider)
       .authorizeHttpRequests(auth -> auth
         .requestMatchers("/api/auth/login", "/api/auth/register", "/api/battle/**").permitAll()
         .anyRequest().authenticated()
       )
-      // 未認証=401, 権限不足=403（/login へリダイレクトさせない）
       .exceptionHandling(ex -> ex
         .authenticationEntryPoint((req, res, e) -> res.sendError(HttpServletResponse.SC_UNAUTHORIZED))
         .accessDeniedHandler((req, res, e) -> res.sendError(HttpServletResponse.SC_FORBIDDEN))
       )
-      // フォームログインをAPI用に：成功200/失敗401・リダイレクト無し
+      // APIはAJAX前提: 成功=200 / 失敗=401
       .formLogin(form -> form
         .loginProcessingUrl("/api/auth/login")
         .usernameParameter("email")
@@ -85,7 +86,6 @@ public class SecurityConfig {
         .logoutUrl("/api/auth/logout")
         .logoutSuccessHandler((req, res, auth) -> res.setStatus(200))
       )
-      // セッションは必要時に作成（JSESSIONIDを使って継続認証）
       .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED));
 
     return http.build();
@@ -94,10 +94,13 @@ public class SecurityConfig {
   // ===== Chain #2: UI向け（それ以外） =====
   @Bean
   @Order(2)
-  public SecurityFilterChain uiSecurity(HttpSecurity http, DaoAuthenticationProvider provider) throws Exception {
+  public SecurityFilterChain uiSecurity(
+      HttpSecurity http,
+      DaoAuthenticationProvider provider,
+      UserRepository userRepository) throws Exception {
     http
-      // UIはCSRF有効（loginフォームはCSRFトークン埋め込みが必要）
-      .csrf(Customizer.withDefaults())
+      // 静的login.htmlからのPOSTはCSRFトークンを埋め込みづらいので /login をCSRF除外
+      .csrf(csrf -> csrf.ignoringRequestMatchers("/login"))
       .headers(h -> h.frameOptions(f -> f.sameOrigin()))
       .cors(Customizer.withDefaults())
       .authenticationProvider(provider)
@@ -123,7 +126,17 @@ public class SecurityConfig {
         .loginProcessingUrl("/login")
         .usernameParameter("email")
         .passwordParameter("password")
-        .defaultSuccessUrl("/user.html", true)
+        // ★ 成功時に /user.html?userId=<ID> へリダイレクト
+        .successHandler((req, res, auth) -> {
+          Long id = userRepository.findByEmail(auth.getName())
+              .map(UserEntity::getId)
+              .orElse(null);
+          if (id != null) {
+            res.sendRedirect("/user.html?userId=" + id);
+          } else {
+            res.sendRedirect("/user.html"); // フォールバック
+          }
+        })
         .failureUrl("/login.html?error=true")
         .permitAll()
       )
