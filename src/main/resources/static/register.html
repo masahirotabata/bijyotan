@@ -157,6 +157,26 @@ async function handleRegister(e){
     btn.disabled = false;
   }
 }
+
+  // APIのベースURL。 同一オリジンなら空文字でOK。
+  const API_BASE = '';
+
+  // タイムアウト付き fetch ラッパー
+  async function apiFetch(path, init = {}) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000); // 15秒で中断
+    try {
+      const url = path.startsWith('http') ? path : (API_BASE + path);
+      return await fetch(url, {
+        credentials: 'include',   // セッション管理がCookieなら付ける
+        cache: 'no-store',
+        signal: controller.signal,
+        ...init,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
 </script>
 
 </body>
