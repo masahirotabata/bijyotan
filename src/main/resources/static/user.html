@@ -574,6 +574,100 @@ button:focus-visible { outline: 3px solid #e91e63; outline-offset: 2px; }
     width: auto;
     max-width: none;
   }
+
+　/* === スクショ再現用の最終上書き === */
+
+/* デスクトップ：幅と左寄せ */
+@media (min-width: 768px){
+  /* 統一幅：ステータス枠や週間グラフは中くらい、単語リストは広め */
+  #statsBox{ max-width: 760px; }
+  #weeklyAnswersBox{ max-width: 760px; }
+  #wordContainer{ max-width: 920px; text-align: initial !important; }
+  #pagination{ max-width: 920px; }
+
+  /* 単語カード：画像/本文/アクションの3カラムレイアウト */
+  .word-card{
+    display: grid;
+    grid-template-columns: 140px 1fr auto;
+    grid-template-areas: "img text action";
+    align-items: center;
+    gap: 12px 16px;
+    padding: 14px 16px;
+  }
+  .wc-img{ grid-area: img; }
+  .wc-body{ grid-area: text; text-align: left; }
+  .wc-actions{ grid-area: action; justify-self: end; }
+
+  .word-card img{ width: 140px; height: 210px; object-fit: cover; border-radius: 8px; }
+}
+
+/* モバイル：2カラムで縦長を解消（既存と同方向の上書き） */
+@media (max-width: 480px){
+  #wordContainer{ max-width: 420px; text-align: initial !important; }
+
+  .word-card{
+    display: grid;
+    grid-template-columns: 88px 1fr;
+    grid-template-areas:
+      "img text"
+      "img action";
+    align-items: center;
+    gap: 8px 10px;
+    padding: 10px 12px;
+  }
+  .wc-img{ grid-area: img; }
+  .wc-body{ grid-area: text; text-align: left; }
+  .wc-actions{ grid-area: action; justify-self: start; }
+
+  .word-card img{ width: 88px; height: 132px; object-fit: cover; border-radius: 8px; }
+}
+
+/* パートボタン＆ページネーションの見た目（ピル型/中央寄せ） */
+#partButtons{ justify-content: center !important; overflow: visible; flex-wrap: wrap; }
+#partButtons button,
+.pagination button{
+  border-radius: 9999px;
+  padding: 10px 16px;
+}
+
+/* ステータス枠の色味はスクショ準拠のピンク系に */
+h1, h3, #learningStatus{ color: #e91e63; }
+
+/* 単語カード内の文字サイズと余白を微調整 */
+.word-card strong{ display:block; margin-bottom: 4px; font-size: 1rem; }
+.word-card .meta{ color:#666; font-size:.85rem; margin-bottom:4px; }
+
+/* “中央寄せ強制”を打ち消し（既存の !important に勝つため再宣言） */
+#wordContainer, #wordContainer *{ text-align: initial !important; }
+
+/* === Weekly chart (screenshot style) === */
+#weeklyAnswersBox{ max-width:760px; margin:20px auto; }
+.weekly-wrap{
+  background:#fff3f8; border:1px solid #ff99c9; border-radius:12px;
+  padding:8px 6px;
+}
+.weekly-bars{
+  display:flex; gap:12px; justify-content:space-between; align-items:flex-end;
+  height:160px;
+}
+.weekly-day{
+  flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end;
+}
+.weekly-num{ font-size:.8rem; color:#e91e63; margin-bottom:6px; }
+.weekly-bar{
+  width:26px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,.08);
+  background:linear-gradient(180deg,#ff7bbd,#ffb3d9);
+}
+.weekly-labels{
+  display:flex; gap:12px; justify-content:space-between;
+  font-size:.8rem; color:#555; margin-top:6px;
+}
+.weekly-label{ flex:1; text-align:center; }
+@media (max-width:480px){
+  .weekly-bars{ height:140px; gap:8px; }
+  .weekly-bar{ width:22px; }
+}
+
 	  
   
   </style>
@@ -650,10 +744,12 @@ button:focus-visible { outline: 3px solid #e91e63; outline-offset: 2px; }
 <button id="testStartBtnVocab" onclick="startVocabularyTest()">テストを開始する(単語モード)</button>
   <button onclick="goToPart(getUserId(), '無双Part')">無双Partへ</button>
 </div>
-<div id="weeklyAnswersBox" style="max-width:700px;margin:20px auto;">
+<div id="weeklyAnswersBox">
   <h3 style="text-align:center;margin:10px 0;">1週間の解答数:(目標解答数:80が目安)</h3>
-  <div id="weeklyBars" style="display:flex;gap:8px;justify-content:space-between;align-items:flex-end;height:140px;padding:8px 4px;background:#fff3f8;border:1px solid #ff99c9;border-radius:12px;"></div>
-  <div id="weeklyLabels" style="display:flex;gap:8px;justify-content:space-between;font-size:.8rem;margin-top:6px;color:#555;"></div>
+  <div class="weekly-wrap">
+    <div id="weeklyBars" class="weekly-bars"></div>
+  </div>
+  <div id="weeklyLabels" class="weekly-labels"></div>
 </div>
 
 <div id="wordContainer"></div>
@@ -1853,49 +1949,58 @@ async function loadWeeklyAnswers(){
         const ct = (res.headers.get('content-type') || '').toLowerCase();
         if (!res.ok || !ct.includes('application/json')) continue;
 
-        const data = await res.json();
-
-        // ★ ここで型ガード（配列でなければ何もしない）
+        let data = await res.json();
         if (!Array.isArray(data) || data.length === 0) {
           document.getElementById('weeklyBars').innerHTML = '';
           document.getElementById('weeklyLabels').innerHTML = '';
           return;
         }
 
-        const max = Math.max(1, ...data.map(d => Number(d.answers || 0)));
-        const bars = document.getElementById('weeklyBars');
-        const labels = document.getElementById('weeklyLabels');
-        bars.innerHTML = ''; labels.innerHTML = '';
+        // 古い→新しい順に揃える（ymd は "YYYY-MM-DD" を想定）
+        data = data.slice().sort((a,b)=> new Date(a.ymd) - new Date(b.ymd));
+
+        const barsEl   = document.getElementById('weeklyBars');
+        const labelsEl = document.getElementById('weeklyLabels');
+        barsEl.innerHTML = '';
+        labelsEl.innerHTML = '';
+
+        const maxAnswers = Math.max(1, ...data.map(d => Number(d.answers || 0)));
+        const scaleH = 130; // 棒の最大高さ（px）
 
         data.forEach(d => {
           const answers = Number(d.answers || 0);
-          const correct  = Number(d.correct || 0);
-          const h = Math.round((answers / max) * 120);
+          const correct = Number(d.correct || 0);
 
-          const wrap = document.createElement('div');
-          wrap.style.cssText = 'flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;';
+          // 0件の日でも“点”が見えるよう最小高さを確保
+          const h = Math.max(answers === 0 ? 6 : Math.round((answers / maxAnswers) * scaleH), 6);
+
+          // --- 棒グラフ列 ---
+          const col = document.createElement('div');
+          col.className = 'weekly-day';
 
           const num = document.createElement('div');
-          num.textContent = correct;
-          num.style.cssText = 'font-size:.8rem;color:#e91e63;margin-bottom:4px;';
-          wrap.appendChild(num);
+          num.className = 'weekly-num';
+          num.textContent = String(correct);
+          col.appendChild(num);
 
           const bar = document.createElement('div');
-          bar.title = `正解:${correct} / 解答:${answers}`;
-          bar.style.cssText = 'width:24px;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.08);';
+          bar.className = 'weekly-bar';
           bar.style.height = `${h}px`;
-          bar.style.background = 'linear-gradient(180deg,#ff7bbd,#ffb3d9)';
-          wrap.appendChild(bar);
-          bars.appendChild(wrap);
+          bar.title = `正解: ${correct} / 解答: ${answers}`;
+          col.appendChild(bar);
 
-          const dd = new Date(d.ymd);
-          const mm = String(dd.getMonth()+1).padStart(2,'0');
-          const dn = String(dd.getDate()).padStart(2,'0');
-          const youbi = ['日','月','火','水','木','金','土'][dd.getDay()];
+          barsEl.appendChild(col);
+
+          // --- ラベル（MM/DD と 曜日） ---
+          const dt = new Date(d.ymd);
+          const mm = String(dt.getMonth()+1).padStart(2,'0');
+          const dd = String(dt.getDate()).padStart(2,'0');
+          const youbi = ['日','月','火','水','木','金','土'][dt.getDay()];
+
           const lab = document.createElement('div');
-          lab.style.cssText = 'flex:1;text-align:center;';
-          lab.innerHTML = `<div>${mm}/${dn}</div><div style="opacity:.7">${youbi}</div>`;
-          labels.appendChild(lab);
+          lab.className = 'weekly-label';
+          lab.innerHTML = `<div>${mm}/${dd}</div><div style="opacity:.75">${youbi}</div>`;
+          labelsEl.appendChild(lab);
         });
         return;
       } catch {}
@@ -1903,6 +2008,7 @@ async function loadWeeklyAnswers(){
   }
   console.warn('weekly endpoint returned non-JSON, skip');
 }
+	
 // フォーカストラップ
 function trapFocus(modal){
   const SEL = 'a,button,input,select,textarea,[tabindex]:not([tabindex="-1"])';
