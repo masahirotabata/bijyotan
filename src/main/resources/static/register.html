@@ -89,25 +89,6 @@
   </div>
 
 <script>
-/* ===== 共通 fetch ラッパー ===== */
-const API_BASE = ''; // 同一オリジンなら空でOK
-async function apiFetch(path, init = {}) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
-  try {
-    const url = path.startsWith('http') ? path : (API_BASE + path);
-    return await fetch(url, {
-      credentials: 'include',
-      cache: 'no-store',
-      signal: controller.signal,
-      ...init,
-    });
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-/* ===== フォールバックで userId を探す ===== */
 async function getUserIdFallback(){
   const candidates = ['/api/me','/user/me','/api/user/me'];
   for (const url of candidates){
@@ -120,10 +101,10 @@ async function getUserIdFallback(){
       if (id != null) return String(id);
     }catch{}
   }
+  // Locationヘッダに /users/123 のように載る実装にも対応
   return null;
 }
 
-/* ===== 登録処理 ===== */
 async function handleRegister(e){
   e.preventDefault();
   const btn = e.submitter || document.querySelector('#registerForm button');
@@ -142,44 +123,35 @@ async function handleRegister(e){
       body: JSON.stringify(body)
     });
 
-     if (res.status === 201 || res.status === 200 || res.status === 204) {
-      // APIがJSONを返す場合だけ拾う（なくてもOK）
-      let data = null;
-      try {
-        const ct = (res.headers.get('content-type') || '').toLowerCase();
-        if (ct.includes('application/json')) data = await res.json();
-      } catch {}
+    if (res.status === 201 || res.status === 200 || res.status === 204) {
+      let data=null;
+      try{
+        const ct=(res.headers.get('content-type')||'').toLowerCase();
+        if (ct.includes('application/json')) data=await res.json();
+      }catch{}
 
-      // 1) もしサーバが自動ログイン(cookie発行)しているなら /api/me で判定
-      let userId = data?.userId ?? data?.id ?? await getUserIdFallback();
-      // 2) 遷移方針
-      let nextUrl = '';
-      if (userId) {
-        // 既にログイン状態ならダッシュボードへ
-        nextUrl = `/user.html?userId=${encodeURIComponent(userId)}`;
-      } else {
-        // ログイン状態でなければログイン画面へ誘導（メールを埋め込んでおくと親切）
-        const email = encodeURIComponent(document.getElementById('regEmail').value.trim());
-        nextUrl = `/login.html?from=register&email=${email}&registered=1`;
-      }
+      // 1) レスポンスJSON最優先
+      let userId = data?.userId ?? data?.id;
+      // 2) 無ければ /api/me 系から取得
+      if (!userId) userId = await getUserIdFallback();
 
-      const done = () => location.href = nextUrl;
-      if (window.Swal)
-        await Swal.fire({icon:'success', text:'登録できました！'}).then(done);
-      else {
-        alert('登録できました！');
-        done();
-      }
+      const go = () => {
+        if (userId) location.href = `/user.html?userId=${encodeURIComponent(userId)}`;
+        else        location.href = `/user.html`; // 最終フォールバック
+      };
+      if (window.Swal) await Swal.fire({icon:'success', text:'登録できました！'}).then(go);
+      else { alert('登録できました！'); go(); }
       return;
     }
 
     const msg = res.status === 409
       ? 'このメールは既に使われています'
       : '登録に失敗しました（入力内容をご確認ください）';
-    Swal.fire({icon:'error', text: msg});
+    window.Swal ? Swal.fire({icon:'error', text: msg}) : alert(msg);
 
   }catch(err){
-    Swal.fire({icon:'error', text:'通信エラーが発生しました。時間をおいてお試しください。'});
+    window.Swal ? Swal.fire({icon:'error', text:'通信エラーが発生しました。時間をおいてお試しください。'})
+                : alert('通信エラーが発生しました。');
     console.error(err);
   } finally {
     btn.disabled = false;
