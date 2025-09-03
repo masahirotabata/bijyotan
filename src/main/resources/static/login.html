@@ -25,80 +25,90 @@
   <h2>美女単 ログイン</h2>
 
   <!-- JS無効時もサーバ側リダイレクトが効くように /login へ通常送信 -->
-  <form id="loginForm" method="post" action="/login" novalidate>
-    <input type="email" name="email" placeholder="メールアドレス" autocomplete="username" required>
-    <input type="password" name="password" placeholder="パスワード" autocomplete="current-password" required>
-    <button type="submit" id="loginBtn">ログイン</button>
-  </form>
+<!-- src/main/resources/static/login.html の <form> はこのまま -->
+<form id="loginForm" method="post" action="/login" novalidate>
+  <input type="email" name="email" placeholder="メールアドレス" autocomplete="username" required>
+  <input type="password" name="password" placeholder="パスワード" autocomplete="current-password" required>
+  <button type="submit" id="loginBtn">ログイン</button>
+</form>
 
   <div class="links">
     <a href="register.html">新規ユーザー登録</a>
     <a href="forgot-password.html">パスワードを忘れた方はこちら</a>
   </div>
 
-  <script>
-    // クエリパラメータから通知
-    (function(){
-      const p = new URLSearchParams(location.search);
-      if (p.get("reset")==="success")      alert("パスワード再設定リンクをメール送信しました！");
-      else if (p.get("error")==="notfound") alert("メールアドレスが見つかりませんでした。");
-      else if (p.get("error"))              alert("ログインに失敗しました");
-    })();
+<script>
+  function pickCSRFFromPageOrCookie() {
+    const meta = document.querySelector('meta[name="csrf-token"]')?.content;
+    if (meta) return { header: 'X-CSRF-Token', token: meta };
+    const ck = document.cookie || '';
+    const m1 = ck.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
+    if (m1) return { header: 'X-CSRF-TOKEN', token: decodeURIComponent(m1[1]) };
+    const m2 = ck.match(/(?:^|;\s*)_csrf=([^;]+)/);
+    if (m2) return { header: 'X-CSRF-Token', token: decodeURIComponent(m2[1]) };
+    return null;
+  }
 
-    // CSRFトークン（/login は CSRF 除外済みだが、将来の拡張向けに残しておく）
-    function pickCSRFFromPageOrCookie() {
-      const meta = document.querySelector('meta[name="csrf-token"]')?.content;
-      if (meta) return { header:'X-CSRF-Token', token:meta };
-      const ck = document.cookie || '';
-      const m1 = ck.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
-      if (m1) return { header:'X-CSRF-TOKEN', token:decodeURIComponent(m1[1]) };
-      const m2 = ck.match(/(?:^|;\s*)_csrf=([^;]+)/);
-      if (m2) return { header:'X-CSRF-Token', token:decodeURIComponent(m2[1]) };
-      return null;
-    }
+  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
 
-    // fetch で送る（成功時はサーバの 302 を検知して画面遷移）
-    document.getElementById('loginForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
+    const form = e.currentTarget;
+    const btn  = document.getElementById('loginBtn');
+    const email = form.email.value.trim();
+    const password = form.password.value;
 
-      const form = e.currentTarget;
-      const btn  = document.getElementById('loginBtn');
-      const email = form.email.value.trim();
-      const password = form.password.value;
-      if (!email || !password) { alert('メールアドレスとパスワードを入力してください'); return; }
+    if (!email || !password) { alert('メールアドレスとパスワードを入力してください'); return; }
 
-      btn.disabled = true; btn.textContent = '送信中…';
+    btn.disabled = true; btn.textContent = '送信中…';
+    try {
+      const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+      const csrf = pickCSRFFromPageOrCookie();
+      if (csrf) headers[csrf.header] = csrf.token;
 
-      try {
-        const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
-        const csrf = pickCSRFFromPageOrCookie(); if (csrf) headers[csrf.header] = csrf.token;
+      const res = await fetch('/login', {
+        method: 'POST',
+        headers,
+        body: new URLSearchParams({ email, password }),
+        credentials: 'same-origin',
+        redirect: 'follow'
+      });
 
-        const res = await fetch('/login', {
-          method: 'POST',
-          headers,
-          body: new URLSearchParams({ email, password }),
-          credentials: 'same-origin',
-          redirect: 'follow'
-        });
+      // 1) サーバ側 302 をそのまま画面遷移
+      if (res.redirected) { window.location.assign(res.url); return; }
 
-        if (res.redirected) {                // /user.html?userId=<ID> へ
-          window.location.assign(res.url);
-          return;
-        }
-        if (res.ok || res.status === 204) {  // 念のためのフォールバック
-          window.location.assign('/user.html');
-          return;
-        }
-        alert('ログインに失敗しました。メールまたはパスワードをご確認ください。');
-      } catch (err) {
-        console.error('login error:', err);
-        // ネットワーク等で fetch 失敗時は通常送信でフォールバック
-        form.submit();
-      } finally {
-        btn.disabled = false; btn.textContent = 'ログイン';
+      // 2) 念のため: セッション成立を /api/me で確認し、id で遷移
+      if (res.ok || res.status === 204) {
+        try {
+          const meRes = await fetch('/api/me', { credentials: 'same-origin' });
+          if (meRes.ok) {
+            const me = await meRes.json();
+            if (me && me.id) { window.location.assign('/user.html?userId=' + me.id); return; }
+          }
+        } catch (_) {}
+        // 取れない場合の最終フォールバック
+        window.location.assign('/user.html');
+        return;
       }
-    });
-  </script>
+
+      alert('ログインに失敗しました。メールまたはパスワードをご確認ください。');
+    } catch (err) {
+      console.error('login error:', err);
+      // ネットワーク等で fetch できない時は通常のフォーム送信にフォールバック
+      form.submit();
+    } finally {
+      btn.disabled = false; btn.textContent = 'ログイン';
+    }
+  });
+
+  // クエリパラメータの通知
+  (function(){
+    const p = new URLSearchParams(location.search);
+    if (p.get('reset') === 'success') alert('パスワード再設定リンクをメール送信しました！');
+    else if (p.get('error') === 'notfound') alert('メールアドレスが見つかりませんでした。');
+    else if (p.get('error')) alert('ログインに失敗しました');
+  })();
+</script>
+
 
 </body>
 </html>
