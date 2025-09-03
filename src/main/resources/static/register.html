@@ -86,5 +86,26 @@
     <a href="login.html">ログイン画面に戻る</a>
   </div>
 
+<script>
+  async function handleRegister(e){
+  e.preventDefault();
+  const body = {
+    name:  document.getElementById('regName').value.trim(),
+    email: document.getElementById('regEmail').value.trim(),
+    password: document.getElementById('regPass').value
+  };
+  try{
+    const j = await fetchJSON('/api/auth/register',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    });
+    Swal.fire({icon:'success', text:'登録できました！'}).then(()=>location.href='/login.html');
+  }catch(err){
+    Swal.fire({icon:'error', text:'登録に失敗しました（入力やメール重複を確認してください）'});
+  }
+}
+</script>
+
 </body>
 </html>
