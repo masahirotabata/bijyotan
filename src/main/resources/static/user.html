@@ -1727,17 +1727,16 @@ async function updateStatusCount() {
   document.getElementById("learningStatus").textContent = "学習状況の取得に失敗しました";
 }
 
-// 週間バー
 async function loadWeeklyAnswers(){
   const bases = ['/api/test/weekly'];
   for (const base of bases) {
     for (const url of [base, `${base}?userId=${encodeURIComponent(getUserId())}`]) {
       try {
         const res = await apiFetch(url);
-        const ct = res.headers.get('content-type') || '';
-        if (!res.ok || !ct.includes('application/json')) continue;
+        const ct = (res.headers.get('content-type') || '').toLowerCase();
+        if (!res.ok || !ct.includes('application/json')) continue; // ← HTMLならスキップ
         const data = await res.json();
-        // ……以下はあなたの元の描画処理そのまま……
+
         const max = Math.max(1, ...data.map(d => d.answers));
         const bars = document.getElementById('weeklyBars');
         const labels = document.getElementById('weeklyLabels');
@@ -1766,6 +1765,7 @@ async function loadWeeklyAnswers(){
   }
   console.warn('weekly endpoint returned non-JSON, skip');
 }
+
 
 
 	// DOMContentLoaded 後のどこかで呼ぶ
