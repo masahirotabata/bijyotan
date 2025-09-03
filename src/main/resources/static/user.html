@@ -1140,74 +1140,72 @@ async function readJsonIfPossible(res) {
   try { return await res.json(); } catch { return null; }
 }
 
+// これで置き換え
 async function fetchUserInfo() {
+  // まず /api/me を最優先で
   const uid = getUserIdFromQuery() || localStorage.getItem('userId');
-
-  // 可能性のあるエンドポイントを順に試す
   const candidates = [
+    '/api/me',
     '/user/me',
     ...(uid ? [`/user/${encodeURIComponent(uid)}`] : []),
     '/api/user/me'
   ];
 
+  const normalize = (d) => ({
+    id: d.id ?? d.userId ?? null,
+    username: d.username ?? d.name ?? '',
+    premium: Boolean(d.premium ?? d.isPremium),
+    level: Number(d.level ?? 1),
+    loginPoints: Number(d.loginPoints ?? 0),
+    testCorrectTotal: Number(d.testCorrectTotal ?? 0)
+  });
+
   for (const url of candidates) {
     try {
       const data = await fetchJSON(url);
-      user = data;
+      const u = normalize(data);
+      user = u;
 
-      localStorage.setItem("userId", String(data.id));
-      document.getElementById("username").innerText  = `${data.username} さん、ようこそ！`;
-      document.getElementById("planText").innerText  = `プラン: ${data.premium ? "プレミアム" : "無料"}`;
-      document.getElementById("userLevel").innerText = `レベル: Lv.${data.level || 1}`;
-      updateGirlVisual(data.level || 1);
+      if (u.id) localStorage.setItem('userId', String(u.id));
+      document.getElementById("username").innerText  = `${u.username} さん、ようこそ！`;
+      document.getElementById("planText").innerText  = `プラン: ${u.premium ? "プレミアム" : "無料"}`;
+      document.getElementById("userLevel").innerText = `レベル: Lv.${u.level}`;
+      updateGirlVisual(u.level);
 
-      // ログボ更新＆表示
-      const ok = await updateLoginPointsIfNeeded(data.id);
+      // ログボの更新＆表示
+      const ok = await updateLoginPointsIfNeeded(u.id);
       if (!ok) {
-        const points = (typeof data.loginPoints === 'number') ? data.loginPoints : 1;
+        const points = Number.isFinite(u.loginPoints) ? u.loginPoints : 1;
         setLoginDays(points);
         showLoginBonusOncePerDay(points);
       }
       return true;
-    } catch (e) {
-      // 次の候補へ
+    } catch (_) { /* 次の候補へ */ }
+  }
+
+  // 起動待ちなど：数回リトライ
+  for (let i=0;i<2;i++){
+    await new Promise(r=>setTimeout(r, 800));
+    for (const url of candidates){
+      try {
+        const data = await fetchJSON(url);
+        const u = normalize(data);
+        user = u;
+        if (u.id) localStorage.setItem('userId', String(u.id));
+        document.getElementById("username").innerText  = `${u.username} さん、ようこそ！`;
+        document.getElementById("planText").innerText  = `プラン: ${u.premium ? "プレミアム" : "無料"}`;
+        document.getElementById("userLevel").innerText = `レベル: Lv.${u.level}`;
+        updateGirlVisual(u.level);
+        const ok = await updateLoginPointsIfNeeded(u.id);
+        if (!ok) { setLoginDays(u.loginPoints||1); showLoginBonusOncePerDay(u.loginPoints||1); }
+        return true;
+      } catch { /* 次 */ }
     }
   }
 
-// 最大3回、non-json は待って再試行（Render の起動待ちなどを吸収）
-for (let attempt = 0; attempt < 3; attempt++) {
-  for (const url of candidates) {
-    try {
-      const data = await fetchJSON(url);
-      user = data;
-      localStorage.setItem("userId", String(data.id));
-      document.getElementById("username").innerText  = `${data.username} さん、ようこそ！`;
-      document.getElementById("planText").innerText  = `プラン: ${data.premium ? "プレミアム" : "無料"}`;
-      document.getElementById("userLevel").innerText = `レベル: Lv.${data.level || 1}`;
-      updateGirlVisual(data.level || 1);
-      const ok = await updateLoginPointsIfNeeded(data.id);
-      if (!ok) {
-        const points = (typeof data.loginPoints === 'number') ? data.loginPoints : 1;
-        setLoginDays(points);
-        showLoginBonusOncePerDay(points);
-      }
-      return true;
-    } catch (e) {
-      if (e.code === 'UNAUTHORIZED') {
-        Swal.fire({ icon:'warning', title:'ログインが必要です', text:'もう一度ログインしてください。'})
-          .then(() => location.assign('/login'));
-        return false;
-      }
-      // NON_JSON は待って再試行
-    }
-  }
-  await new Promise(r => setTimeout(r, 800)); // 0.8秒待ち
+  console.warn('user info could not be fetched as JSON');
+  return false;
 }
-// ここまで来たらサーバ起動遅延か想定外エラー。リダイレクトせず画面に残す
-console.warn('user info could not be fetched as JSON after retries');
-return false;
-}
-
 async function updateLoginPointsIfNeeded(userId) {
   // 候補をいろいろ試す（PUT/GET 両対応）
   const tries = [
