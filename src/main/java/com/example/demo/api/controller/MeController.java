@@ -1,12 +1,14 @@
-package com.example.demo.api;
+package com.example.demo.api.controller;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -19,10 +21,12 @@ public class MeController {
     if (auth == null || !auth.isAuthenticated() || auth instanceof AnonymousAuthenticationToken) {
       return ResponseEntity.status(401).build();
     }
-    Map<String, Object> body = new HashMap<>();
-    body.put("name", auth.getName()); // = email にしているはず
-    body.put("authorities", auth.getAuthorities()
-        .stream().map(GrantedAuthority::getAuthority).collect(Collectors.toList()));
-    return ResponseEntity.ok(body);
+    List<String> authorities = auth.getAuthorities()
+        .stream().map(GrantedAuthority::getAuthority).collect(Collectors.toList());
+
+    return ResponseEntity.ok(Map.of(
+        "name", auth.getName(),   // email を返す想定
+        "authorities", authorities
+    ));
   }
 }
