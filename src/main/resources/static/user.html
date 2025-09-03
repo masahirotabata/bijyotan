@@ -703,6 +703,29 @@ img, video { max-width: 100%; height: auto; }
 
 /* ⑤ 念のため全ボタンも強制横書き */
 button { writing-mode: horizontal-tb; }
+
+/* ボタンを必ず横書き・1行・グリッドの専用列に */
+.wc-actions{ width:100%; display:flex; flex-direction:column; gap:6px; }
+.wc-actions button{
+  writing-mode: horizontal-tb !important;
+  text-orientation: mixed !important;
+  white-space: nowrap;
+  width: 100%;
+}
+
+#weeklyBars, #weeklyLabels{ display:flex !important; }
+.weekly-bars{ min-height:140px; align-items:flex-end; }
+.weekly-bar { width:22px; min-height:6px; }
+@media (min-width:481px){ .weekly-bars{ min-height:160px; } .weekly-bar{ width:26px; } }
+
+/* ステータス行をブロック化してボタンと重ならないように */
+.wc-body .meta{ display:block; line-height:1.5; }
+
+/* PC時はアクション列の最小幅を確保 */
+@media (min-width: 481px){
+  .word-card{ grid-template-columns: 110px 1fr 180px; }
+}
+
   
   </style>
 	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -1456,38 +1479,17 @@ async function fetchUserInfo() {
 	
 // 「/user/undefined/update-login-points」にならないよう、/user 系は使わずに揃える
 async function updateLoginPointsIfNeeded(userId) {
-  if (!userId) return false;
-
-  const tries = [
-    { url: `/api/user/update-login-points`, method: 'PUT', body: { userId } },
-    { url: `/api/test/weekly?userId=${encodeURIComponent(userId)}`, method: 'GET' }
-  ];
-
-  for (const t of tries) {
-    try {
-      const res = await apiFetch(t.url, {
-        method: t.method,
-        headers: t.body ? { 'Content-Type':'application/json' } : undefined,
-        body: t.body ? JSON.stringify(t.body) : undefined
-      });
-      if (!res.ok) continue;
-
-      // 1つ目: {loginPoints: n} を期待
-      if (t.body) {
-        const j = await res.json().catch(()=>null);
-        const p = Number(j?.loginPoints);
-        if (Number.isFinite(p)) { setLoginDays(p); showLoginBonusOncePerDay(p); return true; }
-      }
-
-      // 2つ目: weekly から擬似算出
-      const w = await res.json().catch(()=>[]);
-      const days = Array.isArray(w) ? w.filter(d => (d.answers ?? 0) > 0).length : 0;
-      const p = Math.max(1, days);
-      setLoginDays(p); showLoginBonusOncePerDay(p); 
-      return true;
-    } catch {}
-  }
-  return false;
+  try {
+    const res = await apiFetch(`/api/test/weekly?userId=${encodeURIComponent(userId)}`);
+    const ct  = (res.headers.get('content-type')||'').toLowerCase();
+    if (!res.ok || !ct.includes('application/json')) return false;
+    const w = await res.json();
+    const days = Array.isArray(w) ? w.filter(d => (d.answers ?? 0) > 0).length : 0;
+    const p = Math.max(1, days);
+    setLoginDays(p);
+    showLoginBonusOncePerDay(p);
+    return true;
+  } catch { return false; }
 }
 
 // 1日1回だけポップアップ
