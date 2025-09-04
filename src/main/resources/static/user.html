@@ -33,6 +33,27 @@
   margin-right: auto;
 }
 
+/* PC は中央寄せで折返し可 */
+#partButtons{
+  display:flex; flex-wrap:wrap; justify-content:center; gap:8px;
+}
+
+/* ▼ モバイルは1列横スクロール（落下防止） */
+@media (max-width:480px){
+  #partButtons{
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    justify-content: flex-start !important;
+    padding-top: 6px;
+    scroll-snap-type: x mandatory;   /* お好み */
+  }
+  #partButtons button{
+    flex: 0 0 auto;                  /* 収縮させない＝落ちない */
+    scroll-snap-align: start;
+  }
+}
+
 /* 単語カード：デフォも少しコンパクトに */
 .word-card{
   padding: 10px 12px;
@@ -94,6 +115,17 @@
     width: 100%;
     max-width: 320px;
   }
+
+　/* ▼ 単語カード内のボタン：必ず横書き・横長・中央寄せ */
+.word-card button{
+  writing-mode: horizontal-tb !important;
+  text-orientation: mixed !important;
+  white-space: nowrap !important;
+  display: inline-flex !important;
+  align-items: center; justify-content: center;
+  border-radius: 9999px;
+  line-height: 1.1;
+}
 
   /* 単語カード：2カラム化で縦長を解消 */
   .word-card{
@@ -441,29 +473,9 @@
 }
 .swipe-hud{ margin: 4px 6px 8px !important; }
 
-/* モバイルでは列数を減らしOKを押しやすく */
-@media (max-width:480px){
-  #stampGrid{ grid-template-columns: repeat(4, minmax(56px,1fr)); }
-}
 
 /* モーダル時は背景スクロールを止める */
 body.modal-open{ overflow:hidden; height:100vh; }
-
-/* CSSの一番最後に追加（スマホ全画面時の“勝ち”ルール） */
-@media (max-width:480px){
-  #swipeModeBox.fullscreen .swipe-card{
-    height: clamp(320px, 74dvh, 720px) !important;
-    width: min(92vw, 560px);
-  }
-  #swipeModeBox.fullscreen #swipeDeck{
-    height: auto !important;
-    min-height: 74dvh; /* 念のため */
-  }
-	
-  #swipeModeBox:not(.fullscreen) #swipeDeck{
-    height: 340px;            /* ← 通常表示のときだけ適用 */
-  }
-}
 
 /* ===== Centering fixes (override) ===== */
 #levelGirlContainer,
@@ -509,22 +521,39 @@ button:focus-visible { outline: 3px solid #e91e63; outline-offset: 2px; }
   cursor: default;
 }
 
-	
-  #partButtons{ justify-content: center; overflow: visible; flex-wrap: wrap; }
-  .pagination{ justify-content: center; overflow: visible; }
+/* ▼ ページネーション共通（切れ/折返し防止 + 水平スクロール） */
+.pagination{
+  display:flex;
+  gap:8px;
+  justify-content:center;
+  align-items:center;
+  overflow-x:auto;            /* ← これが効きます */
+  -webkit-overflow-scrolling:touch;
+  flex-wrap:nowrap;           /* 折返し禁止 */
+  padding: 6px 2px;
+  max-width: 100%;
+  margin: 0 auto;
 }
 
-  /* ページネーションも横並びスクロールで省スペース */
-  .pagination{
-    display:flex;
-    gap:8px;
-    overflow-x:auto;
-    -webkit-overflow-scrolling:touch;
-    flex-wrap:nowrap;
-    justify-content:center;
-    padding:6px 2px;
-  }
-  .pagination button{
+/* デスクトップだけ overflow 可・中央寄せ固定 */
+@media (min-width:768px){
+  .pagination{ overflow:visible; }
+}
+	  
+.pagination button{
+  flex:0 0 auto;              /* 横スクロールで並べる */
+  min-width:44px; height:36px;
+  border-radius: 9999px;
+}
+.pagination .page-info{ white-space: nowrap; }
+	
+  /* デスクトップだけ中央寄せ・折り返し可 */
+@media (min-width: 768px){
+  #partButtons{ justify-content: center !important; overflow: visible; flex-wrap: wrap; }
+}
+  .pagination{ justify-content: center; overflow: visible; }
+	  
+.pagination button{
     flex:0 0 auto;
     min-width:44px;
     height:36px;
@@ -536,17 +565,6 @@ button:focus-visible { outline: 3px solid #e91e63; outline-offset: 2px; }
     max-width:420px;
     margin:0 auto;
   }
-
-  /* ページネーション（共通/凝縮） */
-.pagination{
-  display:flex;
-  gap:8px;
-  overflow-x:auto;
-  -webkit-overflow-scrolling:touch;
-  flex-wrap:nowrap;
-  justify-content:center;
-  padding:6px 2px;
-}
 	  
 .pagination .ellipsis{ padding:0 6px; color:#888; align-self:center; }
 .pagination button.active{ background-color:#d81b60; font-weight:700; }
@@ -680,10 +698,36 @@ h1, h3, #learningStatus{ color: #e91e63; }
   justify-content: center;
 }
 
-/* ② 週間グラフがスマホで消えるのを防ぐ（高さ/表示の保険） */
-#weeklyBars, #weeklyLabels { display: flex !important; }
-.weekly-bars { min-height: 140px; }
-.weekly-bar  { width: 22px; min-height: 6px; }
+/* 週次グラフがテキスト羅列にならないよう強制 */
+#weeklyBars, #weeklyLabels{ display:flex !important; }
+#weeklyBars{
+  min-height: 140px;
+  gap: 8px;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+.weekly-bars{ min-height:140px; align-items:flex-end; }
+.weekly-bar { width:22px; min-height:6px; }
+@media (min-width:481px){ .weekly-bars{ min-height:160px; } .weekly-bar{ width:26px; } }
+#weeklyLabels{
+  gap: 8px;
+  justify-content: space-between;
+  font-size: .8rem;
+  color: #555;
+}
+	
+/* 各バーの見た目（JSが高さだけ変える） */
+.weekly-bar{
+  width: 22px;
+  min-height: 6px;
+  border-radius: 10px;
+  background: linear-gradient(180deg,#ff7bbd,#ffb3d9);
+  box-shadow: 0 2px 6px rgba(0,0,0,.08);
+}
+@media (min-width:481px){
+  #weeklyBars{ min-height: 160px; }
+  .weekly-bar{ width: 26px; }
+}
 
 /* ③ “ガタガタ”対策：横スクロール禁止＋画像のサイズを固定 */
 html, body { overflow-x: hidden; }
@@ -718,11 +762,6 @@ img, video { max-width: 100%; height: auto; }
   .word-card{ grid-template-columns: 110px 1fr 180px; }
 }
 
-#weeklyBars, #weeklyLabels{ display:flex !important; }
-.weekly-bars{ min-height:140px; align-items:flex-end; }
-.weekly-bar { width:22px; min-height:6px; }
-@media (min-width:481px){ .weekly-bars{ min-height:160px; } .weekly-bar{ width:26px; } }
-
 
 /* ⑤ 念のため全ボタンも強制横書き */
 button { writing-mode: horizontal-tb; }
@@ -741,6 +780,16 @@ button { writing-mode: horizontal-tb; }
   line-height: 1.1 !important;
   padding: 12px 20px !important;    /* ← 余白ゆったり */
   min-height: 44px;                 /* タップしやすさ */
+}
+
+/* 単語カード内のボタンは常に横書き・1行・中央寄せ */
+.word-card .wc-actions button{
+  writing-mode: horizontal-tb !important;
+  text-orientation: mixed !important;
+  white-space: nowrap !important;
+  display: inline-flex !important;
+  align-items: center; justify-content: center;
+  border-radius: 9999px;
 }
 
 /* ▼ モバイル：カード下に“横長”で出す（幅固定でスクショ風） */
@@ -774,8 +823,6 @@ button { writing-mode: horizontal-tb; }
 .word-card{ margin: 18px auto 26px; }
 .wc-body .meta{ margin-bottom: 6px; display:block; }
 
-/* ▼ 週間グラフを必ず横並びのバーにする（テキスト羅列になるのを防止） */
-#weeklyBars, #weeklyLabels { display:flex !important; }
 #weeklyBars{
   gap:12px; justify-content:space-between; align-items:flex-end;
   height:160px; width:100%;
@@ -793,7 +840,38 @@ button { writing-mode: horizontal-tb; }
   #weeklyBars{ height:140px; gap:8px; }
   .weekly-bar{ width:22px; }
 }
-  
+
+/* CSSの一番最後に追加（スマホ全画面時の“勝ち”ルール） */
+@media (max-width:480px){
+  #stampGrid{ grid-template-columns: repeat(4, minmax(56px,1fr)); }
+  #swipeModeBox.fullscreen .swipe-card{
+    height: clamp(320px, 74dvh, 720px) !important;
+    width: min(92vw, 560px);
+  }
+  #swipeModeBox.fullscreen #swipeDeck{
+    height: auto !important;
+    min-height: 74dvh; /* 念のため */
+  }
+	
+  #swipeModeBox:not(.fullscreen) #swipeDeck{
+    height: 340px;            /* ← 通常表示のときだけ適用 */
+  }
+}
+
+/* モバイルは幅を固定気味に（縦長解消） */
+@media (max-width:480px){
+  .word-card button{
+    width: 280px !important;       /* 好みで 240–300px 程度 */
+    max-width: 90vw;
+    min-height: 44px;
+    font-size: 15px;
+    padding: 12px 20px;
+  }
+}
+
+/* 一番最後のほうに置く */
+.word-card img{ width:88px !important; height:132px !important; object-fit:cover; }
+	
   </style>
 	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
@@ -2129,13 +2207,41 @@ function trapFocus(modal){
   return ()=> modal.removeEventListener('keydown', onKeydown);
 }
 
+async function urlExists(u){
+  try{
+    const r = await fetch(u, {method:'HEAD', cache:'no-store'});
+    if (r.ok) return true;
+    // 一部CDNはHEAD非対応 → 軽いGET
+    const g = await fetch(u, {method:'GET', cache:'no-store'});
+    return g.ok;
+  }catch{ return false; }
+}
+
+async function pickImage(candidates){
+  for (const u of candidates) if (await urlExists(u)) return u;
+  return '/images/beauty.png';
+}
+
 // 例：ログインボーナス
 let removeTrapLoginBonus = null;
-function showLoginBonus(points){
+async function showLoginBonus(points){
   const title = document.getElementById('loginBonusTitle');
   const grid  = document.getElementById('stampGrid');
   title.textContent = 'ログインボーナス（学習日数: ' + points + '日目）';
+
+  // ★ 画像を上部に表示（存在チェック付き）
+  const heroSrc = await pickImage([
+    '/images/hotpants_beauty.png',
+    'https://cdn.jsdelivr.net/gh/masahirotabata/bijyotan@master/src/main/resources/static/images/hotpants_beauty.png'
+  ]);
+  const hero = document.createElement('img');
+  hero.src = heroSrc;
+  hero.alt = 'hotpants beauty';
+  hero.style.cssText = 'display:block;margin:6px auto 8px;max-width:160px;height:auto;border-radius:10px;';
+
   grid.innerHTML = '';
+  grid.parentElement.insertAdjacentElement('afterbegin', hero);
+
   for (let i=1;i<=7;i++){
     const cell = document.createElement('div');
     cell.style.cssText = 'aspect-ratio:1/1;border:1px dashed #f48fb1;border-radius:8px;display:flex;align-items:center;justify-content:center;';
@@ -2151,6 +2257,7 @@ function showLoginBonus(points){
   removeTrapLoginBonus = trapFocus(popup);
   document.body.classList.add('modal-open');
 }
+
 	
 function closeLoginBonus(){
   const popup = document.getElementById('loginBonusPopup');
