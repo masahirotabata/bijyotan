@@ -1853,82 +1853,82 @@ function renderWords() {
     const div = document.createElement("div");
     div.className = "word-card";
 
-    const premiumUser = isPremium();
-    const actionButton = ""; // 無料は非表示
-
     const checkboxId = `status-${word.id}`;
-    const checked = word.status ? "checked" : "";
-    const labelText = word.status ? "学習済み" : "未学習";
+    const checked    = word.status ? "checked" : "";
+    const labelText  = word.status ? "学習済み" : "未学習";
 
-    const imageId = `img-${index}`;
-    const toggleButtonId = `toggle-${index}`;
-	const slug = toSlugForImage(word.word);
-	const baseImg = '/images/beauty.png';
-	const specificImg = `/images/${slug}_girl.png`;
-	
-	// ← id が無いデータでも衝突しないキーにする
-	const keyBase  = (word.id != null && String(word.id) !== '') ? `id:${word.id}` : `slug:${slug}`;
-	const stateKey = `imgState:${keyBase}`;
-	
-	// ← 初期表示は必ず beauty.png （キーが '2' のときだけ特別画像）
-	const raw = localStorage.getItem(stateKey);
-	const initState = (raw === '2') ? '2' : '1';
-	const initSrc   = (initState === '2') ? specificImg : baseImg;
-	
-div.innerHTML = `
-  <!-- 上段：画像 + テキスト -->
-  <div class="word-content">
-    <div class="wc-img">
-      <img
-        id="${imageId}"
-        src="${initSrc}"
-        alt="${esc(word.word)}"
-        loading="lazy"
-        width="88" height="132" decoding="async" draggable="false"
-        data-state="${initState}"
-        data-word-id="${word.id ?? ''}"
-        data-key="${stateKey}"
-        onerror="this.onerror=null;this.src='${baseImg}';this.dataset.state='1';document.getElementById('imgpath-${index}').textContent='${baseImg}';localStorage.setItem('${stateKey}','1');"
-      >
-    </div>
+    const imageId       = `img-${index}`;
+    const toggleButtonId= `toggle-${index}`;
+    const slug          = toSlugForImage(word.word);
+    const baseImg       = '/images/beauty.png';
+    const specificImg   = `/images/${slug}_girl.png`;
 
-    <div class="wc-body">
-      <strong>${esc(word.word)}</strong>
-      <div class="meta">（${esc(word.meaning)}）</div>
-      <div class="meta">
-        ステータス:
-        <input type="checkbox" id="${checkboxId}" ${checked}
-          data-word-id="${word.id}"
-          data-part="${esc(selectedPart)}">
-        <span id="status-label-${word.id}">${labelText}</span>
+    const keyBase  = (word.id != null && String(word.id) !== '')
+      ? `id:${word.id}` : `slug:${slug}`;
+    const stateKey = `imgState:${keyBase}`;
+
+    const raw       = localStorage.getItem(stateKey);
+    const initState = (raw === '2') ? '2' : '1';
+    const initSrc   = (initState === '2') ? specificImg : baseImg;
+
+    div.innerHTML = `
+      <!-- 上段：画像 + テキスト -->
+      <div class="word-content">
+        <div class="wc-img">
+          <img
+            id="${imageId}"
+            src="${initSrc}"
+            alt="${esc(word.word)}"
+            loading="lazy"
+            width="88" height="132" decoding="async" draggable="false"
+            data-state="${initState}"
+            data-word-id="${word.id ?? ''}"
+            data-key="${stateKey}"
+            onerror="this.onerror=null;this.src='${baseImg}';this.dataset.state='1';document.getElementById('imgpath-${index}').textContent='${baseImg}';localStorage.setItem('${stateKey}','1');"
+          >
+        </div>
+
+        <div class="wc-body">
+          <strong>${esc(word.word)}</strong>
+          <div class="meta">（${esc(word.meaning)}）</div>
+          <div class="meta">
+            ステータス:
+            <input type="checkbox" id="${checkboxId}" ${checked}
+              data-word-id="${word.id}"
+              data-part="${esc(selectedPart)}">
+            <span id="status-label-${word.id}">${labelText}</span>
+          </div>
+          <div class="meta">画像パス: <span id="imgpath-${index}">${initSrc}</span></div>
+        </div>
       </div>
-      <div class="meta">画像パス: <span id="imgpath-${index}">${initSrc}</span></div>
-    </div>
-  </div>
 
-  <!-- 下段：カード下にボタン行（横並び・横長） -->
-  <div class="word-actions">
-    <button
-      type="button"
-      class="js-toggle"
-      id="${toggleButtonId}"
-      data-img-id="${imageId}"
-      data-base="${esc(baseImg)}"
-      data-specific="${esc(specificImg)}"
-      data-index="${index}"
-      aria-controls="${imageId}"
-      aria-pressed="${initState === '2' ? 'true' : 'false'}"
-      aria-label="『${esc(word.word)}』の画像を切り替え"
-    >美女で英単語を表示する</button>
+      <!-- 下段：カード下にボタン行（横並び・横長） -->
+      <div class="word-actions">
+        <button
+          type="button"
+          class="js-toggle"
+          id="${toggleButtonId}"
+          data-img-id="${imageId}"
+          data-base="${esc(baseImg)}"
+          data-specific="${esc(specificImg)}"
+          data-index="${index}"
+          aria-controls="${imageId}"
+          aria-pressed="${initState === '2' ? 'true' : 'false'}"
+          aria-label="『${esc(word.word)}』の画像を切り替え"
+        >美女で英単語を表示する</button>
 
-    ${word.videoUrl ? `
-      <button
-        type="button"
-        class="js-play"
-        data-video="${esc(word.videoUrl)}"
-      >動画を見る</button>` : ``}
-  </div>
-`;// ← ここが抜けてました！
+        ${word.videoUrl ? `
+          <button
+            type="button"
+            class="js-play"
+            data-video="${esc(word.videoUrl)}"
+          >動画を見る</button>` : ``}
+      </div>
+    `;
+
+    // ← これが無いとDOMに追加されません
+    container.appendChild(div);
+  }); // ← forEach をきちんと閉じる
 
   renderPagination(words.length);
 }
@@ -3091,16 +3091,6 @@ document.addEventListener('keydown', (e) => {
   </div>
 </div>
 
-<!-- ad modal (最小構成) -->
-<div id="adModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:99999; align-items:center; justify-content:center;">
-  <div style="background:#fff; padding:16px; border-radius:12px; width:min(420px,90%);">
-    <h3 style="margin:0 0 8px;">広告を視聴してください</h3>
-    <p style="margin:0 0 12px;">視聴後、機能が5分間アンロックされます。</p>
-    <div style="display:flex; gap:8px; justify-content:flex-end;">
-      <button id="cancelAdBtn" class="btn btn-secondary" type="button">やめる</button>
-      <button id="watchAdBtn"  class="btn btn-primary"   type="button">広告を見る</button>
-    </div>
-  </div>
 </div>
 
 	</body>
