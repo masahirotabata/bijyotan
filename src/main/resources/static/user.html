@@ -441,6 +441,7 @@
     width: auto;
     max-width: none;
   }
+}
 
   /* パートボタン/ページネーションの中央寄せ */
   #partButtons{ justify-content: center; overflow: visible; flex-wrap: wrap; }
@@ -1000,6 +1001,94 @@ button { writing-mode: horizontal-tb; }
 
 /* 一番最後のほうに置く */
 .word-card img{ width:88px !important; height:132px !important; object-fit:cover; }
+
+/* === Weekly chart: 常に有効（メディアクエリの外）=== */
+#weeklyBars, #weeklyLabels { display: flex !important; }
+#weeklyBars{
+  gap: 12px; justify-content: space-between; align-items: flex-end;
+  min-height: 140px; width: 100%;
+}
+.weekly-bar{
+  width: 22px; min-height: 6px;
+  border-radius: 10px;
+  background: linear-gradient(180deg,#ff7bbd,#ffb3d9);
+  box-shadow: 0 2px 6px rgba(0,0,0,.08);
+}
+@media (min-width:768px){
+  #weeklyBars{ min-height:160px; }
+  .weekly-bar{ width:26px; }
+}
+
+/* === PC: カードとボタンを広げて“右端”を一直線に揃える（最終上書き） === */
+
+/* 画像パスなど長文で中央列が押されないように折り返し */
+.wc-body .meta,
+.wc-body .meta span { overflow-wrap: anywhere; word-break: break-word; }
+
+/* 768–991px でも整える（中型画面） */
+@media (min-width:768px) and (max-width:991px){
+  #wordContainer{ max-width: 920px !important; }
+  #pagination{ max-width: 920px !important; }
+
+  .word-card{
+    display:grid !important;
+    grid-template-columns: 140px 1fr 220px !important; /* ← 右列を固定幅に */
+    grid-template-areas: "img text action" !important;
+    align-items:center !important;
+    gap: 14px 18px !important;
+    padding: 16px 18px !important;
+  }
+
+  /* 画像サイズは中型用 */
+  .word-card .wc-img img{
+    width:140px !important; height:210px !important; object-fit:cover;
+  }
+
+  /* 右列は常に同じ幅＋ボタンは列いっぱい */
+  .wc-actions, .word-actions{
+    grid-area: action !important;
+    justify-self: end !important;
+    width: 220px !important;
+    display:flex !important; flex-direction:column !important; gap:10px !important;
+  }
+  .wc-actions button, .word-actions button{
+    width: 100% !important; min-width: 0 !important;
+    box-sizing: border-box !important;
+    padding: 12px 20px !important; border-radius: 9999px !important;
+  }
+}
+
+/* 992px 以上（デスクトップ広め） */
+@media (min-width:992px){
+  #wordContainer{ max-width: 1080px !important; }
+  #pagination{ max-width: 1080px !important; }
+
+  .word-card{
+    display:grid !important;
+    grid-template-columns: 160px 1fr 260px !important; /* ← 右列を更に広めに固定 */
+    grid-template-areas: "img text action" !important;
+    align-items:center !important;
+    gap: 16px 22px !important;
+    padding: 18px 22px !important;
+  }
+
+  /* PC用に画像も少し大きく（直前の 88x132 !important を上書き） */
+  .word-card .wc-img img{
+    width:160px !important; height:240px !important; object-fit:cover;
+  }
+
+  .wc-actions, .word-actions{
+    grid-area: action !important;
+    justify-self: end !important;
+    width: 260px !important;                 /* ← 列と同じ幅に固定 */
+    display:flex !important; flex-direction:column !important; gap:10px !important;
+  }
+  .wc-actions button, .word-actions button{
+    width: 100% !important; min-width: 0 !important;
+    box-sizing: border-box !important;
+    padding: 12px 20px !important; border-radius: 9999px !important;
+  }
+}
 	
   </style>
 	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
