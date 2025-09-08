@@ -1169,6 +1169,72 @@ button { writing-mode: horizontal-tb; }
   -webkit-user-drag:none; user-select:none; touch-action: manipulation;
 }
 
+/* === word-card: 最終統一（このブロックをCSSの一番最後に置く） === */
+
+/* モバイル：画像(左)・本文(右)・ボタン(下)の2行レイアウト */
+.word-card{
+  display:grid !important;
+  grid-template-columns: 88px 1fr !important;
+  grid-template-areas:
+    "img text"
+    "action action" !important;
+  align-items:start !important;
+  gap:10px 12px !important;
+  padding:12px !important;
+  margin:12px auto 20px !important;
+  background:#eef7ff !important;
+  border:1px solid #ccc !important;
+  border-radius:8px !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+.wc-img{ grid-area: img !important; }
+.wc-body{ grid-area: text !important; text-align:left !important; min-width:0 !important; }
+.wc-actions{ grid-area: action !important; display:flex !important; gap:8px !important;
+  flex-wrap:wrap !important; justify-content:center !important; width:100% !important; }
+
+/* 画像は常に表示・固定サイズ */
+.word-card img{
+  display:block !important;
+  width:88px !important;
+  height:132px !important;
+  object-fit:cover !important;
+  border-radius:8px !important;
+}
+
+/* ボタンははみ出さない（固定280pxをやめる） */
+.wc-actions button,
+.word-actions button,
+#wordContainer .word-card button{
+  width:100% !important;
+  max-width:320px !important;
+  min-height:44px !important;
+  border-radius:9999px !important;
+  white-space:nowrap !important;
+  writing-mode:horizontal-tb !important;
+}
+
+/* テキストが1文字ずつ縦に崩れないように */
+.wc-body, .wc-body .meta, .wc-body .meta span{
+  word-break: normal !important;
+  overflow-wrap: break-word !important; /* anywhere を上書き */
+}
+
+/* デスクトップ(>=768px)：3カラムに切替 */
+@media (min-width:768px){
+  .word-card{
+    grid-template-columns: 140px 1fr 220px !important;
+    grid-template-areas: "img text action" !important;
+    align-items:center !important;
+    padding:16px !important;
+    gap:12px 16px !important;
+  }
+  .word-card .wc-img img{ width:140px !important; height:210px !important; }
+  .wc-actions{ justify-self:end !important; flex-wrap:nowrap !important; width:auto !important; }
+  .wc-actions button{ width:220px !important; }
+}
+
+
 </style>
 
 </head>
@@ -2194,14 +2260,22 @@ function renderWords() {
 
     // DOMに追加してからフォールバックを設定
     container.appendChild(div);
-    const imgEl = div.querySelector(`#${imageId}`);
-    setImgWithFallback(imgEl, [
-      specificImg,                         // /images/{slug}_girl.png
-      `${CDN_BASE}/${slug}_girl.png`,      // CDN の個別
-      baseImg,                             // /images/beauty.png
-      `${CDN_BASE}/beauty.png`             // CDN 既定
-    ]);
-  });
+	const imgEl = div.querySelector(`#${imageId}`);
+ 　　if (initState === '2') {
+   　// “個別画像”で始めるときだけ個別→CDN→beauty の順でフォールバック
+   　setImgWithFallback(imgEl, [
+     specificImg,
+     `${CDN_BASE}/${slug}_girl.png`,
+     baseImg,
+     `${CDN_BASE}/beauty.png`
+   ]);
+ 　} else {
+   　// “beauty.png”で始める場合は beauty 固定（beauty が落ちた時だけ CDN beauty）
+   　setImgWithFallback(imgEl, [
+     baseImg,
+     　`${CDN_BASE}/beauty.png`
+   　]);
+ 　}
 
   renderPagination(words.length);
 }
