@@ -1116,6 +1116,58 @@ button { writing-mode: horizontal-tb; }
   background:linear-gradient(180deg,#ff7bbd,#ffb3d9) !important;
   box-shadow:0 2px 6px rgba(0,0,0,.08) !important;
 }
+/* === 単語カードの最終レイアウト上書き（重なり解消）================ */
+
+/* モバイル：画像(左)＋本文(右)、ボタンは下段に横並び */
+.word-card{
+  display: grid !important;
+  grid-template-columns: 88px 1fr;
+  grid-template-areas:
+    "img text"
+    "action action";
+  align-items: start;
+  gap: 10px 12px;
+  padding: 12px;
+}
+.wc-img{  grid-area: img; }
+.wc-body{ grid-area: text; text-align: left; min-width: 0; }
+.wc-actions, .word-actions{
+  grid-area: action;
+  display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+  width: 100%;
+}
+.word-card img{ width:88px !important; height:132px !important; object-fit:cover; border-radius:8px; }
+
+/* デスクトップ(>=768px)：画像(左)／本文(中央)／ボタン(右)の3カラム */
+@media (min-width:768px){
+  .word-card{
+    grid-template-columns: 140px 1fr 220px !important;
+    grid-template-areas: "img text action" !important;
+    align-items: center;
+    gap: 12px 16px;
+    padding: 14px 16px;
+  }
+  /* 子ラッパーをフラット化して親グリッドに直接乗せる */
+  .word-content{ display: contents !important; }
+
+  .wc-actions, .word-actions{
+    grid-area: action !important;
+    justify-self: end;
+    width: 220px; flex-direction: column; gap: 10px; flex-wrap: nowrap;
+  }
+  .word-card img{ width:140px !important; height:210px !important; }
+}
+/* 本文の長いパスなどで押し出されないよう折返し許可 */
+.wc-body, .wc-body .meta{ overflow-wrap:anywhere; word-break:break-word; }
+
+/* ボタンの見た目＆改行禁止（縦書き化・崩れ防止） */
+.wc-actions button, .word-actions button{
+  display:inline-flex; align-items:center; justify-content:center;
+  width: 100%; min-height:44px; white-space:nowrap;
+  padding:12px 20px; border-radius:9999px;
+  writing-mode: horizontal-tb !important; text-orientation: mixed !important;
+  -webkit-user-drag:none; user-select:none; touch-action: manipulation;
+}
 </style>
 
 </head>
@@ -1373,6 +1425,9 @@ document.addEventListener('DOMContentLoaded', () => {
   applyTestParamsAndCommit();
   document.getElementById('watchAdBtn') ?.addEventListener('click', handleAdAccept);
   document.getElementById('cancelAdBtn')?.addEventListener('click', closeAdModal);
+　document.body.addEventListener('dragstart', e => {
+    if (e.target.closest('.wc-actions button, .word-actions button')) e.preventDefault();
+  });
 });
 
 
