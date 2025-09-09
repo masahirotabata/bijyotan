@@ -89,6 +89,27 @@
   </div>
 
 <script>
+
+async function submitSignup(payload){
+  const res = await apiFetch('/api/signup', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(()=> '');
+    throw new Error(msg || `登録に失敗しました (HTTP ${res.status})`);
+  }
+
+  // JSONなら読む、空やHTMLなら読み飛ばし
+  const ct = (res.headers.get('content-type') || '').toLowerCase();
+  const data = ct.includes('application/json') ? await res.json().catch(()=> ({})) : {};
+  if (data.id) localStorage.setItem('userId', String(data.id));
+
+  location.assign('/user.html');
+}
+
 async function getUserIdFallback(){
   const candidates = ['/api/me','/user/me','/api/user/me'];
   for (const url of candidates){
