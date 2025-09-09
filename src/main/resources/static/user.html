@@ -1392,15 +1392,17 @@ function renderWordCard(word, musouMode, user) {
 let remainingCards = Number(localStorage.getItem('remainingCards') || 0);
 
 function consumeOne(){
-  if (isPremium()) return true;          // 課金なら消費しない
-  if (remainingCards <= 0) {             // 0枚なら広告へ
-    showAd();
-    return false;
-  }
+  if (isPremium()) return true;           // プレミアムは消費しない
+  if (remainingCards <= 0){ showAd(); return false; }
   remainingCards = Math.max(0, remainingCards - 1);
   saveRemaining();
-  updateCounter('soft');                  // バッジをポンっと更新
+  updateCounter('soft');
   return true;
+}
+
+function watchAdGlobal(){
+  // 5分解放は廃止。通常のリワード広告→6枚付与だけ。
+  showAd();  // showAd() の成功コールバックで onAdWatchedSuccess() が呼ばれる想定
 }
 
 
@@ -1409,27 +1411,30 @@ function saveRemaining() {
 }
 
 // バッジ表示の切替＆演出
-function updateCounter(effect = 'none') {
+function updateCounter(effect='none'){
   const badge = document.getElementById('cardCounter');
   if (!badge) return;
 
-  // 0枚のときはタップで広告呼び出し
-  if (remainingCards > 0) {
+  if (isPremium()){
+    badge.textContent = '無制限';
+    badge.onclick = null;
+    badge.style.opacity = '1';
+  } else if (remainingCards > 0){
     badge.textContent = `残り ${remainingCards} 枚`;
     badge.onclick = null;
     badge.style.opacity = '1';
   } else {
     badge.textContent = '広告を見て再開！';
-    badge.onclick = () => showAd();     // ← タップで広告表示
+    badge.onclick = () => showAd();   // ← 視聴成功で6枚付与
     badge.style.opacity = '.95';
   }
 
-  // 演出（成功時はpop-glow、毎回の減算時はpop-soft）
-  badge.classList.remove('pop-glow', 'pop-soft');
-  void badge.offsetWidth; // reflowしてアニメを掛け直す
+  badge.classList.remove('pop-glow','pop-soft');
+  void badge.offsetWidth;
   if (effect === 'glow') badge.classList.add('pop-glow');
   if (effect === 'soft') badge.classList.add('pop-soft');
 }
+
 
 document.addEventListener('DOMContentLoaded', () => updateCounter('none'));
 
@@ -1467,19 +1472,18 @@ function showAd() {
 }
 
 // ▼ここ差し替え：広告“成功時のみ”6枚付与（バグの根本対策）
-function onAdWatchedSuccess() {
-  remainingCards = 6;       // 付与枚数：6
+function onAdWatchedSuccess(){
+  remainingCards = 6;
   saveRemaining();
-  updateCounter('glow');    // ご褒美アニメ（黄色に光ってポン）
-　resetBeautyClickCount(); // ← 成功時にここでリセット
+  resetBeautyClickCount();
+  updateCounter('glow');
 
-  // トグル待ちコールバックがあれば実行しておく
-  if (typeof pendingToggle === 'function') {
-    const cb = pendingToggle;
-    pendingToggle = null;
-    try { cb(); } catch (e) { console.warn('pendingToggle failed:', e); }
+  if (typeof pendingToggle === 'function'){
+    const cb = pendingToggle; pendingToggle = null;
+    try { cb(); } catch {}
   }
 }
+
 
 // ▼ここ差し替え：キャンセル/失敗は何もしない（追加付与しない！）
 function onAdClosedOrFailed(err) {
@@ -2055,18 +2059,10 @@ function toggleImage(imgId, btnId, img1, img2, index) {
   test.src = nextSrc;
 }
 
-function handleToggleImage(imgId, btnId, img1, img2, index) {
+function handleToggleImage(imgId, btnId, img1, img2, index){
   const proceed = () => toggleImage(imgId, btnId, img1, img2, index);
-
-  if (isPremium()) { proceed(); return; }
-
-  // 6枚方式：1アクションで1枚消費。0なら広告に誘導して終了
-  if (!consumeOne()) return;
-
-  // ※“n回に1度広告”を使いたいならここに入れる（今は無効化で安定運用）
-  // const n = incBeautyClickCount();
-  // if (AD_EVERY_TOGGLE > 0 && n % AD_EVERY_TOGGLE === 0) { pendingToggle = proceed; showAd(); return; }
-
+  if (isPremium()){ proceed(); return; }
+  if (!consumeOne()) return;  // 残0なら広告→終了
   proceed();
 }
 
@@ -2128,18 +2124,9 @@ async function loadWords() {
   await refreshUserStats();
 }
 
-
-function watchAdGlobal() {
-	  const now = Date.now();
-	  const expiry = now + 5 * 60 * 1000; // 5分間有効
-	  localStorage.setItem("ad_expiry", expiry.toString());
-
-	  alert("広告視聴完了！");
-	  renderWords(); // ← ボタン表示を即時反映
-	}
 	
 function isAdEnabled() {
-	return remainingCards > 0;  // 6枚方式：残枚数があれば解放
+	return isPremium() || remainingCards > 0;
 }
 
 
