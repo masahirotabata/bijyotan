@@ -983,6 +983,28 @@ button { writing-mode: horizontal-tb; }
     white-space:nowrap;
   }
 }
+
+/* CTA行の並びと幅を統一 */
+#test-section.cta-row{
+  display:flex !important;
+  gap:10px;
+  flex-wrap:wrap;
+  justify-content:center;
+}
+#test-section.cta-row > button{
+  flex: 1 1 240px;     /* 最小幅240、余れば伸びる */
+  min-width: 200px;
+  max-width: 320px;
+}
+
+/* スマホは“2列”で並べる（3つ目は次の段に回る） */
+@media (max-width:480px){
+  #test-section.cta-row > button{
+    flex: 1 1 calc(50% - 12px);
+    min-width: 160px;
+  }
+}
+
   
   </style>
 	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -1045,15 +1067,12 @@ button { writing-mode: horizontal-tb; }
   </div>
 </div>
 
-<!-- 広告と課金 -->
-<div style="margin: 10px;">
-  <button　id="adCtaBtn" onclick="watchAdGlobal()">広告を見て美女が英単語を表現</button>
-</div>
 <!-- <div style="margin: 10px;">
   <button onclick="showPremiumPopup()">100円でホットパンツ美女解放</button>
 </div> -->
 
 <div id="test-section" style="text-align: center; margin: 30px 0;">
+<button　id="adCtaBtn" onclick="watchAdGlobal()">広告を見て美女で英単語を表現</button>
 <button id="testStartBtn" onclick="startTest()">テストを開始する</button>
 <button id="testStartBtnVocab" onclick="startVocabularyTest()">テストを開始する(単語モード)</button>
 <!-- <button onclick="goToPart(getUserId(), '無双Part')">無双Partへ</button> -->
@@ -1208,40 +1227,49 @@ async function applyTestParamsAndCommit() {
   const from  = sp.get('from');
   const score = parseInt(sp.get('score') || '0', 10);
   const total = parseInt(sp.get('total') || '0', 10);
+  const mode  = (sp.get('mode') || 'sentence');
   const userId = getUserIdFromQuery() || 1;
-  const mode = 'sentence';
 
   if (from !== 'test' || !total) return;
 
-  // まず画面を即時更新（サーバ遅延してもユーザーは結果を見られる）
-  const testStats = document.getElementById("testStats");
-  if (testStats) testStats.textContent = `正答数: ${score} / ${total}問中`;
+  // ★ この結果はもう処理済み？
+  const resultKey = `testResultHandled:${userId}:${mode}:${score}/${total}`;
+  if (sessionStorage.getItem(resultKey) === '1') {
+    // 既に処理済みならクエリだけ消しておく
+    history.replaceState(null, '', location.pathname + location.hash);
+    return;
+  }
 
-  // レベル演出（暫定）：直近の合計正答をローカルで積み上げ表示
+  // 画面に即時反映
+  document.getElementById("testStats")?.textContent = `正答数: ${score} / ${total}問中`;
+
+  // ローカル加算（今回が未処理のときだけ）
   const localTotalCorrectKey = `localTotalCorrect:${userId}`;
   const prevLocal = parseInt(localStorage.getItem(localTotalCorrectKey) || '0', 10);
   const newLocal  = prevLocal + score;
   localStorage.setItem(localTotalCorrectKey, String(newLocal));
 
+  // レベル演出（差分分だけ）
   const prevLevel = Math.floor(prevLocal / 10);
   const newLevel  = Math.floor(newLocal / 10);
   for (let lv = prevLevel + 1; lv <= newLevel; lv++) showLevelUpPopup(lv);
 
-  // すでに test.html 側でコミット済みなら何もしない
+  // サーバへコミット（未コミット時のみ）
   const committedKey = `committed:${userId}:${mode}:${score}/${total}`;
-  if (sessionStorage.getItem(committedKey) === '1') return;
-
-  // 未コミットならここでリトライコミット
-  try {
-   const res = await apiFetch('/api/test/commit', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ mode, correct: score, total }) });
-    if (res.ok) {
-      sessionStorage.setItem(committedKey, '1');
-    } else {
-      console.warn('user.html側コミット失敗', res.status);
-    }
-  } catch (e) {
-    console.warn('user.html側コミット例外', e);
+  if (!sessionStorage.getItem(committedKey)) {
+    try {
+      const res = await apiFetch('/api/test/commit', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ mode, correct: score, total })
+      });
+      if (res.ok) sessionStorage.setItem(committedKey, '1');
+    } catch (e) { console.warn('commit failed', e); }
   }
+
+  // ★ 二重起動防止フラグを立て、URLのクエリを除去
+  sessionStorage.setItem(resultKey, '1');
+  history.replaceState(null, '', location.pathname + location.hash);
 }
 
 // 既存の DOMContentLoaded 後や loadWords() 完了後に呼んでOK
