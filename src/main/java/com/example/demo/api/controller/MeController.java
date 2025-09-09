@@ -1,5 +1,5 @@
 // src/main/java/com/example/demo/api/controller/MeController.java
-package com.example.demo.api.controller;
+package com.example.demo.api;
 
 import java.util.HashMap;
 import java.util.Map;
