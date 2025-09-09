@@ -942,6 +942,47 @@ button { writing-mode: horizontal-tb; }
 
 /* 一覧コンテナの幅を統一（中央寄せ）*/
 #wordContainer{ max-width:920px; margin:0 auto; }
+
+/* === mobile CTA: 幅/位置/高さを統一 === */
+@media (max-width:480px){
+  #adCtaBtn,
+  #test-section button,
+  #swipeStartBtn{
+    display:block;
+    width:min(320px, 90%);
+    margin:10px auto;
+    min-height:44px;
+  }
+  /* test-sectionは縦積みにして揺れを無くす */
+  #test-section{ display:block !important; text-align:center; }
+  #test-section button{ width:min(320px, 90%) !important; margin:10px auto 0; }
+}
+
+/* === mobile: スワイプHUDの重なり解消（2行グリッド） === */
+@media (max-width:480px){
+  #swipeModeBox .swipe-hud{
+    position: sticky; top:0; background:#fff;
+    display:grid !important;
+    grid-template-columns: auto 1fr;
+    grid-template-areas:
+      "back counter"
+      "back stats";
+    align-items:center;
+    gap:6px 8px;
+    padding-bottom:4px;
+  }
+  #swipeExitBtn{ grid-area:back; }
+  #swipeCounter{ grid-area:counter; justify-self:end; }
+  #swipeStats{ grid-area:stats;   justify-self:end; font-size:.9rem; }
+}
+
+/* === mobile: 一覧に戻るボタンは横一行・自動幅 === */
+@media (max-width:480px){
+  #swipeModeBox .swipe-hud button{
+    width:auto !important;
+    white-space:nowrap;
+  }
+}
   
   </style>
 	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -1006,7 +1047,7 @@ button { writing-mode: horizontal-tb; }
 
 <!-- 広告と課金 -->
 <div style="margin: 10px;">
-  <button onclick="watchAdGlobal()">広告を見て美女が英単語を表現</button>
+  <button　id="adCtaBtn" onclick="watchAdGlobal()">広告を見て美女が英単語を表現</button>
 </div>
 <!-- <div style="margin: 10px;">
   <button onclick="showPremiumPopup()">100円でホットパンツ美女解放</button>
