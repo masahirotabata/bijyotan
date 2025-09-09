@@ -1131,6 +1131,34 @@ const apiFetch = (path, opts = {}) => {
   return fetch(path, { credentials: 'include', ...opts, headers });
 };
 
+async function resolveUserId(){
+  const qs = new URLSearchParams(location.search);
+  let id = qs.get('userId') || qs.get('id') || localStorage.getItem('userId');
+  if (!id) {
+    try {
+      const r = await fetch('/api/me', {credentials:'include'});
+      if (r.ok) {
+        const j = await r.json().catch(()=> ({}));
+        id = j?.id ?? j?.userId ?? j?.user_id ?? null;
+        if (id) localStorage.setItem('userId', String(id));
+      }
+    } catch {}
+  }
+  return id ? String(id) : null;
+}
+
+(async () => {
+  const userId = await resolveUserId();
+  if (!userId) { console.warn('userId を取得できません'); return; }
+
+  const part = new URLSearchParams(location.search).get('part') || 'A'; // 必要に応じて
+  const res = await fetch(`/api/words?userId=${encodeURIComponent(userId)}&part=${encodeURIComponent(part)}`, {
+    credentials: 'include'
+  });
+  if (!res.ok) { console.error('GET /api/words failed', res.status); return; }
+  const words = await res.json();
+  // TODO: ここで words を描画
+})();
 
 // JSONしか受け付けないfetch（Cookie付き・非JSONは例外）
 async function fetchJSON(url, opts = {}) {
