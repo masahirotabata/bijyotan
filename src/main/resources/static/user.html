@@ -1221,32 +1221,32 @@ const parts = [
 document.addEventListener("DOMContentLoaded", initApp);
 
 async function initApp() {
-const ok = await fetchUserInfo();
-if (!ok) {
-  // サーバ起動待ちや一時的な HTML 応答。UIに案内を出して自動再試行
-  const s = document.getElementById("learningStatus");
-  if (s) s.textContent = "サーバ起動中…自動で再試行します";
-  setTimeout(initApp, 1200);
-  return;
-}
+  const ok = await fetchUserInfo();
+  if (!ok) {
+    // 本当にユーザーIDも無いなら再試行（Renderの起動待ちなど）
+    const s = document.getElementById("learningStatus");
+    if (s) s.textContent = "サーバ起動中…自動で再試行します";
+    setTimeout(initApp, 1200);
+    return;
+  }
 
-const urlParams = new URLSearchParams(window.location.search);
-const sessionId = urlParams.get('session_id');
-if (sessionId) {
-  try {
-    const r = await apiFetch(`/api/payment/confirm?session_id=${encodeURIComponent(sessionId)}`);
-    const j = await r.json();
-    user.premium = !!j.premium;
-  } catch {}
-}
+  const urlParams = new URLSearchParams(window.location.search);
+  const sessionId = urlParams.get('session_id');
+  if (sessionId) {
+    try {
+      const r = await apiFetch(`/api/payment/confirm?session_id=${encodeURIComponent(sessionId)}`);
+      const j = await r.json();
+      user.premium = !!j.premium;
+    } catch {}
+  }
 
-renderPartButtons();
-await loadWords();
-await refreshUserStats();
-showUpdateInfoIfNeeded();
-ensureHeroVideo();
-placeSwipeBoxAboveStartButton();
-await loadWeeklyAnswers(); 
+  renderPartButtons();
+  await loadWords();
+  await refreshUserStats();
+  showUpdateInfoIfNeeded();
+  ensureHeroVideo();
+  placeSwipeBoxAboveStartButton();
+  await loadWeeklyAnswers(); 
 }
 
 //URLのテスト結果をUIへ反映し、必要ならコミットも打つ
@@ -1903,6 +1903,7 @@ async function readJsonIfPossible(res) {
 }
 
 // これで置き換え
+// これで置き換え
 async function fetchUserInfo() {
   // まず /api/me を最優先で
   const uid = getUserIdFromQuery() || localStorage.getItem('userId');
@@ -1945,24 +1946,25 @@ async function fetchUserInfo() {
     } catch (_) { /* 次の候補へ */ }
   }
 
-  // 起動待ちなど：数回リトライ
-  for (let i=0;i<2;i++){
-    await new Promise(r=>setTimeout(r, 800));
-    for (const url of candidates){
-      try {
-        const data = await fetchJSON(url);
-        const u = normalize(data);
-        user = u;
-        if (u.id) localStorage.setItem('userId', String(u.id));
-        document.getElementById("username").innerText  = `${u.username} さん、ようこそ！`;
-        document.getElementById("planText").innerText  = `プラン: ${u.premium ? "プレミアム" : "無料"}`;
-        document.getElementById("userLevel").innerText = `レベル: Lv.${u.level}`;
-        updateGirlVisual(u.level);
-        const ok = await updateLoginPointsIfNeeded(u.id);
-        if (!ok) { setLoginDays(u.loginPoints||1); showLoginBonusOncePerDay(u.loginPoints||1); }
-        return true;
-      } catch { /* 次 */ }
-    }
+  // ★ ここからフォールバック：APIが全部ダメでも userId がURLにあれば“ゲスト”で進める
+  const fallbackId = getUserIdFromQuery();
+  if (fallbackId) {
+    user = {
+      id: String(fallbackId),
+      username: 'ゲスト',
+      premium: false,
+      level: 1,
+      loginPoints: 0,
+      testCorrectTotal: 0
+    };
+    localStorage.setItem('userId', String(fallbackId));
+    document.getElementById("username").innerText  = `ゲストさん、ようこそ！`;
+    document.getElementById("planText").innerText  = `プラン: 無料`;
+    document.getElementById("userLevel").innerText = `レベル: Lv.1`;
+    updateGirlVisual(1);
+    // ログボは推計で表示（失敗しても無視）
+    try { await updateLoginPointsIfNeeded(fallbackId); } catch {}
+    return true; // ← ここで true を返すのがポイント（以降の描画に進む）
   }
 
   console.warn('user info could not be fetched as JSON');
