@@ -810,6 +810,51 @@ button { writing-mode: horizontal-tb; }
 
 #cardCounter.pop-glow { animation: pop .28s ease; box-shadow: inset 0 0 .6rem rgba(255,215,64,.65); }
 #cardCounter.pop-soft { animation: pop .2s ease; }
+
+#cardWrap{ position:relative; }
+#cardCounter{
+  position:absolute; top:-8px; right:-8px;
+  z-index: 5;  /* ← これで常に前面 */
+}
+
+/* === FINAL LAYOUT FIX === */
+*,*::before,*::after{ box-sizing:border-box; }
+:root{ --imgW:88px; --imgH:132px; --actionsW:220px; }
+
+/* モバイル基準（画像/本文/ボタン） */
+.word-card{
+  display:grid;
+  grid-template-columns: var(--imgW) 1fr;
+  grid-template-areas:
+    "img text"
+    "img action";
+  gap:8px 10px;
+  align-items:center;
+  padding:10px 12px;
+}
+.wc-img{ grid-area:img; }
+.wc-body{ grid-area:text; text-align:left; }
+.wc-actions{ grid-area:action; width:100%; display:flex; flex-direction:column; gap:6px; }
+.word-card img{ width:var(--imgW); height:var(--imgH); object-fit:cover; border-radius:8px; }
+
+/* デスクトップ：ボタン列を固定幅にして揺れ防止 */
+@media (min-width:768px){
+  .word-card{
+    grid-template-columns: var(--imgW) 1fr var(--actionsW);
+    grid-template-areas:"img text action";
+    padding:14px 16px;
+    gap:12px 16px;
+  }
+  .wc-actions{ width:var(--actionsW); justify-self:end; }
+}
+
+/* ボタンは必ず横書き・1行 */
+.wc-actions button{
+  writing-mode: horizontal-tb !important;
+  white-space: nowrap;
+  display:inline-flex; align-items:center; justify-content:center;
+}
+
   
   </style>
 	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -1346,6 +1391,19 @@ function renderWordCard(word, musouMode, user) {
 // ▼ここ差し替え：6枚方式の状態管理
 let remainingCards = Number(localStorage.getItem('remainingCards') || 0);
 
+function consumeOne(){
+  if (isPremium()) return true;          // 課金なら消費しない
+  if (remainingCards <= 0) {             // 0枚なら広告へ
+    showAd();
+    return false;
+  }
+  remainingCards = Math.max(0, remainingCards - 1);
+  saveRemaining();
+  updateCounter('soft');                  // バッジをポンっと更新
+  return true;
+}
+
+
 function saveRemaining() {
   localStorage.setItem('remainingCards', String(remainingCards));
 }
@@ -1373,8 +1431,7 @@ function updateCounter(effect = 'none') {
   if (effect === 'soft') badge.classList.add('pop-soft');
 }
 
-// 初期表示
-updateCounter('none');
+document.addEventListener('DOMContentLoaded', () => updateCounter('none'));
 
 // ▼ここ差し替え：カードをめくる前に残枚数チェック
 function flipCard() {
@@ -2001,15 +2058,16 @@ function toggleImage(imgId, btnId, img1, img2, index) {
 function handleToggleImage(imgId, btnId, img1, img2, index) {
   const proceed = () => toggleImage(imgId, btnId, img1, img2, index);
 
-  if (isPremium() || isAdEnabled()) { proceed(); return; }
+  if (isPremium()) { proceed(); return; }
 
-  // 6回に1回だけ広告を出す
-  const n = incBeautyClickCount(); // ← 既存ユーティリティを活用
-  if (n % AD_EVERY_TOGGLE === 0) {
-    showAdModalForToggle(proceed);
-  } else {
-    proceed();
-  }
+  // 6枚方式：1アクションで1枚消費。0なら広告に誘導して終了
+  if (!consumeOne()) return;
+
+  // ※“n回に1度広告”を使いたいならここに入れる（今は無効化で安定運用）
+  // const n = incBeautyClickCount();
+  // if (AD_EVERY_TOGGLE > 0 && n % AD_EVERY_TOGGLE === 0) { pendingToggle = proceed; showAd(); return; }
+
+  proceed();
 }
 
 function renderPagination(totalItems) {
@@ -3071,17 +3129,6 @@ document.addEventListener('keydown', (e) => {
     <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:16px">
       <button id="cancelAdBtn" class="btn btn-secondary" type="button">キャンセル</button>
       <button id="watchAdBtn" class="btn btn-primary" type="button">視聴する</button>
-    </div>
-  </div>
-</div>
-
-<!-- ad modal (最小構成) -->
-<div id="adModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:99999; align-items:center; justify-content:center;">
-  <div role="dialog" aria-modal="true" style="background:#fff; padding:16px; border-radius:10px; max-width:360px; width:90%;">
-    <p>広告を視聴すると5分間解放されます。</p>
-    <div style="display:flex; gap:8px; justify-content:flex-end;">
-      <button id="cancelAdBtn">キャンセル</button>
-      <button id="watchAdBtn">広告を見る</button>
     </div>
   </div>
 </div>
