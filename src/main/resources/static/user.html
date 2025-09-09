@@ -1072,7 +1072,7 @@ button { writing-mode: horizontal-tb; }
 </div> -->
 
 <div id="test-section" style="text-align: center; margin: 30px 0;">
-<button　id="adCtaBtn" onclick="watchAdGlobal()">広告を見て美女で英単語を表現</button>
+<button id="adCtaBtn" onclick="watchAdGlobal()">広告を見て美女で英単語を表現</button>
 <button id="testStartBtn" onclick="startTest()">テストを開始する</button>
 <button id="testStartBtnVocab" onclick="startVocabularyTest()">テストを開始する(単語モード)</button>
 <!-- <button onclick="goToPart(getUserId(), '無双Part')">無双Partへ</button> -->
@@ -1241,7 +1241,8 @@ async function applyTestParamsAndCommit() {
   }
 
   // 画面に即時反映
-  document.getElementById("testStats")?.textContent = `正答数: ${score} / ${total}問中`;
+  const ts = document.getElementById("testStats");
+　if (ts) ts.textContent = `正答数: ${score} / ${total}問中`;
 
   // ローカル加算（今回が未処理のときだけ）
   const localTotalCorrectKey = `localTotalCorrect:${userId}`;
