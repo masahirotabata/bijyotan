@@ -1,208 +1,251 @@
 <!DOCTYPE html>
 <html lang="ja">
-<head>
-  <meta charset="UTF-8">
-  <title>美女単 - 新規登録</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <title>美女単 - 新規登録</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-      background: linear-gradient(135deg, #f8e8f0, #f0f8ff);
-      font-family: 'Arial', sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      flex-direction: column;
-      text-align: center;
-    }
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        background: linear-gradient(135deg, #f8e8f0, #f0f8ff);
+        font-family: "Arial", sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        flex-direction: column;
+        text-align: center;
+      }
 
-    h2 {
-      color: #e91e63;
-      font-size: 2em;
-      margin-bottom: 30px;
-    }
+      h2 {
+        color: #e91e63;
+        font-size: 2em;
+        margin-bottom: 30px;
+      }
 
-    form {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 15px;
-      width: 300px;
-    }
+      form {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 15px;
+        width: 300px;
+      }
 
-    input {
-      padding: 12px;
-      width: 100%;
-      font-size: 1em;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-    }
+      input {
+        padding: 12px;
+        width: 100%;
+        font-size: 1em;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+      }
 
-    button {
-      font-size: 1.2em;
-      padding: 12px 20px;
-      background-color: #ff4081;
-      border: none;
-      border-radius: 30px;
-      color: white;
-      cursor: pointer;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-      transition: background-color 0.3s;
-    }
+      button {
+        font-size: 1.2em;
+        padding: 12px 20px;
+        background-color: #ff4081;
+        border: none;
+        border-radius: 30px;
+        color: white;
+        cursor: pointer;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: background-color 0.3s;
+      }
 
-    button:hover {
-      background-color: #f50057;
-    }
+      button:hover {
+        background-color: #f50057;
+      }
 
-    .links {
-      margin-top: 20px;
-      font-size: 0.9em;
-    }
+      .links {
+        margin-top: 20px;
+        font-size: 0.9em;
+      }
 
-    .links a {
-      color: #e91e63;
-      text-decoration: none;
-    }
+      .links a {
+        color: #e91e63;
+        text-decoration: none;
+      }
 
-    .links a:hover {
-      text-decoration: underline;
-    }
-  </style>
-  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-</head>
-<body>
+      .links a:hover {
+        text-decoration: underline;
+      }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  </head>
+  <body>
+    <h2>新規ユーザー登録</h2>
 
-  <h2>新規ユーザー登録</h2>
+    <form
+      id="registerForm"
+      onsubmit="return handleRegister(event)"
+      style="text-align: center; margin: 16px 0"
+    >
+      <input
+        id="regName"
+        name="name"
+        autocomplete="username"
+        required
+        placeholder="ユーザー名"
+      />
+      <input
+        id="regEmail"
+        name="email"
+        autocomplete="email"
+        required
+        type="email"
+        placeholder="メール"
+      />
+      <input
+        id="regPass"
+        name="pass"
+        autocomplete="new-password"
+        required
+        type="password"
+        placeholder="パスワード"
+      />
+      <button>新規登録</button>
+    </form>
 
-  <form id="registerForm" onsubmit="return handleRegister(event)" style="text-align:center;margin:16px 0">
-    <input id="regName"  name="name"  autocomplete="username"     required placeholder="ユーザー名">
-    <input id="regEmail" name="email" autocomplete="email"        required type="email"    placeholder="メール">
-    <input id="regPass"  name="pass"  autocomplete="new-password" required type="password" placeholder="パスワード">
-    <button>新規登録</button>
-  </form>
+    <div class="links">
+      <a href="login.html">ログイン画面に戻る</a>
+    </div>
 
-  <div class="links">
-    <a href="login.html">ログイン画面に戻る</a>
-  </div>
+    <script>
 
-<script>
+      /* === shared apiFetch (Rails/Spring両対応のCSRF自動付与) === */
+      const apiFetch = (path, opts = {}) => {
+        const method = (opts.method || 'GET').toUpperCase();
+        const needsCSRF = !['GET','HEAD','OPTIONS'].includes(method);
 
-/* === shared apiFetch (Rails/Spring両対応のCSRF自動付与) === */
-const apiFetch = (path, opts = {}) => {
-  const method = (opts.method || 'GET').toUpperCase();
-  const needsCSRF = !['GET','HEAD','OPTIONS'].includes(method);
+        const pickCSRFFromPageOrCookie = () => {
+          const meta = document.querySelector('meta[name="csrf-token"]')?.content; // Rails
+          if (meta) return { header:'X-CSRF-Token', token: meta };
+          const ck = document.cookie;
+          const mSpring = ck.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);                 // Spring
+          if (mSpring) return { header:'X-CSRF-TOKEN', token: decodeURIComponent(mSpring[1]) };
+          const mLegacy = ck.match(/(?:^|;\s*)_csrf=([^;]+)/);                      // 旧
+          if (mLegacy) return { header:'X-CSRF-Token', token: decodeURIComponent(mLegacy[1]) };
+          return null;
+        };
 
-  const pickCSRFFromPageOrCookie = () => {
-    const meta = document.querySelector('meta[name="csrf-token"]')?.content; // Rails
-    if (meta) return { header:'X-CSRF-Token', token: meta };
-    const ck = document.cookie;
-    const mSpring = ck.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);                 // Spring
-    if (mSpring) return { header:'X-CSRF-TOKEN', token: decodeURIComponent(mSpring[1]) };
-    const mLegacy = ck.match(/(?:^|;\s*)_csrf=([^;]+)/);                      // 旧
-    if (mLegacy) return { header:'X-CSRF-Token', token: decodeURIComponent(mLegacy[1]) };
-    return null;
-  };
-
-  const headers = new Headers({ Accept: 'application/json', ...(opts.headers || {}) });
-  if (needsCSRF && !headers.has('X-CSRF-Token') && !headers.has('X-CSRF-TOKEN')) {
-    const c = pickCSRFFromPageOrCookie();
-    if (c) headers.set(c.header, c.token);
-  }
-  return fetch(path, { credentials: 'include', ...opts, headers });
-};
-
-async function submitSignup(payload){
-  const res = await apiFetch('/api/signup', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify(payload)
-  });
-
-  if (!res.ok) {
-    const msg = await res.text().catch(()=> '');
-    throw new Error(msg || `登録に失敗しました (HTTP ${res.status})`);
-  }
-
-  // JSONなら読む、空やHTMLなら読み飛ばし
-  const ct = (res.headers.get('content-type') || '').toLowerCase();
-  const data = ct.includes('application/json') ? await res.json().catch(()=> ({})) : {};
-  if (data.id) localStorage.setItem('userId', String(data.id));
-
-  location.assign('/user.html');
-}
-
-async function getUserIdFallback(){
-  const candidates = ['/api/me','/user/me','/api/user/me'];
-  for (const url of candidates){
-    try{
-      const r = await fetch(url, {credentials:'include'});
-      const ct = (r.headers.get('content-type')||'').toLowerCase();
-      if (!r.ok || !ct.includes('application/json')) continue;
-      const j = await r.json();
-      const id = j?.id ?? j?.userId;
-      if (id != null) return String(id);
-    }catch{}
-  }
-  // Locationヘッダに /users/123 のように載る実装にも対応
-  return null;
-}
-
-async function handleRegister(e){
-  e.preventDefault();
-  const btn = e.submitter || document.querySelector('#registerForm button');
-  btn.disabled = true;
-
-  const body = {
-    name:  document.getElementById('regName').value.trim(),
-    email: document.getElementById('regEmail').value.trim(),
-    password: document.getElementById('regPass').value
-  };
-
-  try{
-    const res = await apiFetch('/api/auth/register', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(body)
-    });
-
-    if (res.status === 201 || res.status === 200 || res.status === 204) {
-      let data=null;
-      try{
-        const ct=(res.headers.get('content-type')||'').toLowerCase();
-        if (ct.includes('application/json')) data=await res.json();
-      }catch{}
-
-      // 1) レスポンスJSON最優先
-      let userId = data?.userId ?? data?.id;
-      // 2) 無ければ /api/me 系から取得
-      if (!userId) userId = await getUserIdFallback();
-
-      const go = () => {
-        if (userId) location.href = `/user.html?userId=${encodeURIComponent(userId)}`;
-        else        location.href = `/user.html`; // 最終フォールバック
+        const headers = new Headers({ Accept: 'application/json', ...(opts.headers || {}) });
+        if (needsCSRF && !headers.has('X-CSRF-Token') && !headers.has('X-CSRF-TOKEN')) {
+          const c = pickCSRFFromPageOrCookie();
+          if (c) headers.set(c.header, c.token);
+        }
+        return fetch(path, { credentials: 'include', ...opts, headers });
       };
-      if (window.Swal) await Swal.fire({icon:'success', text:'登録できました！'}).then(go);
-      else { alert('登録できました！'); go(); }
-      return;
-    }
 
-    const msg = res.status === 409
-      ? 'このメールは既に使われています'
-      : '登録に失敗しました（入力内容をご確認ください）';
-    window.Swal ? Swal.fire({icon:'error', text: msg}) : alert(msg);
+      function getUserIdFromLocation(res){
+        // 例: /users/21 や /user/21 にマッチ
+        const loc = res.headers.get('Location') || res.headers.get('location');
+        if (!loc) return null;
+        const m = String(loc).match(/\/(?:user|users)\/(\d+)(?:\D|$)/i);
+        return m ? m[1] : null;
+      }
 
-  }catch(err){
-    window.Swal ? Swal.fire({icon:'error', text:'通信エラーが発生しました。時間をおいてお試しください。'})
-                : alert('通信エラーが発生しました。');
-    console.error(err);
-  } finally {
-    btn.disabled = false;
-  }
-}
-</script>
+      async function submitSignup(payload){
+        const res = await apiFetch('/api/signup', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify(payload)
+        });
 
-</body>
+        if (!res.ok) {
+          const msg = await res.text().catch(()=> '');
+          throw new Error(msg || `登録に失敗しました (HTTP ${res.status})`);
+        }
+
+        // JSONなら読む、空やHTMLなら読み飛ばし
+        const ct = (res.headers.get('content-type') || '').toLowerCase();
+        const data = ct.includes('application/json') ? await res.json().catch(()=> ({})) : {};
+        if (data.id) localStorage.setItem('userId', String(data.id));
+
+        location.assign('/user.html');
+      }
+
+      async function getUserIdFallback(retry = 3){
+        const extract = (j) => {
+          // よくある形をぜんぶ見る
+          const cands = [
+            j?.id, j?.userId, j?.user_id,
+            j?.user?.id, j?.data?.id, j?.data?.user?.id,
+            j?.result?.id, j?.payload?.id
+          ];
+          for (const v of cands) if (v !== undefined && v !== null && String(v) !== '') return String(v);
+          return null;
+        };
+
+        const urls = ['/api/me','/user/me','/api/user/me'];
+
+        for (let r = 0; r <= retry; r++){
+          for (const url of urls){
+            try{
+              const res = await fetch(url, { credentials:'include', cache:'no-store' });
+              const ct  = (res.headers.get('content-type')||'').toLowerCase();
+              if (!res.ok || !ct.includes('application/json')) continue;
+              const j = await res.json();
+              const id = extract(j);
+              if (id) return id;
+            }catch{}
+          }
+          if (r < retry) await new Promise(s=>setTimeout(s, 250)); // Cookie反映待ち
+        }
+        return null;
+      }
+      <script>
+      async function handleRegister(e){
+        e.preventDefault();
+        const btn = e.submitter || document.querySelector('#registerForm button');
+        btn.disabled = true;
+
+        const body = {
+          name: document.getElementById('regName').value.trim(),
+          email: document.getElementById('regEmail').value.trim(),
+          password: document.getElementById('regPass').value
+        };
+
+        try{
+          const res = await apiFetch('/api/auth/register', {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify(body)
+          });
+
+          if (res.status === 201 || res.status === 200 || res.status === 204) {
+            let data = null;
+            try {
+              const ct=(res.headers.get('content-type')||'').toLowerCase();
+              if (ct.includes('application/json')) data = await res.json();
+            } catch {}
+
+            // ① JSON → ② Locationヘッダー → ③ /api/me リトライ の順で拾う
+            let userId = data?.userId ?? data?.id ?? getUserIdFromLocation(res);
+            if (!userId) userId = await getUserIdFallback(3);
+
+            if (userId) localStorage.setItem('userId', String(userId));
+            const dest = userId ? `/user.html?userId=${encodeURIComponent(userId)}` : `/user.html`;
+
+            const go = () => { location.href = dest; };
+            if (window.Swal) await Swal.fire({ icon:'success', text:'登録できました！'}).then(go);
+            else { alert('登録できました！'); go(); }
+            return;
+          }
+
+          const msg = res.status === 409
+            ? 'このメールは既に使われています'
+            : '登録に失敗しました（入力内容をご確認ください）';
+          window.Swal ? Swal.fire({icon:'error', text: msg}) : alert(msg);
+
+        }catch(err){
+          window.Swal ? Swal.fire({icon:'error', text:'通信エラーが発生しました。時間をおいてお試しください。'})
+                      : alert('通信エラーが発生しました。');
+          console.error(err);
+        } finally {
+          btn.disabled = false;
+        }
+      }
+    </script>
+  </body>
 </html>
