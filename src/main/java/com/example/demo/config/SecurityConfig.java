@@ -68,6 +68,10 @@ public class SecurityConfig {
       .authorizeHttpRequests(auth -> auth
         // ★ JSON 登録APIを許可
         .requestMatchers("/api/auth/login", "/api/auth/register", "/api/battle/**").permitAll()
+        // ★ ここを追加: 読み取り系だけ許可
+        .requestMatchers(HttpMethod.GET, "/api/words", "/api/words/**").permitAll()
+        // （必要なら）
+        .requestMatchers(HttpMethod.GET, "/api/test-questions", "/api/test-questions/**").permitAll()
         .anyRequest().authenticated()
       )
       .exceptionHandling(ex -> ex
