@@ -855,6 +855,28 @@ button { writing-mode: horizontal-tb; }
   display:inline-flex; align-items:center; justify-content:center;
 }
 
+#cardWrap { display: none !important; }
+
+/* ← 既存CSSの末尾に追加 */
+.wc-head{ display:flex; align-items:center; gap:8px; flex-wrap:nowrap; }
+.wc-head strong{ margin:0; }  /* 1行に並べるため */
+.remaining-inline{
+  display:inline-flex; align-items:center;
+  padding:2px 8px; border-radius:9999px;
+  font-size:.8rem; line-height:1.4;
+  background:#e91e63; color:#fff; white-space:nowrap;
+}
+.remaining-inline.is-premium{ background:#4caf50; } /* 無制限用 */
+
+.wc-actions{ contain: layout; }           /* 周囲へのレイアウト波及を抑制 */
+.wc-actions button{
+  min-height: 40px;                       /* ボタン高さを固定 */
+  white-space: nowrap;                    /* 折返し禁止 */
+  letter-spacing: .02em;
+  font-weight: 600;
+}
+
+
   
   </style>
 	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -1411,29 +1433,48 @@ function saveRemaining() {
 }
 
 // バッジ表示の切替＆演出
-function updateCounter(effect='none'){
-  const badge = document.getElementById('cardCounter');
-  if (!badge) return;
-
-  if (isPremium()){
-    badge.textContent = '無制限';
-    badge.onclick = null;
-    badge.style.opacity = '1';
-  } else if (remainingCards > 0){
-    badge.textContent = `残り ${remainingCards} 枚`;
-    badge.onclick = null;
-    badge.style.opacity = '1';
-  } else {
-    badge.textContent = '広告を見て再開！';
-    badge.onclick = () => showAd();   // ← 視聴成功で6枚付与
-    badge.style.opacity = '.95';
-  }
-
-  badge.classList.remove('pop-glow','pop-soft');
-  void badge.offsetWidth;
-  if (effect === 'glow') badge.classList.add('pop-glow');
-  if (effect === 'soft') badge.classList.add('pop-soft');
+// 追加：一覧のバッジ（remaining-inline）をまとめて更新
+function updateRemainingInline(){
+  const nodes = document.querySelectorAll('.remaining-inline');
+  nodes.forEach(el => {
+    if (isPremium()){
+      el.textContent = '無制限';
+      el.classList.add('is-premium');
+    } else {
+      el.classList.remove('is-premium');
+      el.textContent = (remainingCards > 0) ? `残り ${remainingCards} 枚` : '広告で +6 枚';
+    }
+  });
 }
+
+// 置き換え：updateCounter（最初に inline を更新してから従来のバッジも更新）
+function updateCounter(effect='none'){
+  // ← 一覧側のピル
+  updateRemainingInline();
+
+  // ← 既存の右上バッジ（#cardCounter）は残っていてもOK / 無ければスキップ
+  const badge = document.getElementById('cardCounter');
+  if (badge){
+    if (isPremium()){
+      badge.textContent = '無制限';
+      badge.onclick = null;
+      badge.style.opacity = '1';
+    } else if (remainingCards > 0){
+      badge.textContent = `残り ${remainingCards} 枚`;
+      badge.onclick = null;
+      badge.style.opacity = '1';
+    } else {
+      badge.textContent = '広告を見て再開！';
+      badge.onclick = () => showAd();
+      badge.style.opacity = '.95';
+    }
+    badge.classList.remove('pop-glow','pop-soft');
+    void badge.offsetWidth;
+    if (effect === 'glow') badge.classList.add('pop-glow');
+    if (effect === 'soft') badge.classList.add('pop-soft');
+  }
+}
+
 
 
 document.addEventListener('DOMContentLoaded', () => updateCounter('none'));
@@ -1935,9 +1976,8 @@ function renderWords() {
 	const stateKey = `imgState:${keyBase}`;
 	
 	// ← 初期表示は必ず beauty.png （キーが '2' のときだけ特別画像）
-	const raw = localStorage.getItem(stateKey);
-	const initState = (raw === '2') ? '2' : '1';
-	const initSrc   = (initState === '2') ? specificImg : baseImg;
+  　const initState = '1';
+  　const initSrc   = baseImg;
 	
 	div.innerHTML = `
 	  <div class="wc-img">
@@ -1953,8 +1993,17 @@ function renderWords() {
 	    >
 	  </div>
 
-      <div class="wc-body">
-        <strong>${esc(word.word)}</strong>
+        <div class="wc-body">
+        　<div class="wc-head">
+          <strong>${esc(word.word)}</strong>
+          ${isPremium() ? `
+            <span class="remaining-inline is-premium">無制限</span>
+          ` : `
+            <span class="remaining-inline">${
+              remainingCards > 0 ? `残り ${remainingCards} 枚` : '広告で 6 枚'
+            }</span>
+          `}
+        </div>
         <div class="meta">（${esc(word.meaning)}）</div>
         <div class="meta">
           ステータス:
@@ -1995,6 +2044,7 @@ function renderWords() {
   }); // ← ここが抜けてました！
 
   renderPagination(words.length);
+　updateRemainingInline();
 }
 
 let _delegationReady = false;
