@@ -780,6 +780,36 @@ button { writing-mode: horizontal-tb; }
   .weekly-bars{ min-height:140px !important; gap:8px; }
   .weekly-bar{ width:22px !important; min-height:6px; }
 }
+
+  /* バッジの見た目 */
+  #cardCounter {
+    position:absolute; top:-10px; right:-10px;
+    background:#e91e63; color:#fff; font-size:14px; font-weight:700;
+    padding:4px 8px; border-radius:12px; box-shadow:0 1px 4px rgba(0,0,0,.2);
+    cursor:pointer; user-select:none; transition:opacity .2s ease;
+  }
+  /* 広告成功での“ご褒美”演出（大きめ＆黄色に発光） */
+  @keyframes popGlow {
+    0%   { transform:scale(1);   background:#e91e63; box-shadow:0 0 4px rgba(233,30,99,.5); }
+    40%  { transform:scale(1.3); background:#ffeb3b; box-shadow:0 0 16px rgba(255,235,59,.9); }
+    100% { transform:scale(1);   background:#e91e63; box-shadow:0 0 4px rgba(233,30,99,.5); }
+  }
+  .pop-glow { animation:popGlow .8s ease-out; }
+
+  /* 毎回更新時の軽いポン演出（色は固定） */
+  @keyframes popSoft {
+    0%   { transform:scale(1); }
+    50%  { transform:scale(1.12); }
+    100% { transform:scale(1); }
+  }
+  .pop-soft { animation:popSoft .25s ease-out; }
+
+#cardCounter { transition: transform .18s ease, background-color .18s ease, opacity .18s ease; }
+.pop-soft { animation: pop .18s ease; }
+.pop-glow { animation: pop .22s ease; background-color: #ffd54f !important; } /* 一瞬ご褒美色 */
+
+#cardCounter.pop-glow { animation: pop .28s ease; box-shadow: inset 0 0 .6rem rgba(255,215,64,.65); }
+#cardCounter.pop-soft { animation: pop .2s ease; }
   
   </style>
 	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -844,7 +874,7 @@ button { writing-mode: horizontal-tb; }
 
 <!-- 広告と課金 -->
 <div style="margin: 10px;">
-  <button onclick="watchAdGlobal()">広告を見て美女が英単語を表現（5有効）</button>
+  <button onclick="watchAdGlobal()">広告を見て美女が英単語を表現</button>
 </div>
 <!-- <div style="margin: 10px;">
   <button onclick="showPremiumPopup()">100円でホットパンツ美女解放</button>
@@ -853,7 +883,7 @@ button { writing-mode: horizontal-tb; }
 <div id="test-section" style="text-align: center; margin: 30px 0;">
 <button id="testStartBtn" onclick="startTest()">テストを開始する</button>
 <button id="testStartBtnVocab" onclick="startVocabularyTest()">テストを開始する(単語モード)</button>
-  <button onclick="goToPart(getUserId(), '無双Part')">無双Partへ</button>
+<!-- <button onclick="goToPart(getUserId(), '無双Part')">無双Partへ</button> -->
 </div>
 	
 <div id="weeklyAnswersBox">
@@ -864,6 +894,13 @@ button { writing-mode: horizontal-tb; }
   <div id="weeklyLabels" class="weekly-labels"></div>
 </div>
 
+<div id="cardWrap" style="position:relative; display:inline-block;">
+  <div id="cardCounter">残り 0 枚</div>
+
+  <div id="cardArea" style="width:300px; height:400px; border:1px solid #ccc; border-radius:8px; background:#fff; overflow:hidden;">
+    <!-- showNextCard() がここへカード要素(画像など)を差し込む -->
+  </div>
+</div>
 <div id="wordContainer"></div>
 <div class="pagination" id="pagination"></div>
 <!-- HTMLの一番下に追加 -->
@@ -904,7 +941,7 @@ const apiFetch = (path, opts = {}) => {
 
 
 // JSONしか受け付けないfetch（Cookie付き・非JSONは例外）
-async function fetchJSON(url, opts) {
+async function fetchJSON(url, opts = {}) {
   const res = await apiFetch(url, opts);
   const ct = (res.headers.get('content-type') || '').toLowerCase();
 
@@ -1253,7 +1290,7 @@ function goToPart(_unused, partName) {
   if (!isPremium() && locked.includes(partName) && !isAdEnabled()) {
     Swal.fire({
       title: "このパートは広告視聴が必要です",
-      html: `<p>広告を見れば<strong>5分間だけ開放</strong>されます。<br>
+      html: `<p>広告を見れば<strong>残り6枚めくれます</strong>。<br>
              <span style="color:#e91e63;font-weight:bold;">🎀プレミアム</span>なら<strong>無制限で開放</strong>！</p>`,
       icon: "info",
       showCancelButton: true,
@@ -1263,8 +1300,8 @@ function goToPart(_unused, partName) {
       denyButtonText: "🎀 プレミアムへ"
     }).then(result => {
       if (result.isConfirmed) {
-        watchAdGlobal();
-        location.href = `musou.html?part=${encodeURIComponent(partName)}`;
+		　pendingToggle = () => { location.href = `musou.html?part=${encodeURIComponent(partName)}`; };
+		　showAd();
       } else if (result.isDenied) {
         showPremiumPopup();
       }
@@ -1302,14 +1339,148 @@ function renderWordCard(word, musouMode, user) {
         <br>
         ${imgTag(word.imageUrl, word.word)}
         <br>
-        <button onclick="${isPremium() ? `playVideo('${word.videoUrl}')` : 'showPremiumPopup()'}">美女を動かす</button>
+        <button onclick="${isPremium() ? `playVideo('${esc(String(word.videoUrl||''))}')` : 'showPremiumPopup()'}">美女を動かす</button>
       </div>`;
   }
 }
+// ▼ここ差し替え：6枚方式の状態管理
+let remainingCards = Number(localStorage.getItem('remainingCards') || 0);
+
+function saveRemaining() {
+  localStorage.setItem('remainingCards', String(remainingCards));
+}
+
+// バッジ表示の切替＆演出
+function updateCounter(effect = 'none') {
+  const badge = document.getElementById('cardCounter');
+  if (!badge) return;
+
+  // 0枚のときはタップで広告呼び出し
+  if (remainingCards > 0) {
+    badge.textContent = `残り ${remainingCards} 枚`;
+    badge.onclick = null;
+    badge.style.opacity = '1';
+  } else {
+    badge.textContent = '広告を見て再開！';
+    badge.onclick = () => showAd();     // ← タップで広告表示
+    badge.style.opacity = '.95';
+  }
+
+  // 演出（成功時はpop-glow、毎回の減算時はpop-soft）
+  badge.classList.remove('pop-glow', 'pop-soft');
+  void badge.offsetWidth; // reflowしてアニメを掛け直す
+  if (effect === 'glow') badge.classList.add('pop-glow');
+  if (effect === 'soft') badge.classList.add('pop-soft');
+}
+
+// 初期表示
+updateCounter('none');
+
+// ▼ここ差し替え：カードをめくる前に残枚数チェック
+function flipCard() {
+  if (remainingCards <= 0) {
+    // 0枚時は広告へ誘導（バッジも“広告を見て再開！”表示済）
+    showAd();
+    return;
+  }
+  // 正常：次カード表示 → 残枚数を1減らす
+  showNextCard();           // ← 既存のカード表示処理を呼ぶ
+  remainingCards--;
+  saveRemaining();
+  updateCounter('soft');    // 軽いポン演出
+}
+
+// ▼ここ差し替え：広告表示（ラッパー）
+function showAd() {
+  // ここで AdMob などのリワード広告を表示する
+  // 重要：視聴完了（報酬付与条件）だけ onAdWatchedSuccess() を呼ぶこと
+  // キャンセル / 失敗 / 閉じる は onAdClosedOrFailed() 側で扱う
+
+  // 例：擬似コード（実装している広告SDKに合わせて置換）
+  /*
+  admob.rewarded.show({
+    onRewarded: () => onAdWatchedSuccess(),
+    onDismissed: () => onAdClosedOrFailed(),
+    onError: (e) => onAdClosedOrFailed(e)
+  });
+  */
+  // 暫定デモ（本番は↑のSDKコールに置き換え）
+  const ok = confirm('【デモ】広告を最後まで視聴しましたか？\nOK=成功 / Cancel=キャンセル');
+  if (ok) onAdWatchedSuccess(); else onAdClosedOrFailed();
+}
+
+// ▼ここ差し替え：広告“成功時のみ”6枚付与（バグの根本対策）
+function onAdWatchedSuccess() {
+  remainingCards = 6;       // 付与枚数：6
+  saveRemaining();
+  updateCounter('glow');    // ご褒美アニメ（黄色に光ってポン）
+　resetBeautyClickCount(); // ← 成功時にここでリセット
+
+  // トグル待ちコールバックがあれば実行しておく
+  if (typeof pendingToggle === 'function') {
+    const cb = pendingToggle;
+    pendingToggle = null;
+    try { cb(); } catch (e) { console.warn('pendingToggle failed:', e); }
+  }
+}
+
+// ▼ここ差し替え：キャンセル/失敗は何もしない（追加付与しない！）
+function onAdClosedOrFailed(err) {
+  // ログだけ（必要なら）
+  if (err) console.warn('Ad closed/failed:', err);
+  // 付与しない・残枚数も変えない
+  updateCounter('none');
+}
+
+// ▼ここ差し替え：カードDOM生成時にURLがテキストで出ないようにする
+// 既存の showNextCard() 内で「テキストにURLを流し込む」のをやめ、必ず <img> をappend する
+function createWordCard({ imageUrl, alt = 'word' }) {
+  const card = document.createElement('div');
+  card.style.width = '100%';
+  card.style.height = '100%';
+  card.style.display = 'flex';
+  card.style.alignItems = 'center';
+  card.style.justifyContent = 'center';
+  card.style.background = '#fff';
+
+  const img = document.createElement('img');
+　img.src = safeSrc(imageUrl, { allowDataImage: true });
+  img.onerror = () => { img.src = '/images/beauty.png'; };
+  img.alt = alt;
+  img.style.maxWidth = '100%';
+  img.style.maxHeight = '100%';
+  img.style.objectFit = 'contain';
+
+  // ここで絶対に URL を textContent/innerText に入れない！
+  // card.textContent = imageUrl; ← NG（これが“URLが表示される”原因）
+
+  card.appendChild(img);
+  return card;
+}
+
+// 例：既存処理の一部イメージ
+function showNextCard() {
+  const area = document.getElementById('cardArea');
+  if (!area) return;
+  area.innerHTML = '';
+
+  // 次カード情報を取得（既存ロジックに合わせて）
+  const next = getNextWordCardInfo(); // { imageUrl, alt }
+  area.appendChild(createWordCard(next));
+}
+
+// ▼ここ差し替え：無双Partは出さない（フラグで抑止）
+const MUSOU_ENABLED = false;
+window.addEventListener('DOMContentLoaded', () => {
+  if (!MUSOU_ENABLED) {
+    const musouNav = document.getElementById('nav-muso'); // メニュー項目などに付与してあるIDを指定
+    if (musouNav) musouNav.style.display = 'none';
+  }
+});
 
 function getUserId(){
   // ← クエリ(userId)最優先で取得する
-  return user?.id || getUserIdFromQuery() || localStorage.getItem("userId") || "1";
+  return getUserIdFromQuery() || user?.id || localStorage.getItem("userId") || "1";
 }
 
 function showLevelUpPopup(newLevel) {
@@ -1346,6 +1517,7 @@ const partsPerPage = 4; // 1ページに出すPart数（お好みで）
 // 置き換え：ボタンの描画（ページ内のPartだけ表示）
 function renderPartButtons() {
   const container = document.getElementById("partButtons");
+　if (!container) return;
   container.innerHTML = "";
 
   const start = (partsPage - 1) * partsPerPage;
@@ -1431,7 +1603,7 @@ function selectPart(part) {
   if (!isPremium() && isLockedPart && !isAdEnabled()) {
     Swal.fire({
       title: "このパートは広告視聴が必要です",
-      html: `<p>広告を見れば<strong>5分間だけ開放</strong>されます。<br>
+      html: `<p>広告を見れば<strong>残り6枚めくれます</strong>。<br>
              <span style="color:#e91e63;font-weight:bold;">🎀プレミアム会員</span>なら、<strong>無制限で開放</strong>されます。</p>`,
       icon: "info",
       showCancelButton: true,
@@ -1441,8 +1613,8 @@ function selectPart(part) {
       denyButtonText: "🎀 300円で広告なし！美女めくり放題🎀"
     }).then(result => {
       if (result.isConfirmed) {
-        watchAdGlobal();
-        show();
+		pendingToggle = show;  // 成功後に Part を表示
+        showAd();
       } else if (result.isDenied) {
         showPremiumPopup();
       }
@@ -1630,19 +1802,13 @@ function closeAdModal() {
   m.style.display = 'none';
   removeTrapAd?.(); removeTrapAd = null;
   document.body.classList.remove('modal-open');
-  pendingToggle = null;
 }
 
 // 既存のモーダルのボタンIDに対応（下のモーダルHTMLそのまま使えます）
 function handleAdAccept() {
-  // 視聴処理（既存の5分解放を流用）
-  watchAdGlobal();
-  closeAdModal();
-  if (typeof pendingToggle === 'function') {
-    pendingToggle();
-    pendingToggle = null;
-  }
-  resetBeautyClickCount(); // 6回カウントをリセット
+ // ここで報酬型広告を表示
+  showAd();          // ← 5分解放のwatchAdGlobalは使わない
+  closeAdModal();    // モーダルは閉じてOK（成功時は onAdWatchedSuccess() が呼ばれる）
 }
 
 
@@ -1679,6 +1845,7 @@ function h(parts, ...vals){
 
 function renderWords() {
   const container = document.getElementById("wordContainer");
+  if (!container) return;
   container.innerHTML = "";
 
   const start = (currentPage - 1) * pageSize;
@@ -1691,7 +1858,8 @@ function renderWords() {
     const premiumUser = isPremium();
     const actionButton = ""; // 無料は非表示
 
-    const checkboxId = `status-${word.id}`;
+    const checkboxId = `status-${word.id ?? 'na'}`;
+	const canToggle  = Number.isFinite(word.id);
     const checked = word.status ? "checked" : "";
     const labelText = word.status ? "学習済み" : "未学習";
 
@@ -1721,7 +1889,6 @@ function renderWords() {
 	      data-state="${initState}"
 	      data-word-id="${word.id ?? ''}"
 	      data-key="${stateKey}"
-	      onerror="this.onerror=null;this.src='${baseImg}';this.dataset.state='1';document.getElementById('imgpath-${index}').textContent='${baseImg}';localStorage.setItem('${stateKey}','1');"
 	    >
 	  </div>
 
@@ -1730,12 +1897,11 @@ function renderWords() {
         <div class="meta">（${esc(word.meaning)}）</div>
         <div class="meta">
           ステータス:
-        <input type="checkbox" id="${checkboxId}" ${checked}
+        <input type="checkbox" id="${checkboxId}" ${checked} ${canToggle ? '' : 'disabled'}
 		  data-word-id="${word.id}"
 		  data-part="${esc(selectedPart)}">
-          <span id="status-label-${word.id}">${labelText}</span>
+          <span id="status-label-${word.id ?? 'na'}">${labelText}</span>
         </div>
-        <div class="meta">画像パス: <span id="imgpath-${index}">${initSrc}</span></div>
       </div>
 
 <div class="wc-actions">
@@ -1776,6 +1942,7 @@ function setupWordDelegation(){
   _delegationReady = true;
 
   const root = document.getElementById("wordContainer");
+　if (!root) return;
 
   root.addEventListener("click", (e) => {
     const tgl = e.target.closest("button.js-toggle");
@@ -1806,7 +1973,6 @@ document.addEventListener("DOMContentLoaded", setupWordDelegation);
 
 function toggleImage(imgId, btnId, img1, img2, index) {
   const imgElem   = document.getElementById(imgId);
-  const pathLabel = document.getElementById(`imgpath-${index}`);
   const btn       = document.getElementById(btnId);
 
   // ← ここがポイント：renderWordsと同じキーを使う
@@ -1820,14 +1986,12 @@ function toggleImage(imgId, btnId, img1, img2, index) {
   test.onload = () => {
     imgElem.src = nextSrc;
     imgElem.dataset.state = nextState;
-    if (pathLabel) pathLabel.textContent = nextSrc;
     if (btn) btn.setAttribute('aria-pressed', nextState === '2' ? 'true' : 'false');
     if (stateKey) localStorage.setItem(stateKey, nextState);
   };
   test.onerror = () => {
     imgElem.src = img1;
     imgElem.dataset.state = '1';
-    if (pathLabel) pathLabel.textContent = img1;
     if (btn) btn.setAttribute('aria-pressed', 'false');
     if (stateKey) localStorage.setItem(stateKey, '1');
   };
@@ -1917,9 +2081,8 @@ function watchAdGlobal() {
 	}
 	
 function isAdEnabled() {
-	  const expiry = localStorage.getItem("ad_expiry");
-	  return expiry && Date.now() < parseInt(expiry);
-	}
+	return remainingCards > 0;  // 6枚方式：残枚数があれば解放
+}
 
 
 function unlockCasualSuit() {
@@ -1968,6 +2131,7 @@ function updateGirlVisual(level) {
 
 
 function toggleStatus(isChecked, wordId, part) {
+　if (!Number.isFinite(wordId)) return; // id不明なら送らない
   apiFetch('/api/learning/update', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -2025,7 +2189,8 @@ async function updateStatusCount() {
     try {
       const res = await apiFetch(url);
       if (!res.ok) continue;
-      const n = Number(await res.json());
+	  const ct = (res.headers.get('content-type') || '').toLowerCase();
+      const n  = Number(ct.includes('application/json') ? await res.json() : await res.text());
       const learned = Number.isFinite(n) ? n : 0;
       const total = words.length;
       document.getElementById("learningStatus").textContent =
@@ -2427,27 +2592,26 @@ function setSwipeModeVisible(show){
   const box = document.getElementById('swipeModeBox');
   box.classList.toggle('hidden', !show);
 
-  // 一覧系を隠す/戻す（既存）
-  document.getElementById('wordContainer').classList.toggle('hidden', show);
-  document.getElementById('pagination').classList.toggle('hidden', show);
-  document.getElementById('test-section').classList.toggle('hidden', show);
-  document.getElementById('weeklyAnswersBox').classList.toggle('hidden', show);
+  // 一覧系の表示/非表示
+  ['wordContainer','pagination','test-section','weeklyAnswersBox'].forEach(id=>{
+    document.getElementById(id)?.classList.toggle('hidden', show);
+  });
 
   document.querySelectorAll('button:not([type])').forEach(b => b.type = 'button');
 
-  // ★ スマホだけ全画面
   const isMobile = window.matchMedia('(max-width:480px)').matches;
   if (show && isMobile){
     box.classList.add('fullscreen');
     document.body.classList.add('swipe-open');
-    requestAnimationFrame(resizeSwipeDeck); // 後述
+    requestAnimationFrame(resizeSwipeDeck);
   }else{
     box.classList.remove('fullscreen');
     document.body.classList.remove('swipe-open');
   }
+
   ['partButtons','partPagination'].forEach(id=>{
-  document.getElementById(id)?.classList.toggle('hidden', show);
-});
+    document.getElementById(id)?.classList.toggle('hidden', show);
+  });
 }
 
 function resizeSwipeDeck(){
@@ -2487,8 +2651,12 @@ window.addEventListener('resize', () => {
     confirmButtonColor: "#e91e63",
     allowOutsideClick: false
   }).then(() => {
-    if (!premium) watchAdGlobal();
-    showSwipeModeSelection();
+    if (!premium) {
+      pendingToggle = showSwipeModeSelection; // 成功後に続行
+      showAd();
+    } else {
+      showSwipeModeSelection();
+    }
   });
 }
 
@@ -2573,7 +2741,7 @@ function exitSwipeMode(fromBack = false) {
   renderWords();
   updateStatusCount();
   disableSwipeBackGuard();
-  if (!isPremium()) watchAdGlobal();
+  if (!isPremium()) showAd();
 
   // ← 「一覧に戻る」ボタン等で閉じたときだけ、ガード分の1つを戻す
   if (!fromBack) history.back();
@@ -2628,8 +2796,9 @@ async function buildSwipeDeck(mode = "unlearned"){
   const excluded = getSwipeExcludedSet(userId);
 
   // ここを追加
-  const allUnlearned = words.filter(w => !w.status);
-  const allLearned   = words.filter(w =>  w.status);
+　const hasId = w => Number.isFinite(w?.id);
+  const allUnlearned = words.filter(w => !w.status && hasId(w));
+  const allLearned   = words.filter(w =>  w.status && hasId(w));
 
   let unlearned = allUnlearned.filter(w => !excluded.has(String(w.id)));
   let learned   = allLearned  .filter(w => !excluded.has(String(w.id)));
@@ -2789,7 +2958,7 @@ async function decideSwipe(card, dir){
   if (!isPremium() && AD_EVERY_SWIPE > 0 &&
       swipeIndex % AD_EVERY_SWIPE === 0 &&
       swipeIndex < swipeWords.length) {
-    watchAdGlobal();
+    showAd();
   }
 
   if (swipeIndex < swipeWords.length) await renderSwipeDeck();
@@ -2825,6 +2994,11 @@ const getCSRFFromCookie = (name='_csrf') => {
 // 置き換え
 // ← これで置き換え
 async function onSwipeRightLearned(word){
+    if (!Number.isFinite(word?.id)) {
+    // id無しはDB更新スキップ。今日の除外だけ反映
+    addToSwipeExcluded(getUserId(), word.id);
+    return;
+  }
   try{
     await apiFetch('/api/learning/update', {
       method: 'PUT',
