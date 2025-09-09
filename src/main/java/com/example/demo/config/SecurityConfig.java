@@ -44,9 +44,9 @@ public class SecurityConfig {
   public CorsConfigurationSource corsConfigurationSource() {
     CorsConfiguration c = new CorsConfiguration();
     c.setAllowedOrigins(List.of(
-      "https://bijyotan.onrender.com",
-      "http://localhost:8080",
-      "http://127.0.0.1:8080"
+        "https://bijyotan.onrender.com",
+        "http://localhost:8080",
+        "http://127.0.0.1:8080"
     ));
     c.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
     c.setAllowedHeaders(List.of("*"));
@@ -62,10 +62,11 @@ public class SecurityConfig {
   public SecurityFilterChain apiSecurity(HttpSecurity http, DaoAuthenticationProvider provider) throws Exception {
     http
       .securityMatcher("/api/**")
-      .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**")) // APIはCSRF対象外
+      .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**")) // APIはCSRF対象外（fetch/JSON 用）
       .cors(Customizer.withDefaults())
       .authenticationProvider(provider)
       .authorizeHttpRequests(auth -> auth
+        // ★ JSON 登録APIを許可
         .requestMatchers("/api/auth/login", "/api/auth/register", "/api/battle/**").permitAll()
         .anyRequest().authenticated()
       )
@@ -86,6 +87,7 @@ public class SecurityConfig {
         .logoutUrl("/api/auth/logout")
         .logoutSuccessHandler((req, res, auth) -> res.setStatus(200))
       )
+      // 登録直後にサーバ側で認証させる場合に備え IF_REQUIRED
       .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED));
 
     return http.build();
@@ -99,8 +101,8 @@ public class SecurityConfig {
       DaoAuthenticationProvider provider,
       UserRepository userRepository) throws Exception {
     http
-      // 静的login.htmlからのPOSTはCSRFトークンを埋め込みづらいので /login をCSRF除外
-      .csrf(csrf -> csrf.ignoringRequestMatchers("/login"))
+      // 静的フォームからのPOSTでCSRFトークンを埋め込みづらいエンドポイントを除外
+      .csrf(csrf -> csrf.ignoringRequestMatchers("/login", "/user/register", "/user/forgot-password"))
       .headers(h -> h.frameOptions(f -> f.sameOrigin()))
       .cors(Customizer.withDefaults())
       .authenticationProvider(provider)
@@ -109,7 +111,7 @@ public class SecurityConfig {
           "/", "/*.html", "/favicon.*",
           "/login.html", "/register.html",
           "/forgot-password.html", "/reset-password.html",
-          "/user/register", "/user/forgot-password",
+          "/user/register", "/user/forgot-password", // 旧フォーム系（使わなければ残っていてもOK）
           "/login", "/signup",
           "/auth/**",
           "/user.html",
@@ -127,17 +129,9 @@ public class SecurityConfig {
         .loginProcessingUrl("/login")
         .usernameParameter("email")
         .passwordParameter("password")
-        // ★ 成功時に /user.html?userId=<ID> へリダイレクト
-        .successHandler((req, res, auth) -> {
-          Long id = userRepository.findByEmail(auth.getName())
-              .map(UserEntity::getId)
-              .orElse(null);
-          if (id != null) {
-            res.sendRedirect("/user.html?userId=" + id);
-          } else {
-            res.sendRedirect("/user.html"); // フォールバック
-          }
-        })
+        // ★ ログイン成功時は /loginSuccess に飛ばして LoginController の
+        //    ログインボーナス処理を実行 → その後 /user.html?userId=... にリダイレクト
+        .successHandler((req, res, auth) -> res.sendRedirect("/loginSuccess"))
         .failureUrl("/login.html?error=true")
         .permitAll()
       )
