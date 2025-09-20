@@ -3,119 +3,785 @@
 <head>
   <meta charset="UTF-8">
   <title>美女単語（ユーザー）</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+ <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
 
   <style>
-    body { font-family: sans-serif; margin: 0; padding: 10px; background: rgb(249, 249, 249); }
-    h1, h3 { text-align: center; color: rgb(233, 30, 99); }
-    #username, #plan { display: block; text-align: center; margin: 10px 0; font-size: 1.1em; }
-
-    .word-card { background: #eef7ff; border: 1px solid #ccc; border-radius: 8px; margin: 10px auto; padding: 12px; max-width: 90%; box-shadow: 2px 2px 5px rgba(0,0,0,0.05); font-size: 0.95rem; }
-
-    .pagination { text-align: center; margin: 20px 0; display:flex; gap:6px; flex-wrap:wrap; justify-content:center; align-items:center;}
-    .pagination button { margin: 2px; padding: 8px 12px; font-size: 0.9rem; }
-    .pagination .page-info { font-size:.9rem; color:#555; padding:0 6px; }
-
-    .locked { background: #ffdddd; padding: 10px; text-align: center; }
-    .musou-card { background: #fff5f5; border: 1px solid #f48fb1; border-radius: 10px; padding: 10px; margin: 10px 0; }
-
-    button { padding: 10px 20px; border: none; border-radius: 20px; background-color: #ff4081; color: white; font-size: 1rem; margin: 5px; cursor: pointer; }
-    button:hover { background-color: #f50057; }
-
-    #user-info { text-align: left; margin: 10px 0 20px; font-size: 1.1rem; padding-left: 10px; }
-
-    #bgEffect { position: absolute; width: 180px; height: 180px; top: 0; left: 50%; transform: translateX(-50%); z-index: -1; }
-    .star-bg { background: radial-gradient(circle, #fff 20%, transparent 70%); animation: sparkle 1.5s infinite alternate; }
-    .heart-bg { background: url('/images/heart_bg.gif') center center / cover no-repeat; }
-    @keyframes sparkle { 0% { opacity: 0.6; transform: scale(1); } 100% { opacity: 1; transform: scale(1.05); } }
-
-    #planText { text-align: left; color: #333; font-weight: bold; }
-
-    #partButtons { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 20px; }
-
-    #statsBox { background: #fff3f8; border: 1px solid #ff99c9; border-radius: 12px; padding: 15px; margin: 15px auto; max-width: 500px; box-shadow: 2px 2px 6px rgba(0,0,0,0.05); font-weight: bold; font-size: 1rem; }
-    #learningStatus { text-align: center; margin-bottom: 10px; color: #333; }
-    #subStats { display: flex; justify-content: space-between; font-size: 0.95rem; padding: 0 10px; color: #555; }
-    #subStats div { flex: 1; text-align: center; }
-
-    #loginBonusPopup { display: none; position: fixed; top: 10%; left: 5%; width: 90%; height: 75%; background: white; border: 2px solid #ccc; z-index: 9999; padding: 20px; overflow: auto; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-    .swal2-popup.premium-popup { font-family: 'sans-serif'; border-radius: 15px; padding: 20px; max-width: 400px; }
-    #stampGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)); gap: 10px; }
-
-    #test-section { text-align: center; margin: 20px 0; }
-
-    #videoModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 999; }
-    video { width: 90%; max-height: 80vh; }
-
-    @media (max-width: 480px) {
-      h1, h3 { font-size: 1.3rem; }
-      button { font-size: 0.9rem; padding: 10px; width: 90%; }
-      #partButtons { flex-direction: column; align-items: center; }
-      .word-card { font-size: 0.9rem; }
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 10px;
+      background: rgb(249, 249, 249);
     }
 
-    .btn-premium { background-color: #e91e63; color: white; border: none; padding: 10px 18px; border-radius: 6px; font-size: 1em; margin-top: 10px; cursor: pointer; transition: background-color 0.3s ease; }
-    .btn-premium:hover { background-color: #d81b60; }
+    h1, h3 {
+      text-align: center;
+      color: rgb(233, 30, 99);
+    }
 
-    .hidden{display:none;}
-    #swipeModeBox{ max-width:700px;margin:16px auto;padding:10px; }
-    #swipeDeck{ position:relative;height:360px;user-select:none;touch-action:pan-y; }
-    .swipe-card{ position:absolute;inset:0;margin:auto;width:92%;max-width:580px;height:340px;background:#fff;border-radius:14px;border:1px solid #eee;box-shadow:0 10px 24px rgba(0,0,0,.08);padding:18px;display:flex;flex-direction:column;justify-content:center;align-items:center;transition:transform .2s ease, opacity .2s ease; }
-    .swipe-word{font-size:28px;font-weight:700;margin-bottom:8px;}
-    .swipe-mean{color:#555;margin-bottom:12px;}
-    .swipe-img{ width:220px;height:300px;object-fit:cover;border-radius:10px;background:#f2f2f2;-webkit-user-drag:none;user-drag:none;user-select:none;pointer-events:none; }
-    .swipe-badge{ position:absolute;top:12px;font-weight:700;padding:6px 10px;border-radius:8px;opacity:0; }
-    .badge-left{left:12px;background:#fde68a;color:#92400e;}
-    .badge-right{right:12px;background:#dcfce7;color:#166534;}
-    .swipe-hud{display:flex;justify-content:space-between;align-items:center;margin:6px 6px 10px;}
-    .swipe-hints{display:flex;justify-content:space-between;color:#888;margin-top:6px;padding:0 4px;}
-    .swipe-card .caption { display: none !important; }
+    #username, #plan {
+      display: block;
+      text-align: center;
+      margin: 10px 0;
+      font-size: 1.1em;
+    }
+    
+/* 画面を狭める：主要ブロックは最大幅を統一して中央に */
+#levelGirlContainer, #partButtons, #statsBox, #test-section, #weeklyAnswersBox, #wordContainer, #pagination, #partPagination  {
+  max-width: 420px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* 単語カード：デフォも少しコンパクトに */
+.word-card{
+  padding: 10px 12px;
+  margin: 10px auto;
+}
+
+/* 画像を小さめ固定比率に */
+.word-card img{
+  width: 88px;
+  height: 132px;          /* 3:2～3:5程度に収める */
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+/* ===== モバイル最適化 ===== */
+@media (max-width: 480px){
+
+   body.swipe-open{ overflow:hidden; }               /* 背景スクロール停止 */
+
+  #swipeModeBox.fullscreen{
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;            /* 旧端末フォールバック */
+    height: 100svh;           /* iOS 15+ */
+    height: 100dvh;           /* 新しい動的vh */
+    background:#fff;
+    z-index: 10000;
+    margin: 0;
+    padding:
+      max(8px, env(safe-area-inset-top))
+      8px
+      max(10px, env(safe-area-inset-bottom));
+    display: grid;
+    grid-template-rows: auto 1fr auto;  /* 上:HUD / 中:デッキ / 下:ヒント */
+    gap: 6px;
+  }
+
+  /* 中央のデッキは残り領域をフルで使う */
+  #swipeDeck{ height: auto; display: grid; align-items: center; }
+
+  /* カードを画面いっぱいに拡大（はみ出さないよう clamp） */
+  .swipe-card{
+    width: min(92vw, 560px);
+    height: clamp(320px, 74dvh, 720px);
+  }
+
+  /* HUD/ヒントを固定っぽく見せる（スクロールでずれない） */
+  .swipe-hud{ position: sticky; top: 0; background:#fff; padding-bottom: 4px; }
+  .swipe-hints{ position: sticky; bottom: 0; background:#fff; padding-top: 4px; }
+
+  /* 以前の「全ボタン幅90%」をやめる：縦の伸び防止 */
+  button{ font-size: 0.95rem; padding: 10px; }
+
+  /* 必要な場所だけ幅広ボタンにする */
+  #wordContainer .word-card button,
+  #swipeStartBtn,
+  #swipeModeBox .swipe-hud button {
+    width: 100%;
+    max-width: 320px;
+  }
+
+  /* 単語カード：2カラム化で縦長を解消 */
+  .word-card{
+    display: grid;
+    grid-template-columns: 88px 1fr;
+    grid-template-areas:
+      "img text"
+      "img action";
+    align-items: center;
+    gap: 8px 10px;
+    font-size: 0.95rem;
+  }
+  .wc-img{ grid-area: img; }
+  .wc-body{ grid-area: text; }
+  .wc-actions{ grid-area: action; }
+
+  .word-card strong{ display:block; margin-bottom: 4px; font-size: 1rem; }
+  .word-card .meta{ color:#666; font-size: .85rem; margin-bottom: 4px; }
+
+  /* ヒーローの女の子動画の高さを抑える */
+  #levelGirlContainer video{ width: 160px; }
+  #statsBox{ padding: 12px; }
+  #weeklyAnswersBox{ padding: 0 4px; }
+}
+
+
+    .locked {
+      background: #ffdddd;
+      padding: 10px;
+      text-align: center;
+    }
+    
+    .musou-card {
+	  background: #fff5f5;
+	  border: 1px solid #f48fb1;
+	  border-radius: 10px;
+	  padding: 10px;
+	  margin: 10px 0;
+	}
+    
+
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 20px;
+      background-color:#e91e63;
+      color: white;
+      font-size: 1rem;
+      margin: 5px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #f50057;
+    }
+    
+#user-info {
+  text-align: left; /* ← 中央から左寄せに変更 */
+  margin: 10px 0 20px;
+  font-size: 1.1rem;
+  padding-left: 10px;
+}
+
+#bgEffect {
+  position: absolute;
+  width: 180px;
+  height: 180px;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: -1;
+}
+
+.star-bg {
+  background: radial-gradient(circle, #fff 20%, transparent 70%);
+  animation: sparkle 1.5s infinite alternate;
+}
+
+.heart-bg{ background: radial-gradient(circle,#ffd1e6 30%, transparent 70%); }
+
+@keyframes sparkle {
+  0% { opacity: 0.6; transform: scale(1); }
+  100% { opacity: 1; transform: scale(1.05); }
+}
+
+
+#planText {
+  text-align: left; /* ← 中央から左寄せに変更 */
+  color: #333;
+  font-weight: bold;
+}
+
+/* Partボタン（共通） */
+#partButtons{
+  display:flex;
+  gap:8px;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  flex-wrap:nowrap;
+  justify-content:flex-start; /* PCで中央寄せに上書き */
+  padding-top:max(6px, env(safe-area-inset-top));
+}
+#partButtons button{ flex:0 0 auto; }
+    
+    #statsBox {
+  background: #fff3f8;
+  border: 1px solid #ff99c9;
+  border-radius: 12px;
+  padding: 15px;
+  margin: 15px auto;
+  max-width: 500px;
+  box-shadow: 2px 2px 6px rgba(0,0,0,0.05);
+  font-weight: bold;
+  font-size: 1rem;
+}
+
+#learningStatus {
+  text-align: center;
+  margin-bottom: 10px;
+  color: #333;
+}
+
+#subStats {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.95rem;
+  padding: 0 10px;
+  color: #555;
+}
+
+#subStats div {
+  flex: 1;
+  text-align: center;
+}
+    
+    
+    
+
+    #loginBonusPopup {
+      display: none;
+      position: fixed;
+      top: 10%;
+      left: 5%;
+      width: 90%;
+      height: 75%;
+      background: white;
+      border: 2px solid #ccc;
+      z-index: 9999;
+      padding: 20px;
+      overflow: auto;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    
+    .swal2-popup.premium-popup {
+  font-family: 'sans-serif';
+  border-radius: 15px;
+  padding: 20px;
+  max-width: 400px;
+}
+
+    #stampGrid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+      gap: 10px;
+    }
+
+    #test-section {
+      text-align: center;
+      margin: 20px 0;
+    }
+
+    #videoModal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background-color: rgba(0,0,0,0.8);
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+    }
+
+    video {
+      width: 90%;
+      max-height: 80vh;
+    }
+
+  /* 必要な場所だけ個別に幅を広げたい場合は明示的に指定 */
+  #swipeStartBtn,
+  #swipeModeBox .swipe-hud button {
+    width: 90%;
+    max-width: 320px;
+  }
+
+  /* Partボタンを横一列でスワイプ可能に */
+  #partButtons {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;           /* ← 横スクロール */
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;          /* 折り返さない */
+    justify-content: flex-start;
+    padding-top: max(6px, env(safe-area-inset-top));
+  }
+  #partButtons button {
+    flex: 0 0 auto;             /* 収縮させない */
+  }
+
+.word-card {
+        font-size: 0.9rem;
+}
+.btn { padding:10px 16px; border-radius:8px; border:none; cursor:pointer; }
+.btn-primary { background:#e91e63; color:#fff; }
+.btn-secondary { background:#999; color:#fff; }
+    
+.btn-premium {
+    background-color: #e91e63;
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-size: 1em;
+    margin-top: 10px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.btn-premium:hover {
+    background-color: #d81b60;
+}
+  
+  /* 既存CSSの末尾に追加 */
+.hidden{display:none;}
+
+#swipeModeBox{
+  max-width:700px;margin:16px auto;padding:10px;
+}
+#swipeDeck{
+  position:relative;height:360px;user-select:none;touch-action:pan-y;
+}
+.swipe-card{
+  position:absolute;inset:0;margin:auto;width:92%;max-width:580px;height:340px;
+  background:#fff;border-radius:14px;border:1px solid #eee;
+  box-shadow:0 10px 24px rgba(0,0,0,.08);
+  padding:18px;display:flex;flex-direction:column;justify-content:center;align-items:center;
+  transition:transform .2s ease, opacity .2s ease;
+}
+.swipe-word{font-size:28px;font-weight:700;margin-bottom:8px;}
+.swipe-mean{color:#555;margin-bottom:12px;}
+.swipe-img{
+  width:220px;height:300px;object-fit:cover;border-radius:10px;background:#f2f2f2;
+  -webkit-user-drag: none;      /* Safari/Chrome */
+  user-drag: none;
+  user-select: none;
+  pointer-events: none;          /* ← ドラッグの起点を常にカードにする */
+}
+
+.swipe-badge{
+  position:absolute;top:12px;font-weight:700;padding:6px 10px;border-radius:8px;opacity:0;
+}
+.badge-left{left:12px;background:#fde68a;color:#92400e;}     /* 覚えてない */
+.badge-right{right:12px;background:#dcfce7;color:#166534;}    /* 覚えた */
+
+.swipe-hud{display:flex;justify-content:space-between;align-items:center;margin:6px 6px 10px;}
+.swipe-hints{display:flex;justify-content:space-between;color:#888;margin-top:6px;padding:0 4px;}
+@media (prefers-reduced-motion: reduce){
+  .swipe-card{ transition: none; }
+  .star-bg{ animation: none; }
+  .caption{ display: none !important; }
+}
+
+/* ===== Desktop layout improvements ===== */
+/* Desktop */
+
+  /* 単語カード：3カラム（画像 / テキスト / アクション） */
+  .word-card{
+    display: grid;
+    grid-template-columns: 140px 1fr auto;
+    grid-template-areas: "img text action";
+    align-items: center;
+    gap: 12px 16px;
+    padding: 14px 16px;
+  }
+  .wc-img{ grid-area: img; }
+  .wc-body{ grid-area: text; }
+  .wc-actions{ grid-area: action; justify-self: end; }
+
+  .word-card img{ width: 140px; height: 210px; }
+
+  /* PCではボタン幅を自動 */
+  #test-section button,
+  #swipeStartBtn,
+  #swipeModeBox .swipe-hud button {
+    width: auto;
+    max-width: none;
+  }
+
+  /* パートボタン/ページネーションの中央寄せ */
+  #partButtons{ justify-content: center; overflow: visible; flex-wrap: wrap; }
+  .pagination{ justify-content: center; overflow: visible; }
+
+/* ヒーロー背景のピンク丸はモバイルだけ表示、PCでは非表示 */
+#levelGirlContainer{ position: relative; }
+@media (min-width: 600px){ #bgEffect{ display:none; } }
+
+/* --- Login Bonus modal --- */
+/* これに統一：JSで display を切り替える（flexはJSで当てる） */
+#loginBonusPopup{
+  display:none;           /* ← ここは none のまま */
+  position:fixed;
+  inset:4vh 3vw;
+  background:#fff;
+  border:2px solid #ccc;
+  border-radius:12px;
+  z-index:9999;
+  box-shadow:0 8px 20px rgba(0,0,0,.15);
+  padding:12px 12px 0;
+  overflow:hidden;
+  /* display:flex;  ← 削除！*/
+  /* flex-direction:column; ← 削除！*/
+}
+#stampScroll{
+  flex:1;                 /* ここがスクロール領域 */
+  overflow:auto;
+  -webkit-overflow-scrolling:touch;
+  padding:8px 2px 12px;
+}
+#stampGrid{
+  display:grid;
+  grid-template-columns: repeat(6, minmax(50px,1fr));
+  gap:10px;
+}
+#loginBonusOkBtn{
+  position:sticky; bottom:0;
+  margin:8px auto calc(env(safe-area-inset-bottom) + 8px);
+  width:min(380px, 90%);
+}
+
+/* 末尾に追記：位置を詰める */
+#swipeModeBox{
+  margin: 8px auto 0 !important;   /* 上の余白を小さく */
+}
+#swipeDeck{
+  height: 340px !important;        /* わずかに浅くして画面上寄せ */
+}
+.swipe-hud{ margin: 4px 6px 8px !important; }
+
+/* モバイルでは列数を減らしOKを押しやすく */
+@media (max-width:480px){
+  #stampGrid{ grid-template-columns: repeat(4, minmax(56px,1fr)); }
+}
+
+/* モーダル時は背景スクロールを止める */
+body.modal-open{ overflow:hidden; height:100vh; }
+
+/* CSSの一番最後に追加（スマホ全画面時の“勝ち”ルール） */
+@media (max-width:480px){
+  #swipeModeBox.fullscreen .swipe-card{
+    height: clamp(320px, 74dvh, 720px) !important;
+    width: min(92vw, 560px);
+  }
+  #swipeModeBox.fullscreen #swipeDeck{
+    height: auto !important;
+    min-height: 74dvh; /* 念のため */
+  }
+	
+  #swipeModeBox:not(.fullscreen) #swipeDeck{
+    height: 340px;            /* ← 通常表示のときだけ適用 */
+  }
+}
+
+/* ===== Centering fixes (override) ===== */
+#levelGirlContainer,
+#test-section,
+#weeklyAnswersBox,
+#partButtons,
+#wordContainer,
+#pagination,
+#partPagination {
+  margin-left: auto !important;
+  margin-right: auto !important;
+  text-align: center !important;
+}
+
+#partButtons { justify-content: center !important; }
+#test-section button, #swipeStartBtn { width: min(320px, 90%); }
+
+/* テストボタンを横並びに */
+#test-section{
+  display:flex;
+  justify-content:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+#test-section button{
+  width:auto !important;   /* 上の “幅100%” 指定を打ち消す */
+}
+
+button:focus-visible { outline: 3px solid #e91e63; outline-offset: 2px; }
+
+/* pagination condensed */
+.pagination .ellipsis{
+  padding: 0 6px;
+  color:#888;
+  align-self:center;
+}
+.pagination button.active{
+  background-color:#d81b60;
+  font-weight:700;
+}
+.pagination button[disabled]{
+  opacity:.5;
+  cursor: default;
+}
+
+	
+  #partButtons{ justify-content: center; overflow: visible; flex-wrap: wrap; }
+  .pagination{ justify-content: center; overflow: visible; }
+}
+
+  /* ページネーションも横並びスクロールで省スペース */
+  .pagination{
+    display:flex;
+    gap:8px;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    flex-wrap:nowrap;
+    justify-content:center;
+    padding:6px 2px;
+  }
+  .pagination button{
+    flex:0 0 auto;
+    min-width:44px;
+    height:36px;
+  }
+  #partPagination, .pagination{
+    display:flex;
+    justify-content:center;
+    width:100%;
+    max-width:420px;
+    margin:0 auto;
+  }
+
+  /* ページネーション（共通/凝縮） */
+.pagination{
+  display:flex;
+  gap:8px;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  flex-wrap:nowrap;
+  justify-content:center;
+  padding:6px 2px;
+}
+	  
+.pagination .ellipsis{ padding:0 6px; color:#888; align-self:center; }
+.pagination button.active{ background-color:#d81b60; font-weight:700; }
+.pagination button[disabled]{ opacity:.5; cursor:default; }
+
+@media (min-width: 768px){
+  /* 単語カード：3カラム（画像 / テキスト / アクション） */
+  .word-card{
+    display: grid;
+    grid-template-columns: 140px 1fr auto;
+    grid-template-areas: "img text action";
+    align-items: center;
+    gap: 12px 16px;
+    padding: 14px 16px;
+  }
+  .wc-img{ grid-area: img; }
+  .wc-body{ grid-area: text; }
+  .wc-actions{ grid-area: action; justify-self: end; }
+
+  .word-card img{ width: 140px; height: 210px; }
+
+  #test-section button,
+  #swipeStartBtn,
+  #swipeModeBox .swipe-hud button {
+    width: auto;
+    max-width: none;
+  }
+
+　/* === スクショ再現用の最終上書き === */
+
+/* デスクトップ：幅と左寄せ */
+@media (min-width: 768px){
+  /* 統一幅：ステータス枠や週間グラフは中くらい、単語リストは広め */
+  #statsBox{ max-width: 760px; }
+  #weeklyAnswersBox{ max-width: 760px; }
+  #wordContainer{ max-width: 920px; text-align: initial !important; }
+  #pagination{ max-width: 920px; }
+
+  /* 単語カード：画像/本文/アクションの3カラムレイアウト */
+  .word-card{
+    display: grid;
+    grid-template-columns: 140px 1fr auto;
+    grid-template-areas: "img text action";
+    align-items: center;
+    gap: 12px 16px;
+    padding: 14px 16px;
+  }
+  .wc-img{ grid-area: img; }
+  .wc-body{ grid-area: text; text-align: left; }
+  .wc-actions{ grid-area: action; justify-self: end; }
+
+  .word-card img{ width: 140px; height: 210px; object-fit: cover; border-radius: 8px; }
+}
+
+/* モバイル：2カラムで縦長を解消（既存と同方向の上書き） */
+@media (max-width: 480px){
+  #wordContainer{ max-width: 420px; text-align: initial !important; }
+
+  .word-card{
+    display: grid;
+    grid-template-columns: 88px 1fr;
+    grid-template-areas:
+      "img text"
+      "img action";
+    align-items: center;
+    gap: 8px 10px;
+    padding: 10px 12px;
+  }
+  .wc-img{ grid-area: img; }
+  .wc-body{ grid-area: text; text-align: left; }
+  .wc-actions{ grid-area: action; justify-self: start; }
+
+  .word-card img{ width: 88px; height: 132px; object-fit: cover; border-radius: 8px; }
+}
+
+/* パートボタン＆ページネーションの見た目（ピル型/中央寄せ） */
+#partButtons{ justify-content: center !important; overflow: visible; flex-wrap: wrap; }
+#partButtons button,
+.pagination button{
+  border-radius: 9999px;
+  padding: 10px 16px;
+}
+
+/* ステータス枠の色味はスクショ準拠のピンク系に */
+h1, h3, #learningStatus{ color: #e91e63; }
+
+/* 単語カード内の文字サイズと余白を微調整 */
+.word-card strong{ display:block; margin-bottom: 4px; font-size: 1rem; }
+.word-card .meta{ color:#666; font-size:.85rem; margin-bottom:4px; }
+
+/* “中央寄せ強制”を打ち消し（既存の !important に勝つため再宣言） */
+#wordContainer, #wordContainer *{ text-align: initial !important; }
+
+/* === Weekly chart (screenshot style) === */
+#weeklyAnswersBox{ max-width:760px; margin:20px auto; }
+.weekly-wrap{
+  background:#fff3f8; border:1px solid #ff99c9; border-radius:12px;
+  padding:8px 6px;
+}
+.weekly-bars{
+  display:flex; gap:12px; justify-content:space-between; align-items:flex-end;
+  height:160px;
+}
+.weekly-day{
+  flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end;
+}
+.weekly-num{ font-size:.8rem; color:#e91e63; margin-bottom:6px; }
+.weekly-bar{
+  width:26px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,.08);
+  background:linear-gradient(180deg,#ff7bbd,#ffb3d9);
+}
+.weekly-labels{
+  display:flex; gap:12px; justify-content:space-between;
+  font-size:.8rem; color:#555; margin-top:6px;
+}
+.weekly-label{ flex:1; text-align:center; }
+@media (max-width:480px){
+  .weekly-bars{ height:140px; gap:8px; }
+  .weekly-bar{ width:22px; }
+}
+
+/* --- HOTFIX 2025-09-03 ------------------------------------ */
+/* ① ボタンが縦書きになるのを強制で止める（横書き＆折返し禁止） */
+.wc-actions button{
+  writing-mode: horizontal-tb !important;
+  text-orientation: mixed !important;
+  transform: none !important;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ② 週間グラフがスマホで消えるのを防ぐ（高さ/表示の保険） */
+#weeklyBars, #weeklyLabels { display: flex !important; }
+.weekly-bars { min-height: 140px; }
+.weekly-bar  { width: 22px; min-height: 6px; }
+
+/* ③ “ガタガタ”対策：横スクロール禁止＋画像のサイズを固定 */
+html, body { overflow-x: hidden; }
+img, video { max-width: 100%; height: auto; }
+
+/* 単語カードの画像サイズを固定（崩れ防止） */
+.word-card img { width: 88px; height: 132px; object-fit: cover; }
+
+/* ④ PC時にアクション列が狭くなり過ぎないように幅を確保 */
+@media (min-width: 481px){
+  .word-card { grid-template-columns: 110px 1fr 180px; }
+}
+@media (max-width: 480px){
+  .wc-actions { width: 100%; }
+  .wc-actions button { width: 100%; }
+}
+
+/* ボタンを必ず横書き・1行・グリッドの専用列に */
+.wc-actions{ width:100%; display:flex; flex-direction:column; gap:6px; }
+.wc-actions button{
+  writing-mode: horizontal-tb !important;
+  text-orientation: mixed !important;
+  white-space: nowrap;
+  width: 100%;
+}
+
+/* ステータス行をブロック化してボタンと重ならないように */
+.wc-body .meta{ display:block; line-height:1.5; }
+
+/* PC時はアクション列の最小幅を確保 */
+@media (min-width: 481px){
+  .word-card{ grid-template-columns: 110px 1fr 180px; }
+}
+
+#weeklyBars, #weeklyLabels{ display:flex !important; }
+.weekly-bars{ min-height:140px; align-items:flex-end; }
+.weekly-bar { width:22px; min-height:6px; }
+@media (min-width:481px){ .weekly-bars{ min-height:160px; } .weekly-bar{ width:26px; } }
+
+
+/* ⑤ 念のため全ボタンも強制横書き */
+button { writing-mode: horizontal-tb; }
+  
   </style>
-
-  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 </head>
 <body>
 
 <!-- スタンプカードポップアップ -->
 <div id="loginBonusPopup">
-  <h3>ログインボーナス</h3>
-  <div id="stampGrid" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px;"></div>
-  <button onclick="closeLoginBonus()">OK</button>
+  <h3 id="loginBonusTitle">ログインボーナス</h3>
+  <div id="stampScroll"><div id="stampGrid"></div></div>
+  <button id="loginBonusOkBtn" onclick="closeLoginBonus()">OK</button>
 </div>
+
 
 <div id="user-info">
   <div id="username"></div>
   <div id="planText"></div>
-  <div id="userLevel"></div>
+  <div id="userLevel"></div> <!-- ← 追加 -->
 </div>
-
-<!-- ★ 追加：プレミアム動画の置き場 -->
-<div id="premiumVideoContainer" style="text-align:center; margin: 8px 0;"></div>
-
 <div id="levelGirlContainer" style="text-align:center; margin: 10px 0;">
   <div id="bgEffect" class="star-bg"></div>
-  <video id="girlVideo" autoplay muted loop playsinline width="180" style="border-radius: 10px;"></video>
+  <video id="girlVideo" preload="metadata" autoplay muted loop playsinline width="180" style="border-radius:10px;"></video>
 </div>
 
 <!-- パート切り替え -->
 <div id="partButtons"></div>
 
-<!-- スワイプ学習 -->
+<!-- 追加：Part用ページネーション（下） -->
+<div class="pagination" id="partPagination"></div>
+<!-- これを追加 -->
 <div style="text-align:center; margin:6px 0 14px;">
-  <button id="swipeStartBtn" onclick="startSwipeMode()">スワイプ学習を始める</button>
+  <button id="swipeStartBtn" onclick="startSwipeMode()">
+    スワイプ学習を始める
+  </button>
 </div>
 <div id="swipeModeBox" class="hidden">
   <div class="swipe-hud">
     <button id="swipeExitBtn">一覧に戻る</button>
-    <div id="swipeCounter">0 / 0</div>
-    <div id="swipeStats">覚えた: 0 / 覚えたい: 0</div>
+   <div id="swipeCounter" aria-live="polite">0 / 0</div>
+    <div id="swipeStats" aria-live="polite">覚えた: 0 / 覚えたい: 0</div>
   </div>
-  <div id="swipeDeck"></div>
-  <div class="swipe-hints"><span>← 覚えてない</span><span>覚えた →</span></div>
+
+  <div id="swipeDeck">
+    <!-- ここにカードを重ねて描画 -->
+  </div>
+
+  <div class="swipe-hints">
+    <span>← 覚えてない</span>
+    <span>覚えた →</span>
+  </div>
 </div>
 
+
 <div id="statsBox">
-  <div id="learningStatus"></div>
+  <div id="learningStatus" aria-live="polite"></div>
   <div id="subStats">
     <div id="loginDays"></div>
     <div id="testStats"></div>
@@ -124,838 +790,2071 @@
 
 <!-- 広告と課金 -->
 <div style="margin: 10px;">
-  <button onclick="watchAdGlobal()">広告を見て美女が英単語を表現（5枚有効）</button>
+  <button onclick="watchAdGlobal()">広告を見て美女が英単語を表現（5有効）</button>
 </div>
+<!-- <div style="margin: 10px;">
+  <button onclick="showPremiumPopup()">100円でホットパンツ美女解放</button>
+</div> -->
 
 <div id="test-section" style="text-align: center; margin: 30px 0;">
-  <button id="testStartBtn" onclick="startTest()">テストを開始する</button>
-  <button id="vocabTestBtn" onclick="startVocabularyTest()">テストを開始する(単語モード)</button>
+<button id="testStartBtn" onclick="startTest()">テストを開始する</button>
+<button id="testStartBtnVocab" onclick="startVocabularyTest()">テストを開始する(単語モード)</button>
   <button onclick="goToPart(getUserId(), '無双Part')">無双Partへ</button>
 </div>
-
-<div id="weeklyAnswersBox" style="max-width:700px;margin:20px auto;">
+	
+<div id="weeklyAnswersBox">
   <h3 style="text-align:center;margin:10px 0;">1週間の解答数:(目標解答数:80が目安)</h3>
-  <div id="weeklyBars" style="display:flex;gap:8px;justify-content:space-between;align-items:flex-end;height:140px;padding:8px 4px;background:#fff3f8;border:1px solid #ff99c9;border-radius:12px;"></div>
-  <div id="weeklyLabels" style="display:flex;gap:8px;justify-content:space-between;font-size:.8rem;margin-top:6px;color:#555;"></div>
+  <div class="weekly-wrap">
+    <div id="weeklyBars" class="weekly-bars"></div>
+  </div>
+  <div id="weeklyLabels" class="weekly-labels"></div>
 </div>
 
 <div id="wordContainer"></div>
-
-<!-- ページャ領域 -->
 <div class="pagination" id="pagination"></div>
-
-<!-- 動画モーダル -->
-<div id="videoModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background-color:rgba(0,0,0,0.8); justify-content:center; align-items:center; z-index:999;">
+<!-- HTMLの一番下に追加 -->
+<div id="videoModal" style="display:none; position:fixed; top:0; left:0; 
+  width:100%; height:100%; background-color:rgba(0,0,0,0.8); 
+  justify-content:center; align-items:center; z-index:999;">
   <video id="videoPlayer" controls autoplay width="80%"></video>
 </div>
 
 <script>
-/* =========================
-   API base & fetch helper
-   ========================= */
-const API_BASE =
-  location.hostname === 'localhost' || location.hostname === '127.0.0.1'
-    ? 'http://localhost:8080'
-    : ''; // 本番は同一オリジン
+// 置き換え：apiFetch の先頭付近
+const apiFetch = (path, opts = {}) => {
+  const method = (opts.method || 'GET').toUpperCase();
+  const needsCSRF = !['GET','HEAD','OPTIONS'].includes(method);
 
-function api(path){ return path.startsWith('http') ? path : (API_BASE + path); }
+  // === CSRF を自動検出（Rails or Spring両対応） ===
+  const pickCSRFFromPageOrCookie = () => {
+    const meta = document.querySelector('meta[name="csrf-token"]')?.content; // Rails
+    if (meta) return { header: 'X-CSRF-Token', token: meta };
 
-/* =========================
-   状態
-   ========================= */
-let words = [];
-let user  = { id:null, premium:false };
+    const ck = document.cookie;
+    const mSpring = ck.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/); // Spring
+    if (mSpring) return { header: 'X-CSRF-TOKEN', token: decodeURIComponent(mSpring[1]) };
+
+    const mLegacy = ck.match(/(?:^|;\s*)_csrf=([^;]+)/);      // 旧設定
+    if (mLegacy) return { header: 'X-CSRF-Token', token: decodeURIComponent(mLegacy[1]) };
+
+    return null;
+  };
+
+  const headers = new Headers({ Accept: 'application/json', ...(opts.headers || {}) });
+  if (needsCSRF && !headers.has('X-CSRF-Token') && !headers.has('X-CSRF-TOKEN')) {
+    const c = pickCSRFFromPageOrCookie();
+    if (c) headers.set(c.header, c.token);
+  }
+  return fetch(path, { credentials: 'include', ...opts, headers });
+};
+
+
+// JSONしか受け付けないfetch（Cookie付き・非JSONは例外）
+async function fetchJSON(url, opts) {
+  const res = await apiFetch(url, opts);
+  const ct = (res.headers.get('content-type') || '').toLowerCase();
+
+  const redirectedToLogin =
+    res.redirected && /\/login(?:\.html)?$/.test(new URL(res.url, location.origin).pathname);
+
+  if (redirectedToLogin || res.status === 401 || res.status === 403) {
+    const err = new Error('unauthorized'); err.code = 'UNAUTHORIZED'; throw err;
+  }
+
+　  // ← ここを追加：204は素通し
+  if (res.status === 204) return null;
+	
+  if (!ct.includes('application/json')) {
+    const err = new Error('non-json'); err.code = 'NON_JSON'; err.status = res.status; throw err;
+  }
+  if (!res.ok) { // ★ 追加：4xx/5xx は例外
+    const err = new Error(`bad-status:${res.status}`);
+    err.code = 'BAD_STATUS'; err.status = res.status; throw err;
+  }
+  return res.json();
+}
+
+
+// グローバルで使っているのに未宣言だったので用意
 let musouMode = false;
-
+let words = [];
+let user = { id: null, premium: false, canWatchVideo: false }; // isPremium 廃止
 let currentPage = 1;
-let pageSize    = 5;
-let selectedPart = "part1";
-let currentPart  = 1;
+const pageSize = 5;
+let selectedPart = "part1"; // ← 初期値を設定
+let currentPart = 1; // 初期値として Part1 = 1 を設定
+const AD_EVERY_TOGGLE = 6;
+const AD_EVERY_SWIPE  = 7;
 
-let swipeWords = [];
-let swipeIndex = 0;
-let swipeLearned = 0;
-let swipeUnlearned = 0;
-let swipeDrag = null;
-let currentSwipeMode = "unlearned";
-const SWIPE_THRESHOLD = 80;
+const style = document.createElement('style');
+style.innerHTML = `
+@keyframes pop {
+  0% { transform: scale(0.3); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}`;
+document.head.appendChild(style);
 
+
+
+//表示名と実際のpart名をマッピング
 const parts = [
   { label: "Part1", value: "part1" },
   { label: "Part2", value: "part2" },
   { label: "Part3", value: "part3" },
   { label: "Part4", value: "part4" },
   { label: "Part5", value: "part5" },
+/*   { label: "Part6", value: "part6" },
+  { label: "癒しPart", value: "partHealing" } */
 ];
 
-/* ちょいCSS補助 */
-(() => {
-  const style = document.createElement('style');
-  style.innerHTML = `@keyframes pop {0%{transform:scale(.3);opacity:0}100%{transform:scale(1);opacity:1}}`;
-  document.head.appendChild(style);
-})();
+document.addEventListener("DOMContentLoaded", initApp);
 
-/* =========================
-   起動時
-   ========================= */
-document.addEventListener("DOMContentLoaded", async () => {
-  const userId = getUserIdFromQuery();
+async function initApp() {
+const ok = await fetchUserInfo();
+if (!ok) {
+  // サーバ起動待ちや一時的な HTML 応答。UIに案内を出して自動再試行
+  const s = document.getElementById("learningStatus");
+  if (s) s.textContent = "サーバ起動中…自動で再試行します";
+  setTimeout(initApp, 1200);
+  return;
+}
 
-  await fetchUserInfo(userId);           // ← ここで user を確定
-  if (userId) {
-    localStorage.setItem("userId", userId);
-    await checkPremiumStatus(userId);
+const urlParams = new URLSearchParams(window.location.search);
+const sessionId = urlParams.get('session_id');
+if (sessionId) {
+  try {
+    const r = await apiFetch(`/api/payment/confirm?session_id=${encodeURIComponent(sessionId)}`);
+    const j = await r.json();
+    user.premium = !!j.premium;
+  } catch {}
+}
+
+renderPartButtons();
+await loadWords();
+await refreshUserStats();
+showUpdateInfoIfNeeded();
+ensureHeroVideo();
+placeSwipeBoxAboveStartButton();
+await loadWeeklyAnswers(); 
+}
+
+//URLのテスト結果をUIへ反映し、必要ならコミットも打つ
+async function applyTestParamsAndCommit() {
+  const sp = new URLSearchParams(location.search);
+  const from  = sp.get('from');
+  const score = parseInt(sp.get('score') || '0', 10);
+  const total = parseInt(sp.get('total') || '0', 10);
+  const userId = getUserIdFromQuery() || 1;
+  const mode = 'sentence';
+
+  if (from !== 'test' || !total) return;
+
+  // まず画面を即時更新（サーバ遅延してもユーザーは結果を見られる）
+  const testStats = document.getElementById("testStats");
+  if (testStats) testStats.textContent = `正答数: ${score} / ${total}問中`;
+
+  // レベル演出（暫定）：直近の合計正答をローカルで積み上げ表示
+  const localTotalCorrectKey = `localTotalCorrect:${userId}`;
+  const prevLocal = parseInt(localStorage.getItem(localTotalCorrectKey) || '0', 10);
+  const newLocal  = prevLocal + score;
+  localStorage.setItem(localTotalCorrectKey, String(newLocal));
+
+  const prevLevel = Math.floor(prevLocal / 10);
+  const newLevel  = Math.floor(newLocal / 10);
+  for (let lv = prevLevel + 1; lv <= newLevel; lv++) showLevelUpPopup(lv);
+
+  // すでに test.html 側でコミット済みなら何もしない
+  const committedKey = `committed:${userId}:${mode}:${score}/${total}`;
+  if (sessionStorage.getItem(committedKey) === '1') return;
+
+  // 未コミットならここでリトライコミット
+  try {
+   const res = await apiFetch('/api/test/commit', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ mode, correct: score, total }) });
+    if (res.ok) {
+      sessionStorage.setItem(committedKey, '1');
+    } else {
+      console.warn('user.html側コミット失敗', res.status);
+    }
+  } catch (e) {
+    console.warn('user.html側コミット例外', e);
   }
+}
 
-  // ?premium=true で強制プレミアム（デバッグ/決済戻り）
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get("premium") === "true") {
-    await setUserPremium(userId);
-    user.premium = true;
-  }
-
-  renderPartButtons();
-  await loadWords();
-  refreshUserStats();
-  showUpdateInfoIfNeeded();
+// 既存の DOMContentLoaded 後や loadWords() 完了後に呼んでOK
+document.addEventListener('DOMContentLoaded', () => {
   applyTestParamsAndCommit();
-  loadWeeklyAnswers();
+  document.getElementById('watchAdBtn') ?.addEventListener('click', handleAdAccept);
+  document.getElementById('cancelAdBtn')?.addEventListener('click', closeAdModal);
 });
 
-/* =========================
-   共通ユーティリティ
-   ========================= */
-function getUserIdFromQuery(){ return new URLSearchParams(location.search).get('userId'); }
-function getUserId(){ return localStorage.getItem('userId') || getUserIdFromQuery() || 1; }
 
-function toSlugForImage(s){
-  return (s||'').toLowerCase().replace(/\s+/g,'_').replace(/['’`"]/g,'').replace(/[^a-z0-9_]/g,'');
-}
-function imageUrlForWord(w){
-  if (w.imageUrl) return w.imageUrl;
-  if (w.pictUrl) return w.pictUrl;
-  if (w.pictUrlAnimated) return w.pictUrlAnimated;
-  return `/images/${toSlugForImage(w.word)}_girl.png`;
-}
-
-/* =========================
-   アップデート表示
-   ========================= */
-const latestUpdateVersion = "1.3.0";
+//✅ アップデート履歴（例）
+const latestUpdateVersion = "1.3.0"; // ← 最新バージョン
 const updateMessage = `
   <ul style="text-align: left;">
     <li>🎉 新機能「衣装切り替え」ボタンを追加</li>
     <li>📈 正答数に応じたレベルアップ演出を追加</li>
     <li>🔒 無料ユーザーには一部機能にプレミアム制限</li>
     <li>🐞 軽微なバグ修正とUI改善</li>
-  </ul>`;
-function showUpdateInfoIfNeeded(){
-  const shown = localStorage.getItem("updateInfoShownVersion");
-  if (shown !== latestUpdateVersion) {
-    Swal.fire({ title:`✨アップデート情報 (v${latestUpdateVersion})✨`, html:updateMessage, icon:'info', confirmButtonText:'閉じる', confirmButtonColor:'#e91e63' });
+  </ul>
+`;
+
+// 置き換え
+async function headOk(u){
+  try{
+    const sameOrigin = (() => {
+		try { return new URL(u, location.origin).origin === location.origin; }
+		catch { return false; }
+	})();
+    const opt1 = { method: 'HEAD', cache: 'no-store', ...(sameOrigin ? {credentials:'include'} : {}) };
+    const r = await fetch(u, opt1);
+    if (!r.ok) {
+      const opt2 = { method: 'GET', cache: 'no-store', ...(sameOrigin ? {credentials:'include'} : {}) };
+      const g = await fetch(u, opt2);
+      return g.ok;
+    }
+    return true;
+  }catch{ return false; }
+}
+
+async function pickFirstAvailable(list){
+  for (const u of list){
+    if (await headOk(u)) return u;
+  }
+  return null;
+}
+
+async function ensureHeroVideo(){
+  const v = document.getElementById('girlVideo');
+  if (!v) return;
+
+const prefer = isPremium() ? ['/videos/run_girl_motion.mp4'] : [];
+const candidates = [
+  ...prefer,
+  '/videos/girl_idle_loop.mp4',
+  'https://cdn.jsdelivr.net/gh/masahirotabata/bijyotan@master/src/main/resources/static/videos/girl_idle_loop.mp4'
+];
+
+  const ok = await pickFirstAvailable(candidates);
+  if (ok){
+    v.src = ok;
+    try { await v.play(); } catch {}
+  }else{
+    const p = v.parentElement;
+    v.remove();
+    const img = document.createElement('img');
+    img.src = '/images/beauty.png';
+    img.alt = 'girl';
+    img.style.borderRadius = '10px';
+    img.width = 180;
+    p.appendChild(img);
+  }
+}
+
+	// 追加（どこでもOK、updateLoginPointsIfNeeded より上でも下でも）
+function setLoginDays(points){
+  const el = document.getElementById('loginDays');
+  if (el) el.textContent = `学習日数: ${points}日目`;
+}
+
+function isPremium() { return Boolean(user?.premium); } 
+
+// ✅ 初回ログイン or バージョン変更時のみ表示
+function showUpdateInfoIfNeeded() {
+  const shownVersion = localStorage.getItem("updateInfoShownVersion");
+  if (shownVersion !== latestUpdateVersion) {
+    Swal.fire({
+      title: "✨アップデート情報 (v" + latestUpdateVersion + ")✨",
+      html: updateMessage,
+      icon: "info",
+      confirmButtonText: "閉じる",
+      confirmButtonColor: "#e91e63"
+    });
+
+    // 表示済みバージョンとして保存
     localStorage.setItem("updateInfoShownVersion", latestUpdateVersion);
   }
 }
 
-/* =========================
-   ユーザー／プレミアム
-   ========================= */
-async function fetchUserInfo(userId){
-  try{
-    const res = await fetch(api(`/user/${userId}`), { credentials:'include' });
-    if(!res.ok) throw new Error('user not found');
-    const data = await res.json();
-    user = data;
-    localStorage.setItem("userId", data.id);
-    byId("username").innerText  = `${data.username ?? data.email ?? 'ユーザー'} さん、ようこそ！`;
-    byId("planText").innerText  = `プラン: ${data.premium ? 'プレミアム' : '無料'}`;
-    byId("userLevel").innerText = `レベル: Lv.${data.level || 1}`;
-    updateGirlVisual(data.level || 1);
-    await updateLoginPointsIfNeeded(data.id);
-    if (typeof data.loginPoints === 'number') showLoginBonus(data.loginPoints);
-  }catch(e){
-    alert("ユーザー情報が取得できません。ログインし直してください。");
-    location.href = "login.html";
+	
+async function checkPremiumStatus(userId) {
+	  try {
+			const res = await apiFetch(`/user/${encodeURIComponent(userId)}`);
+		  	const ct = res.headers.get('content-type') || '';
+		    if (!res.ok || !ct.includes('application/json')) return;
+	    	const u = await res.json();
+	    if (u.premium === true) {
+	      // 既存の girlVideo を使用し、存在しない場合はフォールバック
+	      const v = document.getElementById("girlVideo");
+	      if (v) {
+	        const prefer = "/videos/run_girl_motion.mp4";
+	        const fallback = "/videos/girl_idle_loop.mp4";
+	        v.onerror = () => { v.src = fallback; };
+	        v.src = prefer;
+	      }
+	    }
+	  } catch (err) {
+	    console.error("ユーザー情報の取得に失敗", err);
+	  }
+	}
+
+function placeSwipeBoxAboveStartButton(){
+  const box = document.getElementById('swipeModeBox');
+  const btn = document.getElementById('swipeStartBtn');
+  if (!box || !btn) return;
+  const wrap = btn.parentElement;                 // ボタンを包む <div ...>
+  if (wrap && box.previousElementSibling !== wrap){
+    // ボタンの“直前”に #swipeModeBox を移動
+    wrap.parentNode.insertBefore(box, wrap);
+  }
+}
+// changePart は selectedPart のみ更新でOK
+function changePart(partName) {
+  selectedPart = partName;
+  const isMusou = (partName === '無双Part');
+  musouMode = isMusou;
+  if (isMusou) {
+    goToPart(undefined, "無双Part");
+  } else {
+    loadWords();
   }
 }
 
-async function checkPremiumStatus(userId){
-  try{
-    const res = await fetch(api(`/user/${userId}`));
-    const u = await res.json();
-    if (u?.premium) {
-      const video = document.createElement('video');
-      video.src = "videos/run_girl_motion.mp4";
-      Object.assign(video, { autoplay:true, muted:true, loop:true, width:300 });
-      const c = byId("premiumVideoContainer"); c.innerHTML = ""; c.appendChild(video);
-    }
-  }catch{}
+
+const CDN_BASE = 'https://cdn.jsdelivr.net/gh/masahirotabata/bijyotan@master/src/main/resources/static/images';
+// 単語からファイル名用スラッグ
+function toSlugForImage(s) {
+  return (s || "")
+    .toLowerCase()
+    .trim()
+    .replace(/['’`"]/g, "")
+    .replace(/\s+/g, "_")
+    .replace(/[^a-z0-9_]/g, "");
 }
 
-async function setUserPremium(userId){
-  try{
-    const res = await fetch(api(`/api/user/updatePremium`), {
-      method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId })
-    });
-    if(!res.ok) throw new Error();
-    console.log('✅ premium updated');
-  }catch(e){ console.warn('premium update failed', e); }
+// API 1件をフロントで共通形に正規化
+function normalizeWord(raw) {
+  const w = {
+    id: raw.id ?? raw.wordId ?? raw.word_id ?? raw._id ?? null,   // ← 追加
+    word: raw.word ?? "",
+    meaning: raw.meaning ?? "",
+    part: (raw.part ?? "").toLowerCase(),
+    pictUrl: raw.pict_url ?? raw.pictUrl ?? "",
+    pictUrlStatic: raw.pict_url_static ?? raw.pictUrlStatic ?? "",
+    pictUrlAnimated: raw.pict_url_animated ?? raw.pictUrlAnimated ?? "",
+    audioUrl: raw.audio_url ?? raw.audioUrl ?? "",
+    videoUrl: raw.video_url ?? raw.videoUrl ?? "",
+    status: !!(raw.status ?? raw.learned ?? false),
+  };
+  w.imageUrl = imageUrlForWord(w);
+  return w;
 }
 
-/* =========================
-   ログインポイント
-   ========================= */
-async function updateLoginPointsIfNeeded(userId){
-  try{
-    const res = await fetch(api(`/api/user/updateLoginPoints`), {
-      method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId })
-    });
-    if(res.ok){
-      const updated = await res.json();
-      if (typeof updated.loginPoints === 'number'){
-        showLoginBonus(updated.loginPoints);
-        byId("loginDays").textContent = `学習日数: ${updated.loginPoints}日目`;
+// 単語オブジェクトから画像URLを決定（優先順）
+function imageUrlForWord(w) {
+  return (
+    w.pictUrl ||
+    w.pictUrlStatic ||
+    w.pictUrlAnimated ||
+    `/images/${toSlugForImage(w.word)}_girl.png`
+  );
+}
+
+// 画像404時のフォールバック
+function imgTag(src, alt = "") {
+  return `<img src="${safeSrc(src,{allowDataImage:true})}" alt="${escHTML(alt)}"
+           width="88" height="132" loading="lazy" decoding="async"
+           style="object-fit:cover;border-radius:8px"
+           onerror="this.onerror=null;this.src='/images/beauty.png'">`;
+}
+
+// ▼ 使い方例：取得後に正規化
+// const rows = await (await fetch(`/api/words?userId=${uid}&part=part1`)).json();
+// const words = rows.map(normalizeWord);
+
+async function uploadAndNormalize(file, mode = "cover") {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await apiFetch(`/api/images/normalize/${mode}`, { method: "POST", body: form });
+  if (!res.ok) throw new Error("画像の正規化に失敗");
+  return await res.json(); // { url, width, height, mode }
+}
+
+async function onFileChange(e, currentWord) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  const { url } = await uploadAndNormalize(file, "cover");
+  // 例：保存APIに反映（実装に合わせて）
+  // await fetch(`/api/words/${currentWord.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ pict_url: url }) });
+  currentWord.pictUrl = url;
+  currentWord.imageUrl = imageUrlForWord(currentWord);
+  // 再描画処理…
+}
+
+// userId は一切使わず、セッションで本人認可
+// 互換のため第1引数は未使用
+function goToPart(_unused, partName) {
+  const locked = ["無双Part", "part4", "part5", "part6", "partHealing", "musou"];
+  if (!isPremium() && locked.includes(partName) && !isAdEnabled()) {
+    Swal.fire({
+      title: "このパートは広告視聴が必要です",
+      html: `<p>広告を見れば<strong>5分間だけ開放</strong>されます。<br>
+             <span style="color:#e91e63;font-weight:bold;">🎀プレミアム</span>なら<strong>無制限で開放</strong>！</p>`,
+      icon: "info",
+      showCancelButton: true,
+      showDenyButton: true,
+      confirmButtonText: "広告を見る",
+      cancelButtonText: "やめる",
+      denyButtonText: "🎀 プレミアムへ"
+    }).then(result => {
+      if (result.isConfirmed) {
+        watchAdGlobal();
+        location.href = `musou.html?part=${encodeURIComponent(partName)}`;
+      } else if (result.isDenied) {
+        showPremiumPopup();
       }
-    }
-  }catch{}
+    });
+    return;
+  }
+  location.href = `musou.html?part=${encodeURIComponent(partName)}`;
 }
 
-/* =========================
-   パート切り替え
-   ========================= */
-function renderPartButtons(){
-  const box = byId("partButtons");
-  box.innerHTML = "";
-  parts.forEach(({label, value})=>{
-    const b = document.createElement('button');
-    b.textContent = label;
-    b.onclick = () => selectPart(value);
-    if (value === selectedPart) b.style.fontWeight = 'bold';
-    box.appendChild(b);
+function playAll(wordText) {
+  const item = words.find(w => w.word === wordText);
+  if (item?.videoUrl) {
+    playVideo(item.videoUrl);
+  } else {
+    Swal.fire({ icon: 'info', text: 'この単語の動画がありません' });
+  }
+}
+
+
+function renderWordCard(word, musouMode, user) {
+  if (musouMode) {
+    return `
+      <div class="musou-card">
+        <h3>${word.word}（${word.meaning}）</h3>
+        ${word.audioUrl ? `<audio controls src="${word.audioUrl}"></audio>` : ""}
+        ${word.videoUrl ? `<video controls width="200" src="${word.videoUrl}"></video>` : ""}
+        ${imgTag(word.imageUrl, word.word)}
+        <button onclick="${isPremium() ? `playAll('${word.word}')` : 'showPremiumPopup()'}">美女を動かす</button>
+      </div>`;
+  } else {
+    return `
+      <div class="normal-card">
+        <strong>${word.word}（${word.meaning}）</strong><br>
+        ステータス: <input type="checkbox" ${word.status ? "checked" : ""}>
+        <br>
+        ${imgTag(word.imageUrl, word.word)}
+        <br>
+        <button onclick="${isPremium() ? `playVideo('${word.videoUrl}')` : 'showPremiumPopup()'}">美女を動かす</button>
+      </div>`;
+  }
+}
+
+function getUserId(){
+  // ← クエリ(userId)最優先で取得する
+  return user?.id || getUserIdFromQuery() || localStorage.getItem("userId") || "1";
+}
+
+function showLevelUpPopup(newLevel) {
+	  const title = getTitleByLevel(newLevel);
+	  Swal.fire({
+	    title: '🎉 LEVEL UP！🎉',
+	    html: `
+	      <p style="font-size: 20px;">新しいレベル: Lv.${newLevel}</p>
+	      <div style="margin-top: 10px;">称号：<strong>${title}</strong></div>
+	      <div class="slide-message" style="font-size: 18px; margin-top: 10px;">この調子で頑張ろう！</div>
+	      <br>
+	      <button id="shareButton" style="background:#1da1f2;color:white;padding:8px 12px;border:none;border-radius:5px;cursor:pointer;">
+	        SNSでシェアする
+	      </button>
+	    `,
+	    showConfirmButton: false,
+	    timer: 6000,
+	    didOpen: () => {
+	      document.getElementById("shareButton").addEventListener("click", () => {
+	        const shareText = `私は今レベル${newLevel}で「${title}」に到達しました！ #美女単`;
+	        const shareUrl = encodeURIComponent("https://your-app-url.com");
+	        const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${shareUrl}`;
+	       	window.open(tweetUrl, '_blank', 'noopener,noreferrer');
+	      });
+	    }
+	  });
+	}
+
+
+//追加：Part用ページング
+let partsPage = 1;
+const partsPerPage = 4; // 1ページに出すPart数（お好みで）
+
+// 置き換え：ボタンの描画（ページ内のPartだけ表示）
+function renderPartButtons() {
+  const container = document.getElementById("partButtons");
+  container.innerHTML = "";
+
+  const start = (partsPage - 1) * partsPerPage;
+  const view = parts.slice(start, start + partsPerPage);
+
+  view.forEach(({ label, value }) => {
+    const btn = document.createElement("button");
+    btn.textContent = label;
+    btn.onclick = () => selectPart(value);
+    if (value === selectedPart) btn.style.fontWeight = "bold";
+    container.appendChild(btn);
+  });
+
+  renderPartPagination(); // ← ページ番号も更新
+}
+
+function renderPartPagination() {
+  const pageCount = Math.ceil(parts.length / partsPerPage);
+  const bottom = document.getElementById("partPagination");
+  const containers = [bottom].filter(Boolean); // ← 上は使わない
+
+  containers.forEach(c => { c.innerHTML = ""; });
+  if (pageCount <= 1) {
+    containers.forEach(c => c.classList.add("hidden"));
+    return;
+  }
+  containers.forEach(c => c.classList.remove("hidden"));
+
+  const build = (wrap) => {
+const makeBtn = (label, page, disabled = false, active = false) => {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.textContent = label;
+  btn.setAttribute(
+    "aria-label",
+    label === "‹" ? "前のページ" :
+    label === "›" ? "次のページ" :
+    `ページ ${label}`
+  );
+  if (disabled) btn.disabled = true;
+  if (active) { btn.classList.add("active"); btn.setAttribute("aria-current","page"); }
+      btn.addEventListener("click", () => {
+        if (disabled || !page || page === partsPage) return;
+        const oldTop = wrap.getBoundingClientRect().top;
+        partsPage = page;
+        renderPartButtons();
+        requestAnimationFrame(() => {
+          const newTop = wrap.getBoundingClientRect().top;
+          window.scrollBy(0, newTop - oldTop);
+        });
+      });
+      return btn;
+    };
+    const addPage = (n) => wrap.appendChild(makeBtn(String(n), n, false, n === partsPage));
+    const addDots = () => { const s=document.createElement("span"); s.className="ellipsis"; s.textContent="…"; wrap.appendChild(s); };
+
+    wrap.appendChild(makeBtn("‹", partsPage - 1, partsPage === 1));
+    if (pageCount <= 5) for (let i=1;i<=pageCount;i++) addPage(i);
+    else if (partsPage <= 3){ addPage(1);addPage(2);addPage(3);addDots();addPage(pageCount); }
+    else if (partsPage >= pageCount-2){ addPage(1);addDots();addPage(pageCount-2);addPage(pageCount-1);addPage(pageCount); }
+    else { addPage(1);addDots();addPage(partsPage-1);addPage(partsPage);addPage(partsPage+1);addDots();addPage(pageCount); }
+    wrap.appendChild(makeBtn("›", partsPage + 1, partsPage === pageCount));
+  };
+
+  containers.forEach(build);
+}
+
+// 修正：Part選択時に「そのPartが載っているページ」を自動表示
+function selectPart(part) {
+  const lockedParts = ["part4", "part5", "part6", "partHealing", "musou"];
+  const isLockedPart = lockedParts.includes(part);
+
+  const show = () => {
+    selectedPart = part;
+    const idx = Math.max(0, parts.findIndex(p => p.value === part));
+    partsPage = Math.floor(idx / partsPerPage) + 1; // そのPartが載っている「Partページ」を表示
+    currentPart = idx + 1;
+    currentPage = 1;
+    renderPartButtons();
+    loadWords();
+  };
+
+  if (!isPremium() && isLockedPart && !isAdEnabled()) {
+    Swal.fire({
+      title: "このパートは広告視聴が必要です",
+      html: `<p>広告を見れば<strong>5分間だけ開放</strong>されます。<br>
+             <span style="color:#e91e63;font-weight:bold;">🎀プレミアム会員</span>なら、<strong>無制限で開放</strong>されます。</p>`,
+      icon: "info",
+      showCancelButton: true,
+      showDenyButton: true,
+      confirmButtonText: "広告を見る",
+      cancelButtonText: "やめる",
+      denyButtonText: "🎀 300円で広告なし！美女めくり放題🎀"
+    }).then(result => {
+      if (result.isConfirmed) {
+        watchAdGlobal();
+        show();
+      } else if (result.isDenied) {
+        showPremiumPopup();
+      }
+    });
+  } else {
+    show();
+  }
+}
+
+// クエリから userId を取る小道具
+function getUserIdFromQuery() {
+  const p = new URLSearchParams(location.search);
+  return p.get('userId');
+}
+
+// どこか上の方に追加
+async function readJsonIfPossible(res) {
+  const ct = (res.headers.get('content-type') || '').toLowerCase();
+  if (!ct.includes('application/json')) return null; // HTML等は弾く
+  try { return await res.json(); } catch { return null; }
+}
+
+// これで置き換え
+async function fetchUserInfo() {
+  // まず /api/me を最優先で
+  const uid = getUserIdFromQuery() || localStorage.getItem('userId');
+  const candidates = [
+    '/api/me',
+    '/user/me',
+    ...(uid ? [`/user/${encodeURIComponent(uid)}`] : []),
+    '/api/user/me'
+  ];
+
+  const normalize = (d) => ({
+    id: d.id ?? d.userId ?? null,
+    username: d.username ?? d.name ?? '',
+    premium: Boolean(d.premium ?? d.isPremium),
+    level: Number(d.level ?? 1),
+    loginPoints: Number(d.loginPoints ?? 0),
+    testCorrectTotal: Number(d.testCorrectTotal ?? 0)
+  });
+
+  for (const url of candidates) {
+    try {
+      const data = await fetchJSON(url);
+      const u = normalize(data);
+      user = u;
+
+      if (u.id) localStorage.setItem('userId', String(u.id));
+      document.getElementById("username").innerText  = `${u.username} さん、ようこそ！`;
+      document.getElementById("planText").innerText  = `プラン: ${u.premium ? "プレミアム" : "無料"}`;
+      document.getElementById("userLevel").innerText = `レベル: Lv.${u.level}`;
+      updateGirlVisual(u.level);
+
+      // ログボの更新＆表示
+      const ok = await updateLoginPointsIfNeeded(u.id);
+      if (!ok) {
+        const points = Number.isFinite(u.loginPoints) ? u.loginPoints : 1;
+        setLoginDays(points);
+        showLoginBonusOncePerDay(points);
+      }
+      return true;
+    } catch (_) { /* 次の候補へ */ }
+  }
+
+  // 起動待ちなど：数回リトライ
+  for (let i=0;i<2;i++){
+    await new Promise(r=>setTimeout(r, 800));
+    for (const url of candidates){
+      try {
+        const data = await fetchJSON(url);
+        const u = normalize(data);
+        user = u;
+        if (u.id) localStorage.setItem('userId', String(u.id));
+        document.getElementById("username").innerText  = `${u.username} さん、ようこそ！`;
+        document.getElementById("planText").innerText  = `プラン: ${u.premium ? "プレミアム" : "無料"}`;
+        document.getElementById("userLevel").innerText = `レベル: Lv.${u.level}`;
+        updateGirlVisual(u.level);
+        const ok = await updateLoginPointsIfNeeded(u.id);
+        if (!ok) { setLoginDays(u.loginPoints||1); showLoginBonusOncePerDay(u.loginPoints||1); }
+        return true;
+      } catch { /* 次 */ }
+    }
+  }
+
+  console.warn('user info could not be fetched as JSON');
+  return false;
+}
+	
+// 不存在の PUT をやめて、weekly から日数推計だけにする
+async function updateLoginPointsIfNeeded(userId) {
+  try {
+    const res = await apiFetch(`/api/test/weekly?userId=${encodeURIComponent(userId)}`);
+    const ct  = (res.headers.get('content-type')||'').toLowerCase();
+    if (!res.ok || !ct.includes('application/json')) return false;
+    const w = await res.json();
+    const days = Array.isArray(w) ? w.filter(d => (d.answers ?? 0) > 0).length : 0;
+    const p = Math.max(1, days);
+    setLoginDays(p);
+    showLoginBonusOncePerDay(p);
+    return true;
+  } catch { return false; }
+}
+
+// 1日1回だけポップアップ
+function showLoginBonusOncePerDay(points){
+  const d = new Date();
+  const ymd = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const key = `loginBonusShown:${ymd}`;
+  if (localStorage.getItem(key) === '1') return;
+  showLoginBonus(points);
+  localStorage.setItem(key, '1');
+}
+
+// 単語取得：まずセッション認可、空なら userId 付きで再試行
+async function fetchWordsFromServer(part) {
+  const tryUrls = [
+    `/api/words?part=${encodeURIComponent(part)}`,
+    `/words?part=${encodeURIComponent(part)}`
+  ];
+  const withUserId = (u) => `${u}&userId=${encodeURIComponent(getUserId())}`;
+
+  for (const base of tryUrls) {
+    // 1st: セッションのみ
+    for (const url of [base]) {
+      try {
+        const res = await apiFetch(url, { headers:{Accept:'application/json'} });
+        if (res.ok) {
+          const data = await readJsonIfPossible(res);
+          if (Array.isArray(data) && data.length) {
+            return data.map(w => normalizeWord({ ...w, status: !!(w.status ?? w.learned) }));
+          }
+        }
+      } catch {}
+    }
+    // 2nd: userId を付けて再試行
+    try {
+      const res = await apiFetch(withUserId(base), { headers:{Accept:'application/json'} });
+      if (res.ok) {
+        const data = await readJsonIfPossible(res);
+        if (Array.isArray(data)) {
+          return data.map(w => normalizeWord({ ...w, status: !!(w.status ?? w.learned) }));
+        }
+      }
+    } catch {}
+  }
+  console.warn('words endpoint not ready');
+  return [];
+}
+
+
+//=== 広告表示トリガ用のカウンタと保留実行 ===
+let pendingToggle = null;
+
+function getBeautyClickCount() {
+  const n = parseInt(localStorage.getItem('beauty_clicks') || '0', 10);
+  return isNaN(n) ? 0 : n;
+}
+function incBeautyClickCount() {
+  const n = getBeautyClickCount() + 1;
+  localStorage.setItem('beauty_clicks', String(n));
+  return n;
+}
+function resetBeautyClickCount() {
+  localStorage.setItem('beauty_clicks', '0');
+}
+
+// 既存の showAdModalForToggle / closeAdModal を差し替え
+let removeTrapAd = null;
+
+function showAdModalForToggle(callback) {
+  pendingToggle = callback;
+  const m = document.getElementById('adModal');
+  if (!m) { console.error('adModal not found'); return; }
+  m.style.display = 'flex';
+  m.setAttribute('role','dialog');
+  m.setAttribute('aria-modal','true');
+  removeTrapAd = trapFocus(m);
+  document.body.classList.add('modal-open');
+  m.querySelector('#watchAdBtn')?.focus();
+}
+
+function closeAdModal() {
+  const m = document.getElementById('adModal');
+  m.style.display = 'none';
+  removeTrapAd?.(); removeTrapAd = null;
+  document.body.classList.remove('modal-open');
+  pendingToggle = null;
+}
+
+// 既存のモーダルのボタンIDに対応（下のモーダルHTMLそのまま使えます）
+function handleAdAccept() {
+  // 視聴処理（既存の5分解放を流用）
+  watchAdGlobal();
+  closeAdModal();
+  if (typeof pendingToggle === 'function') {
+    pendingToggle();
+    pendingToggle = null;
+  }
+  resetBeautyClickCount(); // 6回カウントをリセット
+}
+
+
+// スクリプト上部のどこか（他関数の外）に置く
+function esc(s=''){
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+
+function safeSrc(u, { allowDataImage=false, allowData=false, allowBlob=false } = {}){
+  try{
+    const url = new URL(u, location.origin);
+    const isHttp = url.protocol === 'http:' || url.protocol === 'https:';
+    const isData = url.protocol === 'data:' && (allowData || allowDataImage);
+    const isBlob = url.protocol === 'blob:' && allowBlob;
+    return (isHttp || isData || isBlob) ? url.href : '/images/beauty.png';
+  } catch {
+    return '/images/beauty.png';
+  }
+}
+	
+function escHTML(v=''){ return String(v)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+  .replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+  .replace(/'/g,'&#39;'); }
+
+function h(parts, ...vals){
+  return parts.reduce((s, p, i) => s + p + (i < vals.length ? escHTML(vals[i]) : ''), '');
+}
+
+function renderWords() {
+  const container = document.getElementById("wordContainer");
+  container.innerHTML = "";
+
+  const start = (currentPage - 1) * pageSize;
+  const pageWords = words.slice(start, start + pageSize);
+
+  pageWords.forEach((word, index) => {
+    const div = document.createElement("div");
+    div.className = "word-card";
+
+    const premiumUser = isPremium();
+    const actionButton = ""; // 無料は非表示
+
+    const checkboxId = `status-${word.id}`;
+    const checked = word.status ? "checked" : "";
+    const labelText = word.status ? "学習済み" : "未学習";
+
+    const imageId = `img-${index}`;
+    const toggleButtonId = `toggle-${index}`;
+	const slug = toSlugForImage(word.word);
+	const baseImg = '/images/beauty.png';
+	const specificImg = `/images/${slug}_girl.png`;
+	
+	// ← id が無いデータでも衝突しないキーにする
+	const keyBase  = (word.id != null && String(word.id) !== '') ? `id:${word.id}` : `slug:${slug}`;
+	const stateKey = `imgState:${keyBase}`;
+	
+	// ← 初期表示は必ず beauty.png （キーが '2' のときだけ特別画像）
+	const raw = localStorage.getItem(stateKey);
+	const initState = (raw === '2') ? '2' : '1';
+	const initSrc   = (initState === '2') ? specificImg : baseImg;
+	
+	div.innerHTML = `
+	  <div class="wc-img">
+	    <img
+	      id="${imageId}"
+	      src="${initSrc}"
+	      alt="${esc(word.word)}"
+	      loading="lazy"
+	      width="88" height="132" decoding="async" draggable="false"
+	      data-state="${initState}"
+	      data-word-id="${word.id ?? ''}"
+	      data-key="${stateKey}"
+	      onerror="this.onerror=null;this.src='${baseImg}';this.dataset.state='1';document.getElementById('imgpath-${index}').textContent='${baseImg}';localStorage.setItem('${stateKey}','1');"
+	    >
+	  </div>
+
+      <div class="wc-body">
+        <strong>${esc(word.word)}</strong>
+        <div class="meta">（${esc(word.meaning)}）</div>
+        <div class="meta">
+          ステータス:
+        <input type="checkbox" id="${checkboxId}" ${checked}
+		  data-word-id="${word.id}"
+		  data-part="${esc(selectedPart)}">
+          <span id="status-label-${word.id}">${labelText}</span>
+        </div>
+        <div class="meta">画像パス: <span id="imgpath-${index}">${initSrc}</span></div>
+      </div>
+
+<div class="wc-actions">
+    <!-- 画像トグル用 -->
+	<button
+	  type="button"
+	  class="js-toggle"
+	  id="${toggleButtonId}"
+	  data-img-id="${imageId}"
+	  data-base="${esc(baseImg)}"
+	  data-specific="${esc(specificImg)}"
+	  data-index="${index}"
+	  aria-controls="${imageId}"
+	  aria-pressed="${initState === '2' ? 'true' : 'false'}"
+	  aria-label="『${esc(word.word)}』の画像を切り替え"
+	>美女で英単語を表現する</button>
+
+    <!-- 動画再生（ある場合だけ） -->
+    ${word.videoUrl ? `
+      <button
+        type="button"
+        class="js-play"
+        data-video="${esc(word.videoUrl)}"
+      >動画を見る</button>` : ``}
+
+    ${actionButton ? `<div style="margin-top:6px">${actionButton}</div>` : ""}
+  </div>
+	    `;
+    container.appendChild(div);
+  }); // ← ここが抜けてました！
+
+  renderPagination(words.length);
+}
+
+let _delegationReady = false;
+function setupWordDelegation(){
+  if (_delegationReady) return;
+  _delegationReady = true;
+
+  const root = document.getElementById("wordContainer");
+
+  root.addEventListener("click", (e) => {
+    const tgl = e.target.closest("button.js-toggle");
+    if (tgl) {
+      const { imgId, base, specific, index } = tgl.dataset;
+      handleToggleImage(imgId, tgl.id, base, specific, index);
+      return;
+    }
+	const play = e.target.closest("button.js-play");
+	if (play) {
+	  const url = safeSrc(play.dataset.video, { allowData:true, allowBlob:true });
+	  if (url) playVideo(url);
+	}
+  });
+
+  root.addEventListener("change", (e) => {
+    const cb = e.target.closest('input[type="checkbox"][data-word-id]');
+    if (!cb) return;
+    toggleStatus(cb.checked, Number(cb.dataset.wordId), cb.dataset.part);
   });
 }
-function selectPart(part){
-  const locked = ["part4","part5","part6","partHealing","musou"];
-  const isLocked = locked.includes(part);
-  if (!user.premium && isLocked && !isAdEnabled()){
-    Swal.fire({
-      title:"このパートは広告視聴が必要です",
-      html:`<p>広告を見れば<strong>5分間だけ開放</strong>されます。<br><span style="color:#e91e63;font-weight:bold;">🎀プレミアム会員</span>なら、<strong>無制限で開放</strong>されます。</p>`,
-      icon:"info", showCancelButton:true, showDenyButton:true,
-      confirmButtonText:"広告を見る", cancelButtonText:"やめる", denyButtonText:"🎀 300円で広告なし！美女めくり放題🎀"
-    }).then(r=>{
-      if (r.isConfirmed){ watchAdGlobal(); selectedPart = part; currentPart = parts.findIndex(p=>p.value===part)+1; currentPage=1; renderPartButtons(); loadWords(); }
-      else if (r.isDenied){ showPremiumPopup(); }
-    });
-  }else{
-    selectedPart = part; currentPart = parts.findIndex(p=>p.value===part)+1; currentPage=1;
-    renderPartButtons(); loadWords();
-  }
-}
-function changePart(partName){
-  currentPart = partName;
-  musouMode = (partName === '無双Part');
-  const uid = getUserIdFromQuery();
-  if (musouMode) goToPart(uid, "無双Part");
-  else { currentPage = 1; loadWords(); }
-}
-function goToPart(userId, partName){
-  location.href = `musou.html?userId=${userId}&part=${encodeURIComponent(partName)}`;
+
+// DOMContentLoaded 後 or renderWords() の直後に一回だけ
+document.addEventListener("DOMContentLoaded", setupWordDelegation);
+
+
+
+
+function toggleImage(imgId, btnId, img1, img2, index) {
+  const imgElem   = document.getElementById(imgId);
+  const pathLabel = document.getElementById(`imgpath-${index}`);
+  const btn       = document.getElementById(btnId);
+
+  // ← ここがポイント：renderWordsと同じキーを使う
+  const stateKey  = imgElem?.dataset?.key ||
+                    (imgElem?.dataset?.wordId ? `imgState:id:${imgElem.dataset.wordId}` : null);
+
+  const nextState = (imgElem.dataset.state === '2') ? '1' : '2';
+  const nextSrc   = (nextState === '2') ? img2 : img1;
+
+  const test = new Image();
+  test.onload = () => {
+    imgElem.src = nextSrc;
+    imgElem.dataset.state = nextState;
+    if (pathLabel) pathLabel.textContent = nextSrc;
+    if (btn) btn.setAttribute('aria-pressed', nextState === '2' ? 'true' : 'false');
+    if (stateKey) localStorage.setItem(stateKey, nextState);
+  };
+  test.onerror = () => {
+    imgElem.src = img1;
+    imgElem.dataset.state = '1';
+    if (pathLabel) pathLabel.textContent = img1;
+    if (btn) btn.setAttribute('aria-pressed', 'false');
+    if (stateKey) localStorage.setItem(stateKey, '1');
+  };
+  test.src = nextSrc;
 }
 
-/* =========================
-   単語取得・一覧・ページャ
-   ========================= */
-async function fetchWordsFromServer(userId, part){
-  try{
-    const res = await fetch(api(`/api/words?userId=${userId}&part=${part}`));
-    if(!res.ok) throw new Error();
-    const data = await res.json();
-    return data.map(w=>{
-      const s = w.status;
-      const learned = (s===true || s===1 || s==='1' || s==='true' || s==='LEARNED');
-      return {...w, status: !!learned};
-    });
-  }catch(e){
-    alert("単語の取得に失敗しました");
-    return [];
+function handleToggleImage(imgId, btnId, img1, img2, index) {
+  const proceed = () => toggleImage(imgId, btnId, img1, img2, index);
+
+  if (isPremium() || isAdEnabled()) { proceed(); return; }
+
+  // 6回に1回だけ広告を出す
+  const n = incBeautyClickCount(); // ← 既存ユーティリティを活用
+  if (n % AD_EVERY_TOGGLE === 0) {
+    showAdModalForToggle(proceed);
+  } else {
+    proceed();
   }
 }
 
-async function loadWords(){
-  const uid = getUserIdFromQuery();
-  words = await fetchWordsFromServer(uid, selectedPart);
-  currentPage = 1;
+function renderPagination(totalItems) {
+  const pageCount = Math.ceil(totalItems / pageSize);
+  const bottom = document.getElementById("pagination");
+  const containers = [bottom].filter(Boolean); // ← 上は使わない
+
+  containers.forEach(c => c.innerHTML = "");
+  if (pageCount <= 1) return;
+
+  const build = (wrap) => {
+    const makeBtn = (label, page, disabled = false, active = false) => {
+      const btn = document.createElement("button");
+      btn.textContent = label;
+      if (disabled) btn.disabled = true;
+      if (active) btn.classList.add("active");
+      btn.addEventListener("click", () => {
+        if (disabled || !page || page === currentPage) return;
+        const oldTop = wrap.getBoundingClientRect().top;
+        currentPage = page;
+        renderWords();
+        requestAnimationFrame(() => {
+          const newTop = wrap.getBoundingClientRect().top;
+          window.scrollBy(0, newTop - oldTop);
+        });
+      });
+      return btn;
+    };
+    const addPage = (n) => wrap.appendChild(makeBtn(String(n), n, false, n === currentPage));
+    const addDots = () => { const s=document.createElement("span"); s.className="ellipsis"; s.textContent="…"; wrap.appendChild(s); };
+
+    wrap.appendChild(makeBtn("‹", currentPage - 1, currentPage === 1));
+    if (pageCount <= 5) for (let i=1;i<=pageCount;i++) addPage(i);
+    else if (currentPage <= 3){ addPage(1);addPage(2);addPage(3);addDots();addPage(pageCount); }
+    else if (currentPage >= pageCount-2){ addPage(1);addDots();addPage(pageCount-2);addPage(pageCount-1);addPage(pageCount); }
+    else { addPage(1);addDots();addPage(currentPage-1);addPage(currentPage);addPage(currentPage+1);addDots();addPage(pageCount); }
+    wrap.appendChild(makeBtn("›", currentPage + 1, currentPage === pageCount));
+  };
+
+  containers.forEach(build);
+}
+
+
+// 置き換え
+async function loadWords() {
+  words = await fetchWordsFromServer(selectedPart);  // ← userIdを渡さない
   renderWords();
+
   updateStatusCount();
 
-  byId("loginDays").textContent = `学習日数: ${user.loginPoints || 0}日目`;
+  document.getElementById("loginDays").textContent =
+    `学習日数: ${user.loginPoints || 0}日目`;
+
   const correct = localStorage.getItem("test_correct") || 0;
-  const total   = localStorage.getItem("test_total") || 0;
-  byId("testStats").textContent = `正答数: ${correct} / ${total}問中`;
+  const total = localStorage.getItem("test_total") || 0;
+  document.getElementById("testStats").textContent = `正答数: ${correct} / ${total}問中`;
+
   await refreshUserStats();
 }
 
-function renderWords(){
-  const cont = byId("wordContainer");
-  cont.innerHTML = "";
 
-  const total = words.length;
-  const pageCount = Math.max(1, Math.ceil(total / pageSize));
-  if (currentPage > pageCount) currentPage = pageCount;
+function watchAdGlobal() {
+	  const now = Date.now();
+	  const expiry = now + 5 * 60 * 1000; // 5分間有効
+	  localStorage.setItem("ad_expiry", expiry.toString());
 
-  const start = (currentPage-1) * pageSize;
-  const pageWords = words.slice(start, start + pageSize);
+	  alert("広告視聴完了！");
+	  renderWords(); // ← ボタン表示を即時反映
+	}
+	
+function isAdEnabled() {
+	  const expiry = localStorage.getItem("ad_expiry");
+	  return expiry && Date.now() < parseInt(expiry);
+	}
 
-  pageWords.forEach((w, i)=>{
-    const idx = start + i;
-    const div = document.createElement('div');
-    div.className = 'word-card';
-    const checkboxId = `status-${w.id}`;
-    const imageId    = `img-${idx}`;
-    const baseImg = '/images/beauty.png';
-    const specificImg = `/images/${toSlugForImage(w.word)}_girl.png`;
-    div.innerHTML = `
-      <strong>${w.word}</strong>（${w.meaning}）<br>
-      ステータス:
-        <input type="checkbox" id="${checkboxId}" ${w.status?'checked':''}
-               onchange="toggleStatus(this.checked, ${w.id}, selectedPart)">
-        <span id="status-label-${w.id}">${w.status?'学習済み':'未学習'}</span>
-      <div>画像パス: <span id="imgpath-${idx}">${baseImg}</span></div>
-      <img id="${imageId}" src="${baseImg}" width="150" onerror="this.src='/images/beauty.png'"><br>
-      <button onclick="handleToggleImage('${imageId}','btn-${idx}','${baseImg}','${specificImg}','${idx}')">美女で英単語を表現する</button>
-    `;
-    cont.appendChild(div);
-  });
 
-  renderPagination(total);
+function unlockCasualSuit() {
+  alert("1000円で美女スーツ解放（仮）");
 }
 
-function renderPagination(totalItems){
-  const p = byId("pagination");
-  p.innerHTML = "";
-  const pageCount = Math.max(1, Math.ceil(totalItems / pageSize));
-
-  const mkBtn = (label, disabled, onClick) => {
-    const b = document.createElement('button');
-    b.textContent = label; b.disabled = disabled; b.onclick = onClick; return b;
+function playVideo(videoUrl) {
+  const url = safeSrc(videoUrl, { allowData:true, allowBlob:true });
+  if (!url) return;
+  const modal = document.getElementById("videoModal");
+  const player = document.getElementById("videoPlayer");
+  player.src = url;
+  modal.style.display = "flex";
+  const stop = e => e.stopPropagation();
+  player.addEventListener('click', stop);
+  modal.onclick = () => {
+    modal.style.display = "none";
+    player.pause();
+    player.currentTime = 0;
+	player.src = ""; // ★追加
+    player.removeEventListener('click', stop);
   };
-  p.appendChild(mkBtn("≪", currentPage===1, ()=>{ currentPage=1; renderWords(); }));
-  p.appendChild(mkBtn("＜", currentPage===1, ()=>{ currentPage=Math.max(1,currentPage-1); renderWords(); }));
-
-  for(let i=Math.max(1,currentPage-2); i<=Math.min(pageCount,currentPage+2); i++){
-    const b = mkBtn(String(i), false, ()=>{ currentPage=i; renderWords(); });
-    if (i===currentPage) b.style.fontWeight='bold';
-    p.appendChild(b);
-  }
-
-  p.appendChild(mkBtn("＞", currentPage===pageCount, ()=>{ currentPage=Math.min(pageCount,currentPage+1); renderWords(); }));
-  p.appendChild(mkBtn("≫", currentPage===pageCount, ()=>{ currentPage=pageCount; renderWords(); }));
-
-  const info = document.createElement('span');
-  info.className = 'page-info';
-  info.textContent = `ページ ${currentPage} / ${pageCount}（全${totalItems}件）`;
-  p.appendChild(info);
 }
 
-/* 画像トグル（広告導線） */
-let pendingToggle = null;
-function getBeautyClickCount(){ const n = parseInt(localStorage.getItem('beauty_clicks')||'0',10); return isNaN(n)?0:n; }
-function incBeautyClickCount(){ const n = getBeautyClickCount()+1; localStorage.setItem('beauty_clicks', String(n)); return n; }
-function resetBeautyClickCount(){ localStorage.setItem('beauty_clicks','0'); }
-function handleToggleImage(imgId, btnId, img1, img2, index){
-  const proceed = ()=>{
-    const img = byId(imgId);
-    const lab = byId(`imgpath-${index}`);
-    const cur = img.getAttribute('src');
-    if (cur===img1){ img.src=img2; lab.textContent=img2; } else { img.src=img1; lab.textContent=img1; }
+	
+// 置き換え
+function updateGirlVisual(level) {
+  const v = document.getElementById("girlVideo");
+  const bg = document.getElementById("bgEffect");
+  if (!v || !bg) return;
+
+  // srcは原則いじらない。空ならだけ初期値を入れる
+  if (!v.getAttribute('src')) {
+    v.src = '/videos/girl_idle_loop.mp4';
+  }
+  // 404時はCDNにフォールバック
+  v.onerror = () => {
+    v.onerror = null;
+    v.src =
+      'https://cdn.jsdelivr.net/gh/masahirotabata/bijyotan@master/src/main/resources/static/videos/girl_idle_loop.mp4';
   };
-  const total = incBeautyClickCount();
-  if (!user.premium && total % 6 === 0){ showAdModalForToggle(proceed); return; }
-  proceed();
-}
-function showAdModalForToggle(callback){ pendingToggle = callback; byId('adModal').style.display='flex'; }
-function handleAdAccept(){ watchAdGlobal(); closeAdModal(); if(typeof pendingToggle==='function'){ pendingToggle(); pendingToggle=null; } resetBeautyClickCount(); }
-function closeAdModal(){ byId('adModal').style.display='none'; pendingToggle=null; }
 
-/* =========================
-   学習状態更新
-   ========================= */
-function toggleStatus(isChecked, wordId, part){
-  const uid = getUserIdFromQuery();
-  fetch(api('/api/learning/update'), {
-    method:'PUT', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ userId: uid, wordId, status: isChecked, part })
-  }).then(res=>{
-    if(!res.ok){ alert('更新に失敗しました'); return; }
-    const w = words.find(x=>x.id===wordId);
-    if (w) w.status = isChecked;
-    const span = byId(`status-label-${wordId}`);
-    if (span) span.innerText = isChecked ? '学習済み' : '未学習';
-    updateStatusCount();
-  }).catch(()=> alert('通信エラーが発生しました'));
+  bg.className = level >= 20 ? "heart-bg" : "star-bg";
 }
 
-async function updateStatusCount(){
-  const uid = getUserIdFromQuery();
-  try{
-    const res = await fetch(api(`/api/learning/count?userId=${uid}&part=${selectedPart}`));
-    if(!res.ok) throw new Error();
-    const learnedCount = await res.json();
-    const totalCount = words.length;
-    byId("learningStatus").textContent = `学習済み: ${learnedCount} / 未学習: ${Math.max(0,totalCount-learnedCount)}`;
-  }catch{
-    byId("learningStatus").textContent = "学習状況の取得に失敗しました";
-  }
-}
 
-/* =========================
-   週次グラフ
-   ========================= */
-async function loadWeeklyAnswers(){
-  const uid = getUserIdFromQuery() || localStorage.getItem('userId') || 1;
-  try{
-    const res = await fetch(api(`/api/test/weekly?userId=${uid}`));
-    if(!res.ok) return;
-    const data = await res.json();
-    const max  = Math.max(1, ...data.map(d=>d.answers));
-    const bars = byId('weeklyBars'); const labels = byId('weeklyLabels');
-    bars.innerHTML = ''; labels.innerHTML = '';
-    data.forEach(d=>{
-      const h = Math.round((d.answers / max) * 120);
-      const wrap = document.createElement('div');
-      Object.assign(wrap.style, {flex:'1',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'flex-end'});
-      const num = document.createElement('div'); num.textContent=d.correct; Object.assign(num.style,{fontSize:'.8rem',color:'#e91e63',marginBottom:'4px'}); wrap.appendChild(num);
-      const bar = document.createElement('div'); bar.title=`正解:${d.correct} / 解答:${d.answers}`; Object.assign(bar.style,{width:'24px',height:`${h}px`,borderRadius:'8px',background:'linear-gradient(180deg,#ff7bbd,#ffb3d9)',boxShadow:'0 2px 6px rgba(0,0,0,.08)'}); wrap.appendChild(bar);
-      bars.appendChild(wrap);
-      const dd = new Date(d.ymd);
-      const lbl = document.createElement('div');
-      lbl.style.flex='1'; lbl.style.textAlign='center';
-      const mmdd = `${(dd.getMonth()+1).toString().padStart(2,'0')}/${dd.getDate().toString().padStart(2,'0')}`;
-      const youbi = ['日','月','火','水','木','金','土'][dd.getDay()];
-      lbl.innerHTML = `<div>${mmdd}</div><div style="opacity:.7">${youbi}</div>`;
-      labels.appendChild(lbl);
-    });
-  }catch(e){ console.warn('weekly chart load failed', e); }
-}
 
-/* =========================
-   ログインボーナス
-   ========================= */
-function showLoginBonus(points){
-  const grid = byId('stampGrid'); grid.innerHTML='';
-  const displayPoints = Math.max(points,1);
-  for(let i=1;i<=30;i++){
-    const cell = document.createElement('div');
-    Object.assign(cell.style,{width:'60px',height:'60px',border:'1px solid #999',display:'flex',justifyContent:'center',alignItems:'center',background:'#eee'});
-    if(i<=displayPoints){
-      const img = document.createElement('img');
-      Object.assign(img,{src:'/images/stamp_beauty.png',alt:'スタンプ'});
-      Object.assign(img.style,{width:'100%',height:'100%',objectFit:'cover',borderRadius:'50%',border:'2px solid pink'});
-      if(i===displayPoints) img.style.animation = 'pop .6s ease';
-      cell.appendChild(img);
-    }else{
-      const label = document.createElement('div'); label.textContent=`${i}日目`; label.style.fontSize='12px'; cell.appendChild(label);
-    }
-    grid.appendChild(cell);
-  }
-  byId('loginBonusPopup').style.display='block';
-}
-function closeLoginBonus(){ byId('loginBonusPopup').style.display='none'; }
-
-/* =========================
-   レベル演出・見た目
-   ========================= */
-function updateGirlVisual(level){
-  const video = byId("girlVideo");
-  const bg = byId("bgEffect");
-  video.src = "/videos/girl_idle_loop.mp4";
-  if (level >= 20) bg.className = "heart-bg";
-  else if (level >= 10) bg.className = "star-bg";
-  else bg.className = "normal-bg";
-}
-function getTitleByLevel(level){
-  if (level >= 20) return "ホットパンツの覇者";
-  if (level >= 15) return "セクシー学習王";
-  if (level >= 10) return "フリフリ美女マスター";
-  if (level >= 5)  return "Newbie";
-  return "ビギナー";
-}
-function showLevelUpPopup(newLevel){
-  const title = getTitleByLevel(newLevel);
-  Swal.fire({
-    title:'🎉 LEVEL UP！🎉',
-    html:`<p style="font-size: 20px;">新しいレベル: Lv.${newLevel}</p>
-          <div style="margin-top: 10px;">称号：<strong>${title}</strong></div>
-          <div class="slide-message" style="font-size: 18px; margin-top: 10px;">この調子で頑張ろう！</div>
-          <br><button id="shareButton" style="background:#1da1f2;color:white;padding:8px 12px;border:none;border-radius:5px;cursor:pointer;">SNSでシェアする</button>`,
-    showConfirmButton:false, timer:6000,
-    didOpen:()=>{ byId("shareButton").onclick = ()=>{ const shareText=`私は今レベル${newLevel}で「${title}」に到達しました！ #美女単`; const shareUrl=encodeURIComponent(location.origin); window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${shareUrl}`,'_blank'); }; }
-  });
-}
-
-/* =========================
-   テスト起動
-   ========================= */
-function startTest(){
-  const userId = getUserIdFromQuery();
-  if (localStorage.getItem("test_started")) alert("広告を見せる処理（仮）");
-  if (user.premium){
-    Swal.fire({
-      title:"テストモードを選んでね",
-      html:`<button id="readingBtn"  class="swal2-confirm swal2-styled" style="margin:5px;">📘 リーディング</button>
-            <button id="listeningBtn" class="swal2-confirm swal2-styled" style="background:#3949ab;margin:5px;">🎧 リスニング</button>`,
-      showConfirmButton:false,
-      didOpen:()=>{
-        byId("readingBtn").onclick  = ()=>{ localStorage.setItem("test_started","1"); location.href=`test.html?userId=${userId}&mode=reading`; };
-        byId("listeningBtn").onclick = ()=>{ localStorage.setItem("test_started","1"); location.href=`test.html?userId=${userId}&mode=listening`; };
-      }
-    });
-  }else{
-    Swal.fire({
-      title:"リスニングモードはプレミアム専用🎧",
-      html:`<p>今は <strong>リーディングモード</strong>のみご利用いただけます。</p><p>🎀 プレミアム登録で <strong>音声リスニングテスト</strong>も可能に！</p>`,
-      showCancelButton:true, confirmButtonText:"リーディングで始める", cancelButtonText:"プレミアムを見る",
-    }).then(r=>{
-      if (r.isConfirmed){ localStorage.setItem("test_started","1"); location.href=`test.html?userId=${userId}&mode=reading`; }
-      else if (r.dismiss === Swal.DismissReason.cancel){ showPremiumPopup(); }
-    });
-  }
-}
-function startVocabularyTest(){
-  const userId = getUserIdFromQuery();
-  if (localStorage.getItem("test_started")) alert("広告を見せる処理（仮）");
-  if (user.premium){
-    Swal.fire({
-      title:"テストモードを選んでね",
-      html:`<button id="readingBtn"  class="swal2-confirm swal2-styled" style="margin:5px;">📘 リーディング</button>
-            <button id="listeningBtn" class="swal2-confirm swal2-styled" style="background:#3949ab;margin:5px;">🎧 リスニング</button>`,
-      showConfirmButton:false,
-      didOpen:()=>{
-        byId("readingBtn").onclick  = ()=>{ localStorage.setItem("test_started","1"); location.href=`vocabularyTest.html?userId=${userId}&mode=reading`; };
-        byId("listeningBtn").onclick = ()=>{ localStorage.setItem("test_started","1"); location.href=`vocabularyTest.html?userId=${userId}&mode=listening`; };
-      }
-    });
-  }else{
-    Swal.fire({
-      title:"リスニングモードはプレミアム専用🎧",
-      html:`<p>今は <strong>リーディングモード</strong>のみご利用いただけます。</p><p>🎀 プレミアム登録で <strong>音声リスニングテスト</strong>も可能に！</p>`,
-      showCancelButton:true, confirmButtonText:"リーディングで始める", cancelButtonText:"プレミアムを見る",
-    }).then(r=>{
-      if (r.isConfirmed){ localStorage.setItem("test_started","1"); location.href=`vocabularyTest.html?userId=${userId}&mode=reading`; }
-      else if (r.dismiss === Swal.DismissReason.cancel){ showPremiumPopup(); }
-    });
-  }
-}
-
-/* テスト結果 URL 反映 + commit */
-async function applyTestParamsAndCommit(){
-  const sp = new URLSearchParams(location.search);
-  const from  = sp.get('from');
-  const score = parseInt(sp.get('score')||'0',10);
-  const total = parseInt(sp.get('total')||'0',10);
-  const userId = getUserIdFromQuery() || 1;
-  const mode = 'sentence';
-  if (from!=='test' || !total) return;
-  const stat = byId("testStats");
-  if (stat) stat.textContent = `正答数: ${score} / ${total}問中`;
-
-  const localKey = `localTotalCorrect:${userId}`;
-  const prevLocal = parseInt(localStorage.getItem(localKey)||'0',10);
-  const nextLocal = prevLocal + score;
-  localStorage.setItem(localKey, String(nextLocal));
-  for (let lv=Math.floor(prevLocal/10)+1; lv<=Math.floor(nextLocal/10); lv++) showLevelUpPopup(lv);
-
-  const committedKey = `committed:${userId}:${mode}:${score}/${total}`;
-  if (sessionStorage.getItem(committedKey)==='1') return;
-  try{
-    const r = await fetch(api('/api/test/commit'), {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ userId, mode, correct: score, total })
-    });
-    if(r.ok) sessionStorage.setItem(committedKey,'1');
-  }catch{}
-}
-
-/* =========================
-   累計・レベル同期
-   ========================= */
-async function refreshUserStats(){
-  const uid = getUserIdFromQuery() || localStorage.getItem('userId') || 1;
-  try{
-    const res = await fetch(api(`/user/${uid}`));
-    if (res.ok){
-      const u = await res.json();
-      const days = (typeof u.loginPoints === 'number') ? u.loginPoints : 0;
-      byId("loginDays").textContent = `学習日数: ${days}日目`;
-      const totalCorrect = Number(u.testCorrectTotal ?? 0);
-      byId("testStats").textContent = `正答数（累計）: ${totalCorrect}`;
-      const newLevel = Math.max(1, Math.floor(totalCorrect/10)+1);
-      const curLevel = Number(u.level ?? 1);
-      if (curLevel !== newLevel){
-        try{
-          const r = await fetch(api(`/user/updateLevel`), {
-            method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: uid, level: newLevel })
-          });
-          if (r.ok){ const jj = await r.json().catch(()=>({})); u.level = Number(jj.level ?? newLevel); }
-          else { u.level = newLevel; }
-        }catch{ u.level = newLevel; }
-      }
-      const lv = Number(u.level ?? 1);
-      byId("userLevel").textContent = `レベル: Lv.${lv}`;
-      updateGirlVisual(lv);
-
-      const prev = parseInt(localStorage.getItem('previousCorrect')||'0',10);
-      const prevLv = Math.floor(prev/10), newLv = Math.floor(totalCorrect/10);
-      if (newLv > prevLv){ for(let x=prevLv+1; x<=newLv; x++) showLevelUpPopup(x); }
-      localStorage.setItem('previousCorrect', String(totalCorrect));
+function toggleStatus(isChecked, wordId, part) {
+  apiFetch('/api/learning/update', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    // userId は送らない（サーバでセッション認可）
+    body: JSON.stringify({ wordId, status: isChecked, part })
+  })
+  .then(response => {
+    if (!response.ok) {
+      alert("更新に失敗しました");
       return;
     }
-  }catch{}
-  // フォールバック（直近7日 学習日数）
-  try{
-    const r2 = await fetch(api(`/api/test/weekly?userId=${uid}`));
-    if (r2.ok){
-      const w = await r2.json();
-      const days = w.filter(d=>d.answers>0).length;
-      byId("loginDays").textContent = `学習日数(直近7日): ${days}日`;
+
+    // 成功時のみフロント状態を反映
+    const w = words.find(w => String(w.id) === String(wordId));  // ← 文字列比較に
+    if (w) {
+      w.status = isChecked;
+      const statusSpan = document.getElementById(`status-label-${wordId}`);
+      if (statusSpan) {
+        statusSpan.innerText = isChecked ? "学習済み" : "未学習";
+      }
     }
-  }catch{}
-}
 
-/* =========================
-   広告処理
-   ========================= */
-function watchAdGlobal(){
-  const expiry = Date.now() + 5*60*1000;
-  localStorage.setItem("ad_expiry", String(expiry));
-  alert("広告視聴完了！");
-  renderWords();
-}
-function isAdEnabled(){
-  const s = localStorage.getItem("ad_expiry");
-  return s && Date.now() < parseInt(s,10);
-}
-
-/* =========================
-   プレミアム案内
-   ========================= */
-function showPremiumPopup(){
-  Swal.fire({
-    title:'🎀 美女単プレミアムプラン 🎀',
-    html:`<div style="text-align:left; font-size:.95rem;">
-      <p>全モード解放＆広告なしの贅沢体験</p>
-      <ul style="line-height:1.6;">
-        <li>✔ リスニングモード解放</li>
-        <li>✔ テスト回数無制限＆成績履歴も保存</li>
-      </ul>
-      <p style="font-weight:bold; font-size:1.1rem;">💰 月額500円（税込）</p>
-      <p style="color:red;">✨ 今だけ初月300円キャンペーン中 ✨</p>
-      <small>SNSでシェアすると1週間無料体験🎁</small>
-    </div>`,
-    showCancelButton:true,
-    confirmButtonText:"プレミアムに登録する",
-    cancelButtonText:"あとで見る",
-    customClass:{ popup:'premium-popup', confirmButton:'btn-premium' }
-  }).then(r=>{ if(r.isConfirmed) location.href="/premium.html"; });
-}
-
-/* =========================
-   動画モーダル
-   ========================= */
-function playVideo(url){
-  const m = byId("videoModal"), v = byId("videoPlayer");
-  v.src = url; m.style.display='flex';
-  m.onclick = ()=>{ m.style.display='none'; v.pause(); v.currentTime=0; };
-}
-
-/* =========================
-   スワイプ学習
-   ========================= */
-function swipeTodayKey(userId){
-  const d = new Date();
-  const ymd = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  return `swipeExcluded:${userId}:${ymd}`;
-}
-function todayKey(type){
-  const d = new Date();
-  const ymd = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  return `swipe:${type}:${getUserId()}:${ymd}`;
-}
-function getTodaySet(type){ const raw = localStorage.getItem(todayKey(type)); return new Set(raw ? JSON.parse(raw) : []); }
-function addTodaySet(type, wordId){ const s = getTodaySet(type); s.add(wordId); localStorage.setItem(todayKey(type), JSON.stringify([...s])); }
-function getSwipeExcludedSet(userId){ const raw = localStorage.getItem(swipeTodayKey(userId)); return new Set(raw ? JSON.parse(raw) : []); }
-function addToSwipeExcluded(userId, wordId){ const key = swipeTodayKey(userId); const s = getSwipeExcludedSet(userId); s.add(wordId); localStorage.setItem(key, JSON.stringify([...s])); }
-
-function setSwipeModeVisible(show){
-  toggleHidden('swipeModeBox', !show);
-  toggleHidden('wordContainer', show);
-  toggleHidden('pagination', show);
-  toggleHidden('test-section', show);
-  toggleHidden('weeklyAnswersBox', show);
-}
-function toggleHidden(id, hidden){ byId(id).classList.toggle('hidden', hidden); }
-
-function startSwipeMode(partValue = selectedPart){
-  selectedPart = partValue;
-  const locked = ["part4", "part5", "part6", "partHealing", "musou"];
-  if(!user.premium && locked.includes(selectedPart) && !isAdEnabled()){ showPremiumPopup(); return; }
-  Swal.fire({
-    title:"美女スワイプ学習🎀",
-    html:"学習開始前と終了時に広告が表示されます（計2回）<br>美女と一緒に楽しく学習しましょう！",
-    icon:"info", confirmButtonText:"広告を見る", confirmButtonColor:"#e91e63", allowOutsideClick:false
-  }).then(()=>{ watchAdGlobal(); showSwipeModeSelection(); });
-}
-function showSwipeModeSelection(){
-  Swal.fire({
-    title:"モードを選んでね",
-    html:`<div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">
-      <button id="btnUnlearned" class="swal2-confirm swal2-styled">未学習を覚える</button>
-      <button id="btnReview"   class="swal2-confirm swal2-styled" style="background:#3949ab">復習チェック</button>
-    </div>`,
-    showConfirmButton:false,
-    didOpen:()=>{
-      byId("btnUnlearned").onclick = ()=>{ currentSwipeMode="unlearned"; Swal.close(); initSwipeMode("unlearned"); };
-      byId("btnReview").onclick   = ()=>{ currentSwipeMode="review";    Swal.close(); initSwipeMode("review"); };
-    }
+    updateStatusCount();
+  })
+  .catch(err => {
+    console.error(err);
+    alert("通信エラーが発生しました");
   });
 }
-function shuffle(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
 
-async function buildSwipeDeck(mode="unlearned"){
-  const uid = getUserIdFromQuery() || getUserId();
-  const excluded = getSwipeExcludedSet(uid);
-  const allUnlearned = words.filter(w=>!w.status);
-  const allLearned   = words.filter(w=> w.status);
-  let unlearned = allUnlearned.filter(w=>!excluded.has(w.id));
-  let learned   = allLearned.filter(w=>!excluded.has(w.id));
-  if (mode==="review" && learned.length===0 && allLearned.length>0) learned = allLearned.slice();
-  shuffle(unlearned); shuffle(learned);
-  if (mode==="unlearned") return shuffle(unlearned.slice(0,10));
-  if (mode==="review")    return shuffle(learned.slice(0,10));
-  return shuffle([ ...unlearned.slice(0,25), ...learned.slice(0,5) ]);
+
+function getSwipeExcludedSet(userId){
+  const raw = localStorage.getItem(swipeTodayKey(userId));
+  return new Set(raw ? JSON.parse(raw) : []); // ["123","456"]
 }
 
-async function initSwipeMode(mode="unlearned"){
+function addToSwipeExcluded(userId, wordId){
+  const key = swipeTodayKey(userId);
+  const set = getSwipeExcludedSet(userId);
+  set.add(String(wordId));
+  localStorage.setItem(key, JSON.stringify([...set]));
+}
+
+// 学習済み件数
+async function updateStatusCount() {
+  const uid = getUserIdFromQuery() || getUserId();
+  const urls = [
+    `/api/learning/count?part=${encodeURIComponent(selectedPart)}&userId=${encodeURIComponent(uid)}`,
+    `/learning/count?part=${encodeURIComponent(selectedPart)}&userId=${encodeURIComponent(uid)}`,
+    `/api/learning/count?part=${encodeURIComponent(selectedPart)}`,
+    `/learning/count?part=${encodeURIComponent(selectedPart)}`
+  ];
+
+  for (const url of urls) {
+    try {
+      const res = await apiFetch(url);
+      if (!res.ok) continue;
+      const n = Number(await res.json());
+      const learned = Number.isFinite(n) ? n : 0;
+      const total = words.length;
+      document.getElementById("learningStatus").textContent =
+        `学習済み: ${learned} / 未学習: ${Math.max(0, total - learned)}`;
+      return;
+    } catch {}
+  }
+  document.getElementById("learningStatus").textContent = "学習状況の取得に失敗しました";
+}
+
+async function loadWeeklyAnswers(){
+  const uid = getUserIdFromQuery() || getUserId();
+  if (!uid) return;
+
+  const candidates = [
+    `/api/test/weekly?userId=${encodeURIComponent(uid)}`,
+    `/api/test/weekly` // フォールバック
+  ];
+
+  for (const url of candidates) {
+    try {
+      const res = await apiFetch(url);
+      const ct = (res.headers.get('content-type') || '').toLowerCase();
+      if (!res.ok || !ct.includes('application/json')) continue;
+
+      let data = await res.json();
+      if (!Array.isArray(data) || data.length === 0) {
+        document.getElementById('weeklyBars').innerHTML = '';
+        document.getElementById('weeklyLabels').innerHTML = '';
+        return;
+      }
+
+      data = data.slice().sort((a,b)=> new Date(a.ymd) - new Date(b.ymd));
+
+      const barsEl   = document.getElementById('weeklyBars');
+      const labelsEl = document.getElementById('weeklyLabels');
+      barsEl.innerHTML = ''; labelsEl.innerHTML = '';
+
+      const maxAnswers = Math.max(1, ...data.map(d => Number(d.answers || 0)));
+      const scaleH = 130;
+
+      data.forEach(d => {
+        const answers = Number(d.answers || 0);
+        const correct = Number(d.correct || 0);
+        const h = Math.max(answers === 0 ? 6 : Math.round((answers / maxAnswers) * scaleH), 6);
+
+        const col = document.createElement('div');
+        col.className = 'weekly-day';
+
+        const num = document.createElement('div');
+        num.className = 'weekly-num';
+        num.textContent = String(correct);
+        col.appendChild(num);
+
+        const bar = document.createElement('div');
+        bar.className = 'weekly-bar';
+        bar.style.height = `${h}px`;
+        bar.title = `正解: ${correct} / 解答: ${answers}`;
+        col.appendChild(bar);
+        barsEl.appendChild(col);
+
+        const dt = new Date(d.ymd);
+        const mm = String(dt.getMonth()+1).padStart(2,'0');
+        const dd = String(dt.getDate()).padStart(2,'0');
+        const youbi = ['日','月','火','水','木','金','土'][dt.getDay()];
+        const lab = document.createElement('div');
+        lab.className = 'weekly-label';
+        lab.innerHTML = `<div>${mm}/${dd}</div><div style="opacity:.75">${youbi}</div>`;
+        labelsEl.appendChild(lab);
+      });
+      return;
+    } catch {}
+  }
+  console.warn('weekly endpoint returned non-JSON, skip');
+}
+
+// フォーカストラップ
+function trapFocus(modal){
+  const SEL = 'a,button,input,select,textarea,[tabindex]:not([tabindex="-1"])';
+  const getNodes = ()=> Array.from(modal.querySelectorAll(SEL)).filter(el=>!el.disabled && el.offsetParent!==null);
+  function onKeydown(e){
+    if (e.key !== 'Tab') return;
+    const nodes = getNodes(); if (!nodes.length) return;
+    const first = nodes[0], last = nodes[nodes.length-1];
+    if (e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+  }
+  modal.addEventListener('keydown', onKeydown);
+  return ()=> modal.removeEventListener('keydown', onKeydown);
+}
+
+// 例：ログインボーナス
+let removeTrapLoginBonus = null;
+function showLoginBonus(points){
+  const title = document.getElementById('loginBonusTitle');
+  const grid  = document.getElementById('stampGrid');
+  title.textContent = 'ログインボーナス（学習日数: ' + points + '日目）';
+  grid.innerHTML = '';
+  for (let i=1;i<=7;i++){
+    const cell = document.createElement('div');
+    cell.style.cssText = 'aspect-ratio:1/1;border:1px dashed #f48fb1;border-radius:8px;display:flex;align-items:center;justify-content:center;';
+    cell.textContent = (i <= (points%7||7)) ? '✅' : '—';
+    grid.appendChild(cell);
+  }
+  const popup = document.getElementById('loginBonusPopup');
+  popup.style.display = 'flex';
+  popup.style.flexDirection = 'column';
+  popup.setAttribute('role','dialog');
+  popup.setAttribute('aria-modal','true');
+  popup.setAttribute('aria-labelledby','loginBonusTitle');
+  removeTrapLoginBonus = trapFocus(popup);
+  document.body.classList.add('modal-open');
+}
+	
+function closeLoginBonus(){
+  const popup = document.getElementById('loginBonusPopup');
+  popup.style.display = 'none';
+  removeTrapLoginBonus?.();
+  document.body.classList.remove('modal-open');
+}
+
+
+	
+function getTitleByLevel(level) {
+		  if (level >= 20) return "ホットパンツの覇者";
+		  if (level >= 15) return "セクシー学習王";
+		  if (level >= 10) return "フリフリ美女マスター";
+		  if (level >= 5) return "Newbie";
+		  return "ビギナー";
+}
+	
+function showPremiumPopup() {
+  Swal.fire({
+    title: '🎀 美女単プレミアムプラン 🎀',
+    html: `
+      <div style="text-align:left; font-size: 0.95rem;">
+        <p>全モード解放＆広告なしの贅沢体験</p>
+        <ul style="line-height:1.6;">
+          <li>✔ リスニングモード解放</li>
+          <li>✔ テスト回数無制限＆成績履歴も保存</li>
+        </ul>
+        <p style="font-weight:bold; font-size:1.1rem;">💰 月額300円（税込）</p>
+        <p style="color:red;">✨ 今だけ初月100円キャンペーン中 ✨</p>
+        <small>SNSでシェアすると1週間無料体験🎁</small>
+      </div>
+    `,
+    showCancelButton: true,
+    confirmButtonText: "プレミアムに登録する",
+    cancelButtonText: "あとで見る",
+    allowOutsideClick: false,
+    customClass: { popup: 'premium-popup', confirmButton: 'btn-premium' }
+  }).then(async ({ isConfirmed }) => {
+    if (!isConfirmed) return;
+
+    try {
+      const r = await apiFetch('/api/payment/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const ct = r.headers.get('content-type') || '';
+      const data = ct.includes('application/json') ? await r.json() : null;
+		const url = data?.checkoutUrl || data?.url;
+		if (!/^https?:\/\//.test(url)) throw new Error('bad url');
+			location.assign(url); // ← これだけでOK
+	    } catch (e) {
+	      console.error('checkout failed:', e);
+	      window.location.href = '/premium.html';
+	    }
+	  });
+}
+	
+function startTest() {
+		  const userId = getUserId();  
+		  const testCount = localStorage.getItem("test_started");
+
+		  if (testCount) {
+		    alert("広告を見せる処理（仮）");
+		  }
+
+		  if (isPremium()) {
+		    // プレミアムユーザーはモード選択可能
+		    Swal.fire({
+		      title: "テストモードを選んでね",
+		      html: `
+		        <button id="readingBtn" class="swal2-confirm swal2-styled" style="margin: 5px;">📘 リーディング</button>
+		        <button id="listeningBtn" class="swal2-confirm swal2-styled" style="background:#3949ab;margin: 5px;">🎧 リスニング</button>
+		      `,
+		      showConfirmButton: false,
+		      didOpen: () => {
+		        document.getElementById("readingBtn").addEventListener("click", () => {
+		          localStorage.setItem("test_started", "1");
+		          window.location.href = `test.html?userId=${userId}&mode=reading`;
+		        });
+		        document.getElementById("listeningBtn").addEventListener("click", () => {
+		          localStorage.setItem("test_started", "1");
+		          window.location.href = `test.html?userId=${userId}&mode=listening`;
+		        });
+		      }
+		    });
+		  } else {
+		    // 無料ユーザーはリーディングのみ（広告付き）
+		    Swal.fire({
+		      title: "リスニングモードはプレミアム専用🎧",
+		      html: `
+		        <p>今は <strong>リーディングモード</strong>のみご利用いただけます。</p>
+		        <p>🎀 プレミアム登録で <strong>音声リスニングテスト</strong>も可能に！</p>
+		      `,
+		      showCancelButton: true,
+		      confirmButtonText: "リーディングで始める",
+		      cancelButtonText: "プレミアムを見る",
+		    }).then(result => {
+		      if (result.isConfirmed) {
+		        localStorage.setItem("test_started", "1");
+		        window.location.href = `test.html?userId=${userId}&mode=reading`;
+		      } else if (result.dismiss === Swal.DismissReason.cancel) {
+		        showPremiumPopup(); // プレミアム案内を表示
+		      }
+		    });
+		  }
+		}
+	
+	function startVocabularyTest() {
+		  const userId = getUserId();
+		  const testCount = localStorage.getItem("test_started");
+
+		  if (testCount) {
+		    alert("広告を見せる処理（仮）");
+		  }
+
+		  if (isPremium()) {
+		    // プレミアムユーザーはモード選択可能
+		    Swal.fire({
+		      title: "テストモードを選んでね",
+		      html: `
+		        <button id="readingBtn" class="swal2-confirm swal2-styled" style="margin: 5px;">📘 リーディング</button>
+		        <button id="listeningBtn" class="swal2-confirm swal2-styled" style="background:#3949ab;margin: 5px;">🎧 リスニング</button>
+		      `,
+		      showConfirmButton: false,
+		      didOpen: () => {
+		        document.getElementById("readingBtn").addEventListener("click", () => {
+		          localStorage.setItem("test_started", "1");
+		          window.location.href = `vocabularyTest.html?userId=${userId}&mode=reading`;
+		        });
+		        document.getElementById("listeningBtn").addEventListener("click", () => {
+		          localStorage.setItem("test_started", "1");
+		          window.location.href = `vocabularyTest.html?userId=${userId}&mode=listening`;
+		        });
+		      }
+		    });
+		  } else {
+		    // 無料ユーザーはリーディングのみ（広告付き）
+		    Swal.fire({
+		      title: "リスニングモードはプレミアム専用🎧",
+		      html: `
+		        <p>今は <strong>リーディングモード</strong>のみご利用いただけます。</p>
+		        <p>🎀 プレミアム登録で <strong>音声リスニングテスト</strong>も可能に！</p>
+		      `,
+		      showCancelButton: true,
+		      confirmButtonText: "リーディングで始める",
+		      cancelButtonText: "プレミアムを見る",
+		    }).then(result => {
+		      if (result.isConfirmed) {
+		        localStorage.setItem("test_started", "1");
+		        window.location.href = `vocabularyTest.html?userId=${userId}&mode=reading`;
+		      } else if (result.dismiss === Swal.DismissReason.cancel) {
+		        showPremiumPopup(); // プレミアム案内を表示
+		      }
+		    });
+		  }
+		}
+// 累計正答と学習日数を /user/me から更新。
+// loginPoints がなければ /api/test/weekly から直近7日の学習日数相当を表示。
+let _statsRetry = 0;
+// 累計正答と学習日数を /user/me から更新。
+// loginPoints がなければ /api/test/weekly から直近7日の学習日数相当を表示。
+// 置き換え：/api/me 優先＋フォールバック
+async function refreshUserStats() {
+  const candidates = ['/api/me', '/user/me', '/api/user/me'];
+  let u = null;
+
+  for (const url of candidates) {
+    try { u = await fetchJSON(url); break; } catch { /* 次の候補へ */ }
+  }
+
+  if (u) {
+    // 学習日数
+    const days = (typeof u.loginPoints === 'number') ? u.loginPoints : 0;
+    const loginDaysEl = document.getElementById("loginDays");
+    if (loginDaysEl) loginDaysEl.textContent = `学習日数: ${days}日目`;
+
+    // 累計正答 → レベル更新
+    const totalCorrect = Number(u.testCorrectTotal ?? 0);
+    const testStatsEl = document.getElementById("testStats");
+    if (testStatsEl) testStatsEl.textContent = `正答数（累計）: ${totalCorrect}`;
+
+    const newLevel = Math.max(1, Math.floor(totalCorrect / 10) + 1);
+    const currentLevel = Number(u.level ?? 1);
+    if (currentLevel !== newLevel) {
+      try {
+        const r = await apiFetch(`/api/user/updateLevel`, {  // ← /api に統一
+          method:'PUT',
+          headers:{ 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: getUserId(), level: newLevel })
+        });
+        if (r.ok) {
+          const j = await r.json().catch(()=>({}));
+          u.level = Number(j.level ?? newLevel);
+        } else {
+          u.level = newLevel;
+        }
+      } catch {
+        u.level = newLevel;
+      }
+    }
+    const levelEl = document.getElementById("userLevel");
+    const lv = Number(u.level ?? 1);
+    if (levelEl) levelEl.textContent = `レベル: Lv.${lv}`;
+    updateGirlVisual(lv);
+
+    // レベル演出（前回との差分）
+    const prev = parseInt(localStorage.getItem('previousCorrect') || '0', 10);
+    const prevLv = Math.floor(prev / 10);
+    const newLv  = Math.floor(totalCorrect / 10);
+    if (newLv > prevLv) {
+      for (let lv2 = prevLv + 1; lv2 <= newLv; lv2++) showLevelUpPopup(lv2);
+    }
+    localStorage.setItem('previousCorrect', String(totalCorrect));
+    return;
+  }
+
+  // フォールバック：直近7日の学習日数相当
+  try {
+    const r2 = await apiFetch('/api/test/weekly');
+    const ct = r2.headers.get('content-type') || '';
+    if (r2.ok && ct.includes('application/json')) {
+      const w = await r2.json();
+      const days = Array.isArray(w) ? w.filter(d => (d.answers ?? 0) > 0).length : 0;
+      const loginDaysEl = document.getElementById("loginDays");
+      if (loginDaysEl) loginDaysEl.textContent = `学習日数(直近7日): ${days}日`;
+    }
+  } catch {}
+}
+	
+async function setUserPremium(userId) {
+  try {
+    const res = await apiFetch(`/api/user/updatePremium`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId })
+    });
+    if (!res.ok) throw new Error("更新に失敗");
+    console.log("✅ プレミアム状態をDBに反映しました");
+  } catch (err) {
+    console.error("❌ プレミアム設定失敗:", err);
+  }
+}
+
+	
+	// ===== スワイプ学習モード =====
+	let swipeWords = [];      // 今のパートの単語配列（スワイプ用）
+	let swipeIndex = 0;       // 先頭から何枚目か
+	let swipeLearned = 0;     // このセッションで「覚えた」にした数
+	let swipeUnlearned = 0;   // このセッションで「覚えてない」にした数
+	let swipeDrag = null;     // {startX, startY, el}
+	// 既存のスワイプ用変数の近くに追加
+	let currentSwipeMode = "unlearned"; // 'unlearned' or 'review'
+	const SWIPE_THRESHOLD = 80; // 何px以上で確定とみなす
+	
+	// 🔸 今日の日付キー
+	function swipeTodayKey(userId){
+	  const d = new Date();
+	  const ymd = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+	  return `swipeExcluded:${userId}:${ymd}`;   // 例: swipeExcluded:1:2025-08-24
+	}
+	
+	function todayKey(type){
+		  const d = new Date();
+		  const ymd = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+		  return `swipe:${type}:${getUserId()}:${ymd}`;
+		}
+
+		function getTodaySet(type){
+		  const raw = localStorage.getItem(todayKey(type));
+		  return new Set(raw ? JSON.parse(raw) : []);
+		}
+
+		function addTodaySet(type, wordId){
+		  const set = getTodaySet(type);
+		  set.add(wordId);
+		  localStorage.setItem(todayKey(type), JSON.stringify([...set]));
+		}
+	
+function setSwipeModeVisible(show){
+  const box = document.getElementById('swipeModeBox');
+  box.classList.toggle('hidden', !show);
+
+  // 一覧系を隠す/戻す（既存）
+  document.getElementById('wordContainer').classList.toggle('hidden', show);
+  document.getElementById('pagination').classList.toggle('hidden', show);
+  document.getElementById('test-section').classList.toggle('hidden', show);
+  document.getElementById('weeklyAnswersBox').classList.toggle('hidden', show);
+
+  document.querySelectorAll('button:not([type])').forEach(b => b.type = 'button');
+
+  // ★ スマホだけ全画面
+  const isMobile = window.matchMedia('(max-width:480px)').matches;
+  if (show && isMobile){
+    box.classList.add('fullscreen');
+    document.body.classList.add('swipe-open');
+    requestAnimationFrame(resizeSwipeDeck); // 後述
+  }else{
+    box.classList.remove('fullscreen');
+    document.body.classList.remove('swipe-open');
+  }
+  ['partButtons','partPagination'].forEach(id=>{
+  document.getElementById(id)?.classList.toggle('hidden', show);
+});
+}
+
+function resizeSwipeDeck(){
+  const box = document.getElementById('swipeModeBox');
+  const deck = document.getElementById('swipeDeck');
+  if (!box || !deck) return;
+  // グリッドで1frにしているので明示指定は不要だが、
+  // iOSの一部で高さが足りなく見える時の保険として最低高さだけ与える
+  const h = Math.max(320, box.clientHeight - 96); // だいたいHUD+ヒントぶん
+  deck.style.minHeight = h + 'px';
+}
+window.addEventListener('resize', () => {
+  if (!document.getElementById('swipeModeBox').classList.contains('hidden')) {
+    resizeSwipeDeck();
+  }
+});
+
+
+
+	// ✅ スワイプ学習開始時：最初に広告 → 終了後モード選択
+	function startSwipeMode(partValue = selectedPart){
+	  placeSwipeBoxAboveStartButton();   // ← 追加
+	  selectedPart = partValue;
+
+	  const lockedParts = ["part4", "part5", "part6", "partHealing", "musou"];
+	  const isLocked = lockedParts.includes(selectedPart);
+	  const premium = isPremium();
+  const htmlMsg = premium
+    ? "プレミアムのため広告は表示されません。<br>学習を始めます！"
+    : "学習開始前と終了時に広告が表示されます（計2回）<br>美女と一緒に楽しく学習しましょう！";
+
+  Swal.fire({
+    title: "美女スワイプ学習🎀",
+    html: htmlMsg,
+    icon: "info",
+    confirmButtonText: premium ? "学習を始める" : "広告を見る",
+    confirmButtonColor: "#e91e63",
+    allowOutsideClick: false
+  }).then(() => {
+    if (!premium) watchAdGlobal();
+    showSwipeModeSelection();
+  });
+}
+
+	// ✅ モード選択ダイアログ（分離して使いやすく）
+	function showSwipeModeSelection() {
+	  Swal.fire({
+	    title: "モードを選んでね",
+	    html: `
+	      <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">
+	        <button id="btnUnlearned" class="swal2-confirm swal2-styled">未学習を覚える</button>
+	        <button id="btnReview" class="swal2-confirm swal2-styled" style="background:#3949ab">復習チェック</button>
+	      </div>
+	    `,
+	    showConfirmButton: false,
+	    didOpen: () => {
+	      document.getElementById("btnUnlearned").onclick = () => {
+	        currentSwipeMode = "unlearned";
+	        Swal.close();
+	        initSwipeMode("unlearned");
+	      };
+	      document.getElementById("btnReview").onclick = () => {
+	        currentSwipeMode = "review";
+	        Swal.close();
+	        initSwipeMode("review");
+	      };
+	    }
+	  });
+	}
+
+function scrollToSwipeTop(){
+  const box = document.getElementById('swipeModeBox');
+  if (!box) return;
+  box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* A) 横方向のタッチ移動は既定動作を止める（iOS対策） */
+function preventIOSBackSwipe(){
+  const deck = document.getElementById('swipeDeck');
+  if (!deck || deck._iosGuardInstalled) return;
+  let sx = 0, sy = 0;
+  deck.addEventListener('touchstart', e => {
+    const t = e.touches && e.touches[0];
+    if (!t) return;
+    sx = t.clientX; sy = t.clientY;
+  }, {passive:true});
+  deck.addEventListener('touchmove', e => {
+    const t = e.touches && e.touches[0];
+    if (!t) return;
+    const dx = Math.abs(t.clientX - sx);
+    const dy = Math.abs(t.clientY - sy);
+    if (dx > dy && dx > 8) {
+      // 横方向の操作っぽい時だけ既定動作をキャンセル
+      e.preventDefault();
+    }
+  }, {passive:false});
+  deck._iosGuardInstalled = true;
+}
+
+/* B) スワイプ中だけ“戻るジェスチャー”を捕まえて一覧に戻す */
+// これを1箇所に集約
+let _ignoreNextPop = false;
+let _backGuardHandler = null;
+
+function enableSwipeBackGuard() {
+  if (_backGuardHandler) return;
+  history.pushState({ swipe: 'on' }, '');
+  _backGuardHandler = () => {
+    // ← 追加の pushState はしない
+    exitSwipeMode(true); // fromBack = true
+  };
+  window.addEventListener('popstate', _backGuardHandler);
+}
+
+function disableSwipeBackGuard() {
+  if (!_backGuardHandler) return;
+  window.removeEventListener('popstate', _backGuardHandler);
+  _backGuardHandler = null;
+}
+
+function exitSwipeMode(fromBack = false) {
+  setSwipeModeVisible(false);
+  renderWords();
+  updateStatusCount();
+  disableSwipeBackGuard();
+  if (!isPremium()) watchAdGlobal();
+
+  // ← 「一覧に戻る」ボタン等で閉じたときだけ、ガード分の1つを戻す
+  if (!fromBack) history.back();
+}
+	
+async function initSwipeMode(mode = "unlearned"){
   currentSwipeMode = mode;
   setSwipeModeVisible(true);
-  const uid = getUserIdFromQuery() || 1;
-  if (!Array.isArray(words) || words.length===0) words = await fetchWordsFromServer(uid, selectedPart);
+  showSwipeHowToIfNeeded(); // setSwipeModeVisible(true) の直後など
+  requestAnimationFrame(scrollToSwipeTop);  // ← 追加
+
+  const userId = getUserIdFromQuery() || getUserId();
+	// 該当部分のみ置き換え
+	if (!Array.isArray(words) || words.length === 0) {
+	  words = await fetchWordsFromServer(selectedPart); // ← userIdを渡さない
+	}
   swipeWords = await buildSwipeDeck(mode);
-  if (swipeWords.length===0){
-    Swal.fire({icon:'info', title:(mode==='review'?'今日は復習用の単語が見つかりませんでした':'今日は出題する未学習がありません'), text:'パート変更や明日またチャレンジしてね！'});
-    setSwipeModeVisible(false); return;
+  if (swipeWords.length === 0) {
+    Swal.fire({icon:'info', title:(mode==="review"?"今日は復習がありません":"今日は未学習がありません")});
+    setSwipeModeVisible(false);
+    return;
   }
   swipeIndex = 0; swipeLearned = 0; swipeUnlearned = 0;
   await renderSwipeDeck();
   updateSwipeHUD();
-  byId('swipeExitBtn').onclick = exitSwipeMode;
-}
-function exitSwipeMode(){ setSwipeModeVisible(false); renderWords(); updateStatusCount(); }
+  document.getElementById('swipeExitBtn').onclick = () => exitSwipeMode(false);
 
+  // iOSの横スワイプ干渉対策（下の 3) とセット）
+  preventIOSBackSwipe();
+  enableSwipeBackGuard();
+}		
+		// 🔸 スワイプ用デッキを組む（未学習のみ + 今日の除外を引く）
+// ランダムサンプル用ユーティリティ（Fisher–Yates）
+// ランダムに配列をシャッフル（in-place）
+// in-place shuffle
+function shuffle(arr){
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+/**
+ * 未学習を優先して N 枚でデッキ構築（未学習:reviewRatio[0], 復習:reviewRatio[1]）
+ * 足りないときは相互に融通し、それでも足りなければ除外無視で補充
+ */
+//shuffle はそのまま利用
+
+async function buildSwipeDeck(mode = "unlearned"){
+  const userId   = getUserIdFromQuery() || getUserId();
+  const excluded = getSwipeExcludedSet(userId);
+
+  // ここを追加
+  const allUnlearned = words.filter(w => !w.status);
+  const allLearned   = words.filter(w =>  w.status);
+
+  let unlearned = allUnlearned.filter(w => !excluded.has(String(w.id)));
+  let learned   = allLearned  .filter(w => !excluded.has(String(w.id)));
+
+  // 復習候補ゼロの救済はそのまま
+  if (mode === "review" && learned.length === 0 && allLearned.length > 0) {
+    learned = allLearned.slice();
+  }
+  shuffle(unlearned); shuffle(learned);
+  if (mode === "unlearned") return shuffle(unlearned.slice(0, 10));
+  if (mode === "review")    return shuffle(learned.slice(0, 10));
+  return shuffle([...unlearned.slice(0,25), ...learned.slice(0,5)]);
+}
+	
+	// デッキ描画（先頭3枚だけ積む）
+// デッキ描画（先頭3枚だけ積む）
 async function renderSwipeDeck(){
-  const deck = byId('swipeDeck'); deck.innerHTML='';
-  if (!Array.isArray(swipeWords) || swipeWords.length===0) swipeWords = await buildSwipeDeck(currentSwipeMode);
-  const show = swipeWords.slice(swipeIndex, Math.min(swipeIndex+3, swipeWords.length));
-  show.forEach((w, idx)=>{
+  // DOMのデッキ要素
+  const deckEl = document.getElementById('swipeDeck');
+  deckEl.innerHTML = '';
+
+  // swipeWords がまだ用意されていなければ作る
+if (!Array.isArray(swipeWords) || swipeWords.length === 0) {
+	// 現在選択中のモードでデッキを作る
+	swipeWords = await buildSwipeDeck(currentSwipeMode);
+	console.log('deck size:', swipeWords.length,
+            'unlearned total:', words.filter(w=>!w.status).length,
+            'learned total:', words.filter(w=> w.status).length);
+}
+
+  // 今の位置から3枚だけ描画
+  const show = swipeWords.slice(swipeIndex, Math.min(swipeIndex + 3, swipeWords.length));
+
+  show.forEach((w, idx) => {
     const card = document.createElement('div');
-    card.className='swipe-card'; card.style.zIndex=String(100-idx); card.dataset.index=String(swipeIndex+idx);
-    const src = imageUrlForWord(w);
+    card.className = 'swipe-card';
+    card.style.zIndex = String(100 - idx);
+    card.dataset.index = String(swipeIndex + idx);
+
+    // renderSwipeDeck
+	const src = safeSrc(imageUrlForWord(w), { allowDataImage: true });
+
     card.innerHTML = `
-      <div class="swipe-badge badge-left">覚えてない</div>
-      <div class="swipe-badge badge-right">覚えた！</div>
-      <div class="swipe-word">${w.word}</div>
-      <div class="swipe-mean">(${w.meaning})</div>
-      <img class="swipe-img" src="${src}" alt="" draggable="false">
-    `;
-    card.querySelector('.swipe-img').onerror = (e)=>{ e.target.src='/images/beauty.png'; };
+    	  <div class="swipe-badge badge-left">覚えてない</div>
+    	  <div class="swipe-badge badge-right">覚えた！</div>
+    	  <div class="swipe-word">${esc(w.word)}</div>
+    	  <div class="swipe-mean">(${esc(w.meaning)})</div>
+    	  <img class="swipe-img" src="${src}" alt="${esc(w.word)}" draggable="false">
+    	`;
+
+    // 画像が404の時はデフォルトにフォールバック
+    const imgEl = card.querySelector('.swipe-img');
+    imgEl.onerror = () => { imgEl.src = '/images/beauty.png'; };
+
     attachSwipeHandlers(card);
-    deck.appendChild(card);
+    deckEl.appendChild(card);
   });
 }
+
+
+	// 1枚のカードにドラッグ/タッチ操作を付与
 function attachSwipeHandlers(card){
-  card.addEventListener('pointerdown', e=>{
-    e.preventDefault(); card.setPointerCapture(e.pointerId);
+  card.addEventListener('pointerdown', e => {
+    e.preventDefault();                 // ← 既定動作(画像ドラッグ等)を抑止
+    card.setPointerCapture(e.pointerId);
     swipeDrag = {startX:e.clientX, startY:e.clientY, el:card};
     card.style.transition = 'none';
   });
-  card.addEventListener('pointermove', e=>{
+
+  card.addEventListener('pointermove', e => {
     if(!swipeDrag || swipeDrag.el!==card) return;
-    const dx=e.clientX-swipeDrag.startX, dy=e.clientY-swipeDrag.startY, rot=dx*0.05;
-    card.style.transform = `translate(${dx}px,${dy}px) rotate(${rot}deg)`;
-    const L=card.querySelector('.badge-left'), R=card.querySelector('.badge-right');
-    if (dx<-20){ L.style.opacity=Math.min(1,(-dx)/80); R.style.opacity=0; }
-    else if(dx>20){ R.style.opacity=Math.min(1,(dx)/80); L.style.opacity=0; }
-    else { L.style.opacity=R.style.opacity=0; }
+    const dx = e.clientX - swipeDrag.startX;
+    const dy = e.clientY - swipeDrag.startY;
+    const rot = dx * 0.05;
+    card.style.transform = `translate(${dx}px, ${dy}px) rotate(${rot}deg)`;
+    const left  = card.querySelector('.badge-left');
+    const right = card.querySelector('.badge-right');
+    if(dx < -20){ left.style.opacity = Math.min(1, (-dx)/80); right.style.opacity = 0; }
+    else if(dx > 20){ right.style.opacity = Math.min(1, (dx)/80); left.style.opacity = 0; }
+    else { left.style.opacity = right.style.opacity = 0; }
   });
-  card.addEventListener('pointerup', e=>endSwipe(card,e));
-  card.addEventListener('pointercancel', ()=>{
-    card.style.transition='.2s ease'; card.style.transform='translate(0,0) rotate(0)';
-    card.querySelector('.badge-left').style.opacity = 0;
+
+  card.addEventListener('pointerup',     e => endSwipe(card, e));
+
+  // ← ここを“リセットのみ”に
+  card.addEventListener('pointercancel', () => {
+    card.style.transition = '.2s ease';
+    card.style.transform = 'translate(0,0) rotate(0)';
+    card.querySelector('.badge-left').style.opacity  = 0;
     card.querySelector('.badge-right').style.opacity = 0;
-    swipeDrag=null;
+    swipeDrag = null;
   });
-  card.addEventListener('dragstart', e=>e.preventDefault());
+
+  // 念のため HTML5 の dragstart も殺す
+  card.addEventListener('dragstart', e => e.preventDefault());
 }
-function endSwipe(card,e){
-  if(!swipeDrag) return;
-  const dx = e.clientX - swipeDrag.startX; swipeDrag=null;
-  if (dx <= -SWIPE_THRESHOLD) decideSwipe(card,'left');
-  else if (dx >= SWIPE_THRESHOLD) decideSwipe(card,'right');
-  else {
-    card.style.transition='.2s ease'; card.style.transform='translate(0,0) rotate(0)';
-    card.querySelector('.badge-left').style.opacity=0;
-    card.querySelector('.badge-right').style.opacity=0;
-  }
-}
+
+
+	function endSwipe(card, e){
+	  if(!swipeDrag){ return; }
+	  const dx = e.clientX - swipeDrag.startX;
+	  swipeDrag = null;
+
+	  // 確定判定
+	  if(dx <= -SWIPE_THRESHOLD){
+	    // 左：覚えてない
+	    decideSwipe(card, 'left');
+	  }else if(dx >= SWIPE_THRESHOLD){
+	    // 右：覚えた
+	    decideSwipe(card, 'right');
+	  }else{
+	    // 戻す
+	    card.style.transition = '.2s ease';
+	    card.style.transform = 'translate(0,0) rotate(0)';
+	    card.querySelector('.badge-left').style.opacity = 0;
+	    card.querySelector('.badge-right').style.opacity = 0;
+	  }
+	}
+
+	// 反映＆次のカードへ
+// 既存の decideSwipe を丸ごと置き換え
 async function decideSwipe(card, dir){
-  const i = swipeIndex, w = swipeWords[i], isRight=(dir==='right');
-  card.style.transition='.2s ease'; const off = isRight?600:-600;
-  card.style.transform = `translate(${off}px,-40px) rotate(${off>0?15:-15}deg)`; setTimeout(()=>card.remove(),200);
+  const i = swipeIndex;
+  const w = swipeWords[i];
+  const isRight = (dir === 'right');
 
-  if (currentSwipeMode==="unlearned"){
-    if (isRight){ addTodaySet('learned', w.id); addToSwipeExcluded(getUserId(), w.id); swipeLearned++; }
-    else { addTodaySet('unlearned', w.id); swipeUnlearned++; }
-  }else{
-    if (isRight){ swipeLearned++; addTodaySet('review_ok', w.id); }
-    else { swipeUnlearned++; addTodaySet('review_ng', w.id); }
+  // アニメ
+  card.style.transition = '.2s ease';
+  const off = (isRight ? 600 : -600);
+  card.style.transform = `translate(${off}px,-40px) rotate(${off>0?15:-15}deg)`;
+  setTimeout(() => card.remove(), 200);
+
+  if (currentSwipeMode === "unlearned") {
+    if (isRight) {
+      addTodaySet('learned', w.id);
+      addToSwipeExcluded(getUserId(), w.id);
+      swipeLearned++;
+      onSwipeRightLearned(w);
+      swipeIndex++; // 右は確定なので進める
+    } else {
+      // ← 左は今の要素を末尾へ移動（重複させない）
+      const [cur] = swipeWords.splice(i, 1);
+      swipeWords.push(cur);
+      addTodaySet('unlearned', w.id);
+      swipeUnlearned++;
+      // swipeIndex は据え置き：同じ i に次のカードが入る
+    }
+  } else { // review
+    if (isRight) { swipeLearned++; addTodaySet('review_ok', w.id); }
+    else         { swipeUnlearned++; addTodaySet('review_ng', w.id); }
     addToSwipeExcluded(getUserId(), w.id);
+    swipeIndex++;
   }
 
-  swipeIndex++; updateSwipeHUD();
-  if (swipeIndex === swipeWords.length) watchAdGlobal();
+  updateSwipeHUD();
+
+  if (!isPremium() && AD_EVERY_SWIPE > 0 &&
+      swipeIndex % AD_EVERY_SWIPE === 0 &&
+      swipeIndex < swipeWords.length) {
+    watchAdGlobal();
+  }
+
   if (swipeIndex < swipeWords.length) await renderSwipeDeck();
-  else exitSwipeMode();
+  else                                 exitSwipeMode();
 }
+
+
+
+//既存の updateSwipeHUD を丸ごと置き換え
 function updateSwipeHUD(){
   const total = swipeWords.length;
-  byId('swipeCounter').textContent = `${swipeIndex}/${total}`;
-  if (currentSwipeMode==="unlearned"){
-    const a=getTodaySet('learned'), b=getTodaySet('unlearned');
-    byId('swipeStats').textContent = `覚えた: ${a.size} / 覚えてない: ${b.size}`;
-  }else{
-    byId('swipeStats').textContent = `OK: ${swipeLearned} / 忘れていた: ${swipeUnlearned}`;
+  document.getElementById('swipeCounter').textContent = `${swipeIndex}/${total}`;
+
+  if (currentSwipeMode === "unlearned") {
+    // 当日メモ（未学習用）
+    const learnedSet   = getTodaySet('learned');
+    const unlearnedSet = getTodaySet('unlearned');
+    document.getElementById('swipeStats').textContent =
+      `覚えた: ${learnedSet.size} / 覚えてない: ${unlearnedSet.size}`;
+  } else {
+    // セッションカウント（復習用）
+    document.getElementById('swipeStats').textContent =
+      `OK: ${swipeLearned} / 忘れていた: ${swipeUnlearned}`;
   }
 }
 
-/* =========================
-   DOM helpers
-   ========================= */
-function byId(id){ return document.getElementById(id); }
-</script>
+// 先頭あたりに
+const getCSRFFromCookie = (name='_csrf') => {
+  const m = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]+)`));
+  return m ? decodeURIComponent(m[1]) : null;
+};
 
+// 置き換え
+// ← これで置き換え
+async function onSwipeRightLearned(word){
+  try{
+    await apiFetch('/api/learning/update', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ wordId: word.id, status: true, part: selectedPart })
+    });
+    const w = words.find(x => String(x.id) === String(word.id));
+    if (w) w.status = true;
+    addToSwipeExcluded(getUserId(), word.id);
+  }catch(e){
+    console.warn('update failed (swipe right):', e);
+  }
+}  
+    const SWIPE_TUTOR_KEY = 'swipe_tutorial_shown_v1';
 
-<!-- 広告・プレミアムモーダル -->
-<div id="adModal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background-color:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center;">
-  <div class="modal-content" style="background:white; padding:30px; border-radius:10px; max-width:90%; text-align:center;">
-    <h2 style="color:#e91e63;">このパートは広告視聴が必要です</h2>
-    <p>広告を見ると5分だけ美女で英単語を表現するボタンが開放されます。<br>有料プランなら無制限で開放されます。</p>
-    <div class="modal-buttons" style="margin-top:20px;">
-      <button id="watchAdBtn" class="btn btn-primary" onclick="handleAdAccept()">広告を見る</button>
-      <button id="closeModalBtn" class="btn btn-secondary" onclick="closeAdModal()">やめる</button>
-      <button id="upgradeBtn" class="btn btn-premium" onclick="location.href='/premium.html'">🎀 プレミアムで無制限開放 (月額300円)🎀</button>
+    function showSwipeHowToIfNeeded(){
+      if (localStorage.getItem(SWIPE_TUTOR_KEY) === '1') return;
+      Swal.fire({
+        title: 'スワイプ学習のコツ',
+        html: `
+          <div style="text-align:left;line-height:1.8">
+            <p>・右スワイプ = <b>覚えた！→ 学習済みに反映</b></p>
+            <p>・左スワイプ = まだ覚えてない（デッキ後方へ）</p>
+            <p>・今日覚えた単語は、<b>その日は再表示されません</b></p>
+            <p>・対象は <b>未学習だけ</b>。効率よく覚えよう！</p>
+          </div>
+        `,
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#e91e63'
+      }).then(()=> localStorage.setItem(SWIPE_TUTOR_KEY,'1'));
+    }
+
+document.addEventListener('keydown', (e) => {
+  // Esc でモーダル類を閉じる
+  if (e.key === 'Escape') {
+    const ad = document.getElementById('adModal');
+    if (ad?.style.display === 'flex') closeAdModal();
+
+    const vm = document.getElementById('videoModal');
+    const vp = document.getElementById('videoPlayer');
+    if (vm?.style.display === 'flex') { vm.style.display = 'none'; vp?.pause(); }
+
+    const box = document.getElementById('swipeModeBox');
+    if (!box.classList.contains('hidden')) exitSwipeMode();
+    return;
+  }
+
+  // スワイプ中のみ ← / → を効かせる
+  const box = document.getElementById('swipeModeBox');
+  if (box.classList.contains('hidden')) return;
+
+  const top = document.querySelector(`.swipe-card[data-index="${swipeIndex}"]`);
+  if (!top) return;
+
+  if (e.key === 'ArrowRight') { e.preventDefault(); decideSwipe(top, 'right'); }
+  if (e.key === 'ArrowLeft')  { e.preventDefault(); decideSwipe(top, 'left');  }
+});
+	</script>
+　　<!-- カスタム広告・プレミアムモーダル -->
+<div
+  id="adModal"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="adModalTitle"
+  style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:10000;"
+>
+  <div role="document" style="margin:auto; background:#fff; border-radius:12px; padding:16px; width:min(420px,90%); box-shadow:0 8px 20px rgba(0,0,0,.2)">
+    <h3 id="adModalTitle" style="margin-top:0">広告を見る</h3>
+    <p style="margin:8px 0 0">視聴すると<strong>5分間</strong>プレミアム機能が解放されます。</p>
+    <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:16px">
+      <button id="cancelAdBtn" class="btn btn-secondary" type="button">キャンセル</button>
+      <button id="watchAdBtn" class="btn btn-primary" type="button">視聴する</button>
     </div>
   </div>
 </div>
-</body>
-</html>
+
+<!-- ad modal (最小構成) -->
+<div id="adModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:99999; align-items:center; justify-content:center;">
+  <div style="background:#fff; padding:16px; border-radius:12px; width:min(420px,90%);">
+    <h3 style="margin:0 0 8px;">広告を視聴してください</h3>
+    <p style="margin:0 0 12px;">視聴後、機能が5分間アンロックされます。</p>
+    <div style="display:flex; gap:8px; justify-content:flex-end;">
+      <button id="cancelAdBtn" class="btn btn-secondary" type="button">やめる</button>
+      <button id="watchAdBtn"  class="btn btn-primary"   type="button">広告を見る</button>
+    </div>
+  </div>
+</div>
+
+	</body>
+	</html>
