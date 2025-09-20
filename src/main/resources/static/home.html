@@ -46,7 +46,7 @@
     	  f.append('file', fileInput.files[0]);
     	  f.append('userId', 1); // 画面の userId を使うなら hidden から取得
 
-    	  const res = await fetch('/api/test-questions/import', { method: 'POST', body: f });
+    	  const res = await fetch('/import', { method: 'POST', body: f });
     	  const text = await res.text();
     	  alert(text); // "OK=.., NG=.." が出ればサービスが動いています
     	});
