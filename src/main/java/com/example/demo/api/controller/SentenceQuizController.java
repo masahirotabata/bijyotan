@@ -25,17 +25,13 @@ public class SentenceQuizController {
         // 1〜1000の範囲にクランプ
         final int safeLimit = Math.min(Math.max(limit, 1), 1000);
 
-        // SentenceQuizController の SQL を差し替え
         final String sql = """
-          SELECT q.id, q.sentence, q.audio, q.correct, q.options, q.answer_key,
-                 w.meaning AS ja     -- ★追加
-          FROM sentence_quiz q
-          LEFT JOIN word w ON w.word = q.answer_key
-          WHERE q.part = ?
-          ORDER BY random()
-          LIMIT ?
-        """;
-
+            SELECT id, sentence, audio, correct, options, answer_key
+            FROM sentence_quiz
+            WHERE part = ?
+            ORDER BY random()
+            LIMIT ?
+            """;
 
         return jdbc.query(sql, (rs, i) -> {
             Map<String, Object> m = new LinkedHashMap<>();
@@ -61,7 +57,6 @@ public class SentenceQuizController {
             m.put("options", opts);
 
             m.put("answerKey", rs.getString("answer_key"));
-            m.put("ja", rs.getString("ja"));  // ★追加
             return m;
         }, part, safeLimit);
     }
