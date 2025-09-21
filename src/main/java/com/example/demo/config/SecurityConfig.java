@@ -20,9 +20,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.http.HttpMethod;
 
-import com.example.demo.domain.entity.UserEntity;
 import com.example.demo.domain.repository.UserRepository;
-
 
 @Configuration
 @EnableWebSecurity
@@ -70,9 +68,8 @@ public class SecurityConfig {
       .authorizeHttpRequests(auth -> auth
         // ★ JSON 登録APIを許可
         .requestMatchers("/api/auth/login", "/api/auth/register", "/api/battle/**").permitAll()
-        // ★ ここを追加: 読み取り系だけ許可
+        // ★ 読み取り系だけ許可（必要に応じて調整）
         .requestMatchers(HttpMethod.GET, "/api/words", "/api/words/**").permitAll()
-        // （必要なら）
         .requestMatchers(HttpMethod.GET, "/api/test-questions", "/api/test-questions/**").permitAll()
         .anyRequest().authenticated()
       )
@@ -93,7 +90,6 @@ public class SecurityConfig {
         .logoutUrl("/api/auth/logout")
         .logoutSuccessHandler((req, res, auth) -> res.setStatus(200))
       )
-      // 登録直後にサーバ側で認証させる場合に備え IF_REQUIRED
       .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED));
 
     return http.build();
@@ -106,18 +102,23 @@ public class SecurityConfig {
       HttpSecurity http,
       DaoAuthenticationProvider provider,
       UserRepository userRepository) throws Exception {
+
     http
-      // 静的フォームからのPOSTでCSRFトークンを埋め込みづらいエンドポイントを除外
-      .csrf(csrf -> csrf.ignoringRequestMatchers("/login", "/user/register", "/user/forgot-password"))
+      // ★ premium アップグレード用エンドポイントを CSRF 対象外にする
+      .csrf(csrf -> csrf.ignoringRequestMatchers(
+          "/login", "/user/register", "/user/forgot-password",
+          "/upgrade"                    // ← 追加
+      ))
       .headers(h -> h.frameOptions(f -> f.sameOrigin()))
       .cors(Customizer.withDefaults())
       .authenticationProvider(provider)
       .authorizeHttpRequests(auth -> auth
+        // 静的/画面系は公開
         .requestMatchers(
           "/", "/*.html", "/favicon.*",
           "/login.html", "/register.html",
           "/forgot-password.html", "/reset-password.html",
-          "/user/register", "/user/forgot-password", // 旧フォーム系（使わなければ残っていてもOK）
+          "/user/register", "/user/forgot-password",
           "/login", "/signup",
           "/auth/**",
           "/user.html",
@@ -128,6 +129,8 @@ public class SecurityConfig {
           "/webjars/**",
           "/h2-console/**"
         ).permitAll()
+        // ★ PUT /upgrade を許可（ログイン不要で動かしたい場合）
+        .requestMatchers(HttpMethod.PUT, "/upgrade").permitAll()
         .anyRequest().authenticated()
       )
       .formLogin(form -> form
@@ -135,8 +138,6 @@ public class SecurityConfig {
         .loginProcessingUrl("/login")
         .usernameParameter("email")
         .passwordParameter("password")
-        // ★ ログイン成功時は /loginSuccess に飛ばして LoginController の
-        //    ログインボーナス処理を実行 → その後 /user.html?userId=... にリダイレクト
         .successHandler((req, res, auth) -> res.sendRedirect("/loginSuccess"))
         .failureUrl("/login.html?error=true")
         .permitAll()
