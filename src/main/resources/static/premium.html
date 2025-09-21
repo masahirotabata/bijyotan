@@ -9,7 +9,7 @@ function onPaymentSuccess() {
     return;
   }
 
-  fetch(`/user/${userId}/upgrade`, {
+  fetch(`/upgrade?userId=${userId}`, {
     method: "PUT"
     credentials: "include",         // セッション等を使う場合は付ける
   })
