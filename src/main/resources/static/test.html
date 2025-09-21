@@ -84,6 +84,7 @@
   const urlParams   = new URLSearchParams(location.search);
   const userIdParam = urlParams.get("userId") || "";
   const modeParam   = urlParams.get("mode")   || "reading";
+  const part = urlParams.get("part") || "adverbJA";
 
   // ===== 要素 =====
   const sentenceEl   = document.getElementById("sentence");
@@ -164,17 +165,6 @@
 	  }
 	};
 
-
-
-
-  function guessImageFromWord(word){
-    if(!word) return "";
-    return `/images/${word.toLowerCase()
-      .replace(/['’`"]/g,"")
-      .replace(/\s+/g,"_")
-      .replace(/[^a-z0-9_]/g,"")}_girl.png`;
-  }
-
   function speakText(text){
     if (!text) return;
     try {
@@ -195,25 +185,25 @@
   }
 
   // ===== データ読み込み =====
-  async function loadData() {
-    const res = await fetch(`/api/test-questions/play?userId=${encodeURIComponent(userIdParam)}`);
-    if (!res.ok) throw new Error("Failed to load questions");
+ async function loadData() {
+  const res = await fetch(`/api/sentence-quiz?part=${encodeURIComponent(part)}&limit=1000`, { cache: "no-store" });
+  if (!res.ok) throw new Error("Failed to load questions");
+  const raw = await res.json(); // [{sentence, audio, correct, options[], answerKey}, ...]
 
-    const raw = await res.json();
-    if (!Array.isArray(raw) || raw.length === 0) {
-      sentenceEl.textContent = "問題がありません。";
-      return;
-    }
-
-    testData = shuffle(raw).slice(0, MAX_QUESTIONS);
-    totalQuestions = testData.length;
-
-    currentIndex = 0;
-    score = 0;
-    scoreEl.textContent = `${score} 問正解`;
-
-    showQuestion();
+  if (!Array.isArray(raw) || raw.length === 0) {
+    sentenceEl.textContent = "問題がありません。";
+    return;
   }
+
+  testData = shuffle(raw).slice(0, MAX_QUESTIONS);
+  totalQuestions = testData.length;
+
+  currentIndex = 0;
+  score = 0;
+  scoreEl.textContent = `${score} 問正解`;
+
+  showQuestion();
+}
 
 //単語からファイル名用スラッグを作る
   function toSlugForImage(s) {
@@ -238,6 +228,16 @@
     const slug = toSlugForImage(w.word || w.correct || "");
     return `/images/${slug}_girl.png`;
   }
+
+  // ★ 追加：画像パスから単語へ
+  function pathToWord(p){
+	  return (p||"")
+	    .replace(/^.*\//,'')        // ディレクトリ除去
+	    .replace(/_girl\.png$/,'')  // サフィックス除去
+	    .replace(/\.png$/,'')
+	    .replace(/_/g,' ');
+  }
+
 
   // 問題表示
   async function showQuestion() {
@@ -352,11 +352,11 @@ function handleAnswer(clickedImg){
     const q = testData[currentIndex] || {};
     const ja = q.ja ? `<div style="margin-top:8px;"><strong>和訳:</strong> ${q.ja}</div>` : "";
     const correctSrc = [...optionsEl.querySelectorAll("img")]
-      .find(i => i.dataset.correct === "1")?.src || q.correctPictUrl || "";
+      .find(i => i.dataset.correct === "1")?.src || q.correct || q.correctPictUrl || "";
 
-    const thumb = correctSrc
+    const thumb = (correctSrc || correctWord)
       ? `<div style="margin-top:12px;">
-           <div><strong>正解：</strong> ${new URL(correctSrc, location.origin).pathname}</div>
+           <div><strong>正解：</strong> ${correctWord}</div>
            <img src="${correctSrc}" style="width:120px;height:120px;object-fit:cover;border:3px solid #2e7d32;border-radius:10px;margin-top:8px;">
          </div>`
       : "";
@@ -374,41 +374,6 @@ function handleAnswer(clickedImg){
   scoreEl.textContent = `${score} 問正解`;
   nextBtn.style.display = "inline-block";
 }
-
-
-
-  // ===== 終了処理 =====
-  function finishAndRedirect() {
-    try { speechSynthesis.cancel(); } catch {}
-    const url =
-      `/user.html?userId=${encodeURIComponent(userIdParam)}&from=test` +
-      `&score=${encodeURIComponent(score)}&total=${encodeURIComponent(totalQuestions)}`;
-    setTimeout(() => window.location.replace(url), 1200);
-  }
-
-  nextBtn.onclick = () => {
-    currentIndex++;
-    if (currentIndex < totalQuestions) {
-      showQuestion();
-    } else {
-      const msg = `テスト終了！ ${score}/${totalQuestions} 問正解でした。`;
-      const finish = document.getElementById("finishMessage");
-      finish.textContent = msg;
-      finish.style.display = "block";
-      nextBtn.style.display = "none";
-      scoreEl.textContent = `${score} / ${totalQuestions}`;
-
-      // レベル加算（サーバへコミット）
-      const userId = userIdParam || 1;
-      fetch('/api/test/commit', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ userId, mode:'sentence', correct: score, total: totalQuestions })
-      }).catch(()=>{});
-
-      finishAndRedirect();
-    }
-  };
 
   // ===== 起動 =====
   loadData().catch(e => {
