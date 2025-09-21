@@ -9,7 +9,7 @@ function onPaymentSuccess() {
     return;
   }
 
-  fetch(`http://localhost:8080/user/upgrade?userId=${userId}`, {
+  fetch(`https://bijyotan.onrender.com/user/upgrade?userId=${userId}`, {
     method: "PUT"
   })
   .then(res => {
