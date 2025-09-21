@@ -9,8 +9,9 @@ function onPaymentSuccess() {
     return;
   }
 
-  fetch(`https://bijyotan.onrender.com/user/upgrade?userId=${userId}`, {
+  fetch(`/user/${userId}/upgrade`, {
     method: "PUT"
+    credentials: "include",         // セッション等を使う場合は付ける
   })
   .then(res => {
     if (!res.ok) throw new Error("アップグレード失敗");
