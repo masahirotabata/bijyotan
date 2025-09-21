@@ -1,11 +1,13 @@
 package com.example.demo.config;
 
 import java.util.List;
+
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -18,13 +20,14 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.http.HttpMethod;
 
 import com.example.demo.domain.repository.UserRepository;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+
+  /* ========== Common Beans ========== */
 
   @Bean
   public PasswordEncoder passwordEncoder() {
@@ -39,7 +42,7 @@ public class SecurityConfig {
     return p;
   }
 
-  // 別オリジンから叩く想定がある場合のみ有効に（同一オリジンのみなら不要）
+  // 別オリジンから叩く可能性がある場合のみ必要（同一オリジン運用でも害はありません）
   @Bean
   public CorsConfigurationSource corsConfigurationSource() {
     CorsConfiguration c = new CorsConfiguration();
@@ -56,19 +59,18 @@ public class SecurityConfig {
     return s;
   }
 
-  // ===== Chain #1: API向け (/api/**) =====
+  /* ========== Chain #1: API (/api/**) ========== */
+
   @Bean
   @Order(1)
   public SecurityFilterChain apiSecurity(HttpSecurity http, DaoAuthenticationProvider provider) throws Exception {
     http
       .securityMatcher("/api/**")
-      .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**")) // APIはCSRF対象外（fetch/JSON 用）
+      .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**"))      // APIはCSRF対象外（JSON/AJAX想定）
       .cors(Customizer.withDefaults())
       .authenticationProvider(provider)
       .authorizeHttpRequests(auth -> auth
-        // ★ JSON 登録APIを許可
         .requestMatchers("/api/auth/login", "/api/auth/register", "/api/battle/**").permitAll()
-        // ★ 読み取り系だけ許可（必要に応じて調整）
         .requestMatchers(HttpMethod.GET, "/api/words", "/api/words/**").permitAll()
         .requestMatchers(HttpMethod.GET, "/api/test-questions", "/api/test-questions/**").permitAll()
         .anyRequest().authenticated()
@@ -77,7 +79,6 @@ public class SecurityConfig {
         .authenticationEntryPoint((req, res, e) -> res.sendError(HttpServletResponse.SC_UNAUTHORIZED))
         .accessDeniedHandler((req, res, e) -> res.sendError(HttpServletResponse.SC_FORBIDDEN))
       )
-      // APIはAJAX前提: 成功=200 / 失敗=401
       .formLogin(form -> form
         .loginProcessingUrl("/api/auth/login")
         .usernameParameter("email")
@@ -95,7 +96,8 @@ public class SecurityConfig {
     return http.build();
   }
 
-  // ===== Chain #2: UI向け（それ以外） =====
+  /* ========== Chain #2: UI (その他) ========== */
+
   @Bean
   @Order(2)
   public SecurityFilterChain uiSecurity(
@@ -104,16 +106,17 @@ public class SecurityConfig {
       UserRepository userRepository) throws Exception {
 
     http
-      // ★ premium アップグレード用エンドポイントを CSRF 対象外にする
+      // ★ CSRF除外は一回に集約：フォーム系とプレミアム更新を除外
       .csrf(csrf -> csrf.ignoringRequestMatchers(
-          "/login", "/user/register", "/user/forgot-password",
-          "/upgrade"                    // ← 追加
+          "/login",
+          "/user/register",
+          "/user/forgot-password",
+          "/upgrade"                 // ← premium アップグレード用
       ))
       .headers(h -> h.frameOptions(f -> f.sameOrigin()))
       .cors(Customizer.withDefaults())
       .authenticationProvider(provider)
       .authorizeHttpRequests(auth -> auth
-        // 静的/画面系は公開
         .requestMatchers(
           "/", "/*.html", "/favicon.*",
           "/login.html", "/register.html",
@@ -129,7 +132,7 @@ public class SecurityConfig {
           "/webjars/**",
           "/h2-console/**"
         ).permitAll()
-        // ★ PUT /upgrade を許可（ログイン不要で動かしたい場合）
+        // ★ 認証不要でPUT /upgradeを許可（ログイン必須にしたい場合はここを authenticated に変更）
         .requestMatchers(HttpMethod.PUT, "/upgrade").permitAll()
         .anyRequest().authenticated()
       )
@@ -138,6 +141,7 @@ public class SecurityConfig {
         .loginProcessingUrl("/login")
         .usernameParameter("email")
         .passwordParameter("password")
+        // ログイン成功後：LoginControllerのloginSuccessで処理→/user.html?userId=... へ
         .successHandler((req, res, auth) -> res.sendRedirect("/loginSuccess"))
         .failureUrl("/login.html?error=true")
         .permitAll()
