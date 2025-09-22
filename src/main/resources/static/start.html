@@ -52,23 +52,29 @@
       return Number.isFinite(ls) ? ls : null;
     }
 
-    async function startApp() {
-      const btn = document.getElementById('startBtn');
-      btn.disabled = true; btn.textContent = 'チェック中…';
-      try {
-        const id = await resolveUserId();
-        if (id) {
-          // ログイン済み：そのまま続きへ
-          location.assign(`/user.html?userId=${encodeURIComponent(id)}`);
-        } else {
-          // 未ログイン：ログイン画面へ（ログイン後は SecurityConfig の successHandler で user.html へ）
-          location.assign('/login.html?from=start');
-        }
-      } finally {
-        // ページ遷移しなかった場合だけ戻す
-        setTimeout(() => { try { btn.disabled = false; btn.textContent = 'START'; } catch {} }, 800);
+  async function startApp() {
+  // 多重押下防止
+  const btn = document.querySelector('button[onclick="startApp()"]');
+  btn?.setAttribute('disabled', 'disabled');
+
+  try {
+    // まずサーバセッションを確認
+    const r = await fetch('/api/me', { credentials: 'include', cache: 'no-store' });
+    if (r.ok) {
+      const me = await r.json().catch(() => ({}));
+      if (me?.id) {
+        localStorage.setItem('userId', String(me.id));   // ローカルにも保持
+        location.assign(`/user.html?userId=${encodeURIComponent(me.id)}`);
+        return;
       }
     }
+    // セッションがなければログインへ
+    location.assign('/login.html');
+  } catch (_) {
+    // 通信失敗時もログインへ
+    location.assign('/login.html');
+  }
+}
 
     document.getElementById('startBtn').addEventListener('click', startApp);
 
