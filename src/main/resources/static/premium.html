@@ -1,32 +1,33 @@
 <script>
-function onPaymentSuccess() {
-  const userIdStr = localStorage.getItem("userId");
+function getUserId() {
+  const q = new URLSearchParams(location.search).get("userId");
+  const ls = localStorage.getItem("userId");
+  const id = parseInt(q ?? ls, 10);
+  return Number.isFinite(id) ? id : null;
+}
 
-  // null, undefined, "", "null", NaN のすべてに対応
-  const userId = parseInt(userIdStr, 10);
-  if (!userId || isNaN(userId)) {
+async function onPaymentSuccess() {
+  const userId = getUserId();
+  if (!userId) {
     alert("ユーザーIDが取得できませんでした。ログインし直してください。");
     return;
   }
 
-  fetch(`/upgrade?userId=${userId}`, {
-    method: "PUT"
-    credentials: "include",         // セッション等を使う場合は付ける
-  })
-  .then(res => {
-    if (!res.ok) throw new Error("アップグレード失敗");
-    return res.text();
-  })
-  .then(msg => {
-    alert(msg);
-    window.location.href = `user.html?userId=${userId}`;
-  })
-  .catch(err => {
-    alert("アップグレードに失敗しました");
+  try {
+    const res = await fetch(`/upgrade?userId=${userId}`, {
+      method: "PUT",              // ← ここにカンマが必要
+      credentials: "include"      // セッションCookieを使うなら付ける
+      // headers: { "Content-Type": "text/plain" } // ボディ無しなので通常は不要
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const msg = await res.text();
+    alert(msg || "アップグレード成功");
+    location.href = `user.html?userId=${userId}`;
+  } catch (err) {
     console.error(err);
-  });
+    alert("アップグレードに失敗しました");
+  }
 }
 
-// 👇 ページ読み込み時に呼び出す
-window.addEventListener('DOMContentLoaded', onPaymentSuccess);
+window.addEventListener("DOMContentLoaded", onPaymentSuccess);
 </script>
