@@ -6,12 +6,23 @@ function getUserId(){
   return Number.isFinite(id) ? id : null;
 }
 
-function onPaymentSuccess(){
+async function onPaymentSuccess(){
   const userId = getUserId();
   if(!userId){ alert("ユーザーIDが取得できませんでした"); return; }
 
-  // ← これだけ。サーバが 302 で /user.html?userId=... に飛ばします
-  window.location.replace(`/user/upgrade-redirect?userId=${userId}`);
+  try {
+    const res = await fetch(`/user/upgrade?userId=${userId}`, {
+      method: "PUT",
+      credentials: "include"
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    // ← ここで明示的に遷移する（サーバの302には頼らない）
+    window.location.replace(`/user.html?userId=${userId}`);
+  } catch (e) {
+    console.error(e);
+    alert("アップグレードに失敗しました");
+  }
 }
 
 window.addEventListener("DOMContentLoaded", onPaymentSuccess);
