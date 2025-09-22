@@ -14,7 +14,7 @@ async function onPaymentSuccess() {
   }
 
   try {
-    const res = await fetch(`/upgrade?userId=${userId}`, {
+    const res = await fetch(`/user/upgrade?userId=${userId}`, {
       method: "PUT",              // ← ここにカンマが必要
       credentials: "include"      // セッションCookieを使うなら付ける
       // headers: { "Content-Type": "text/plain" } // ボディ無しなので通常は不要
