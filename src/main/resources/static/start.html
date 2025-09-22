@@ -1,57 +1,101 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>美女単 - スタート</title>
   <style>
     body {
-      margin: 0;
-      padding: 0;
+      margin: 0; padding: 0;
       background: linear-gradient(135deg, #f8e8f0, #f0f8ff);
       font-family: 'Arial', sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      text-align: center;
-      flex-direction: column;
+      display: flex; justify-content: center; align-items: center;
+      height: 100vh; text-align: center; flex-direction: column;
     }
-
-    h1 {
-      font-size: 2.5em;
-      color: #e91e63;
-      margin-bottom: 40px;
-    }
-
+    h1 { font-size: 2.5em; color: #e91e63; margin-bottom: 40px; }
     button {
-      font-size: 1.2em;
-      padding: 15px 30px;
-      background-color: #ff4081;
-      border: none;
-      border-radius: 30px;
-      color: white;
-      cursor: pointer;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-      transition: background-color 0.3s;
+      font-size: 1.2em; padding: 15px 30px; background-color: #ff4081;
+      border: none; border-radius: 30px; color: #fff; cursor: pointer;
+      box-shadow: 0 4px 6px rgba(0,0,0,.1); transition: background-color .3s, opacity .2s;
     }
-
-    button:hover {
-      background-color: #f50057;
-    }
+    button:hover { background-color: #f50057; }
+    button:disabled { opacity: .5; cursor: default; }
   </style>
 </head>
 <body>
-
   <h1>びじょたん!へようこそ！</h1>
-  <button onclick="startApp()">START</button>
+  <button id="startBtn">START</button>
 
   <script>
-    function startApp() {
-      // 仮で userId=1 を指定（必要ならログインIDなどに動的に変更してください）
-      window.location.href = "user.html?userId=1";
-    }
-  </script>
+    (function () {
+      const btn = document.getElementById("startBtn");
+      const state = { userId: null };
 
+      function setEnabled(v){ btn.disabled = !v; }
+
+      function saveUserId(id){ try { localStorage.setItem("userId", String(id)); } catch {} }
+      function loadUserId(){ 
+        try {
+          const v = localStorage.getItem("userId");
+          const n = parseInt(v, 10);
+          return Number.isFinite(n) ? n : null;
+        } catch { return null; }
+      }
+
+      async function fetchMe(){
+        try {
+          const res = await fetch("/api/me", { credentials: "include", cache: "no-store" });
+          if (!res.ok) return null; // 401 などは未ログイン
+          const j = await res.json();
+          const id = Number.isFinite(j?.id) ? j.id : Number.isFinite(j?.userId) ? j.userId : null;
+          return id;
+        } catch { return null; }
+      }
+
+      // 起動時：localStorage → /api/me（セッション）→ 未取得ならログイン導線
+      async function init(){
+        setEnabled(false);
+
+        // URL に userId があれば最優先で採用
+        const qid = new URLSearchParams(location.search).get("userId");
+        if (qid && Number.isFinite(parseInt(qid, 10))) {
+          state.userId = parseInt(qid, 10);
+          saveUserId(state.userId);
+          setEnabled(true);
+          return;
+        }
+
+        const ls = loadUserId();
+        if (ls) {
+          state.userId = ls;
+          setEnabled(true);
+          return;
+        }
+
+        const me = await fetchMe();
+        if (me) {
+          state.userId = me;
+          saveUserId(me);
+          setEnabled(true);
+          return;
+        }
+
+        // どれも取れなければ START=ログインへ
+        setEnabled(true);
+        btn.addEventListener("click", () => location.href = "/login.html", { once: true });
+      }
+
+      // START クリック：userId が分かっていれば user.html へ、それ以外は login へ
+      btn.addEventListener("click", () => {
+        if (state.userId) {
+          location.href = `/user.html?userId=${state.userId}`;
+        } else {
+          location.href = "/login.html";
+        }
+      });
+
+      window.addEventListener("DOMContentLoaded", init);
+    })();
+  </script>
 </body>
 </html>
