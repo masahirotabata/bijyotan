@@ -1131,6 +1131,39 @@ const apiFetch = (path, opts = {}) => {
   return fetch(path, { credentials: 'include', ...opts, headers });
 };
 
+// いまのユーザーを取得（未ログインならログインへ）
+  async function getMe() {
+    const res = await fetch('/api/me', {
+      credentials: 'include',
+      headers: { Accept: 'application/json' }
+    });
+    if (!res.ok) {
+      const next = encodeURIComponent(location.href);
+      location.assign(`/login.html?next=${next}`);
+      throw new Error('unauthorized');
+    }
+    return await res.json(); // { id, name, email, ... }
+  }
+
+  (async () => {
+    const me = await getMe();
+
+    // ここで既存の UI を me で描画
+    // 例: document.querySelector('#welcome').textContent =
+    //       `${me.name || me.email} さん、ようこそ！`;
+
+    // もし /user.html?userId=... で来ても、URL をきれいにしておく
+    if (location.search) history.replaceState(null, '', '/user.html');
+
+    // （任意）テスト直後の結果トースト
+    const last = sessionStorage.getItem('lastTest');
+    if (last) {
+      const { mode, score, total } = JSON.parse(last);
+      // 例: showToast(`${mode==='word'?'単語':'文章'}テスト：${score}/${total}`);
+      sessionStorage.removeItem('lastTest');
+    }
+  })();
+
 async function resolveUserId(){
   const qs = new URLSearchParams(location.search);
   let id = qs.get('userId') || qs.get('id') || localStorage.getItem('userId');
@@ -2647,11 +2680,11 @@ function startTest() {
 		      didOpen: () => {
 		        document.getElementById("readingBtn").addEventListener("click", () => {
 		          localStorage.setItem("test_started", "1");
-		          window.location.href = `test.html?userId=${userId}&mode=reading`;
+		          window.location.href = `test.html?mode=reading`;
 		        });
 		        document.getElementById("listeningBtn").addEventListener("click", () => {
 		          localStorage.setItem("test_started", "1");
-		          window.location.href = `test.html?userId=${userId}&mode=listening`;
+		          window.location.href = `test.html?mode=listening`;
 		        });
 		      }
 		    });
@@ -2697,11 +2730,11 @@ function startTest() {
 		      didOpen: () => {
 		        document.getElementById("readingBtn").addEventListener("click", () => {
 		          localStorage.setItem("test_started", "1");
-		          window.location.href = `vocabularyTest.html?userId=${userId}&mode=reading`;
+		         window.location.href = `vocabularyTest.html?mode=reading`;
 		        });
 		        document.getElementById("listeningBtn").addEventListener("click", () => {
 		          localStorage.setItem("test_started", "1");
-		          window.location.href = `vocabularyTest.html?userId=${userId}&mode=listening`;
+		          window.location.href = `vocabularyTest.html?mode=listening`;
 		        });
 		      }
 		    });
@@ -2737,67 +2770,76 @@ async function refreshUserStats() {
   let u = null;
 
   for (const url of candidates) {
-    try { u = await fetchJSON(url); break; } catch { /* 次の候補へ */ }
+    try { u = await fetchJSON(url); break; } catch {}
   }
+  if (!u) return;
 
-  if (u) {
-    // 学習日数
-    const days = (typeof u.loginPoints === 'number') ? u.loginPoints : 0;
-    const loginDaysEl = document.getElementById("loginDays");
-    if (loginDaysEl) loginDaysEl.textContent = `学習日数: ${days}日目`;
+  const days = (typeof u.loginPoints === 'number') ? u.loginPoints : 0;
+  const loginDaysEl = document.getElementById("loginDays");
+  if (loginDaysEl) loginDaysEl.textContent = `学習日数: ${days}日目`;
 
-    // 累計正答 → レベル更新
-    const totalCorrect = Number(u.testCorrectTotal ?? 0);
-    const testStatsEl = document.getElementById("testStats");
-    if (testStatsEl) testStatsEl.textContent = `正答数（累計）: ${totalCorrect}`;
+  const totalCorrect = Number(u.testCorrectTotal ?? 0);
+  const testStatsEl = document.getElementById("testStats");
+  if (testStatsEl) testStatsEl.textContent = `正答数（累計）: ${totalCorrect}`;
 
-    const newLevel = Math.max(1, Math.floor(totalCorrect / 10) + 1);
-    const currentLevel = Number(u.level ?? 1);
-    if (currentLevel !== newLevel) {
-      try {
-        const r = await apiFetch(`/api/user/updateLevel`, {  // ← /api に統一
-          method:'PUT',
-          headers:{ 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: getUserId(), level: newLevel })
-        });
-        if (r.ok) {
-          const j = await r.json().catch(()=>({}));
-          u.level = Number(j.level ?? newLevel);
-        } else {
-          u.level = newLevel;
-        }
-      } catch {
+  const newLevel = Math.max(1, Math.floor(totalCorrect / 10) + 1);
+  const currentLevel = Number(u.level ?? 1);
+
+  if (currentLevel !== newLevel) {
+    try {
+      const r = await apiFetch(`/api/user/updateLevel`, {
+        method:'PUT',
+        headers:{ 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: getUserId(), level: newLevel })
+      });
+      if (r.ok) {
+        const j = await r.json().catch(()=>({}));
+        u.level = Number(j.level ?? newLevel);
+      } else {
         u.level = newLevel;
       }
+    } catch {
+      u.level = newLevel;
     }
-    const levelEl = document.getElementById("userLevel");
-    const lv = Number(u.level ?? 1);
-    if (levelEl) levelEl.textContent = `レベル: Lv.${lv}`;
-    updateGirlVisual(lv);
-
-    // レベル演出（前回との差分）
-    const prev = parseInt(localStorage.getItem('previousCorrect') || '0', 10);
-    const prevLv = Math.floor(prev / 10);
-    const newLv  = Math.floor(totalCorrect / 10);
-    if (newLv > prevLv) {
-      for (let lv2 = prevLv + 1; lv2 <= newLv; lv2++) showLevelUpPopup(lv2);
-    }
-    localStorage.setItem('previousCorrect', String(totalCorrect));
-    return;
   }
 
-  // フォールバック：直近7日の学習日数相当
-  try {
-    const r2 = await apiFetch('/api/test/weekly');
-    const ct = r2.headers.get('content-type') || '';
-    if (r2.ok && ct.includes('application/json')) {
-      const w = await r2.json();
-      const days = Array.isArray(w) ? w.filter(d => (d.answers ?? 0) > 0).length : 0;
-      const loginDaysEl = document.getElementById("loginDays");
-      if (loginDaysEl) loginDaysEl.textContent = `学習日数(直近7日): ${days}日`;
-    }
-  } catch {}
+  const levelEl = document.getElementById("userLevel");
+  const lv = Number(u.level ?? 1);
+  if (levelEl) levelEl.textContent = `レベル: Lv.${lv}`;
+  updateGirlVisual(lv);
+
+  const prev = parseInt(localStorage.getItem('previousCorrect') || '0', 10);
+  const prevLv = Math.floor(prev / 10);
+  const newLv  = Math.floor(totalCorrect / 10);
+  if (newLv > prevLv) {
+    for (let lv2 = prevLv + 1; lv2 <= newLv; lv2++) showLevelUpPopup(lv2);
+  }
+  localStorage.setItem('previousCorrect', String(totalCorrect));
 }
+
+// これを user.html に追加（URLで結果を読む処理は削除してOK）
+function applyLastTestFromSession() {
+  const last = sessionStorage.getItem('lastTest');
+  if (!last) {
+    // 念のため：何かクエリが残って来たときだけ消す
+    if (location.search) history.replaceState(null, '', location.pathname + location.hash);
+    return;
+  }
+  try {
+    const { mode, score, total } = JSON.parse(last);
+    const ts = document.getElementById('testStats');
+    if (ts) ts.textContent = `正答数: ${score} / ${total}問中`;
+  } finally {
+    sessionStorage.removeItem('lastTest');
+  }
+  // ここでだけクエリ消し
+  if (location.search) history.replaceState(null, '', location.pathname + location.hash);
+}
+document.addEventListener('DOMContentLoaded', applyLastTestFromSession);
+
+// ↑これにしたら、先頭の IIFE 内の
+//   if (location.search) history.replaceState(null, '', '/user.html');
+// は削除してください（早すぎて結果を消してしまうため）
 	
 async function setUserPremium(userId) {
   try {
@@ -2919,6 +2961,21 @@ window.addEventListener('resize', () => {
     }
   });
 }
+
+function startSwipeMode(){
+  document.getElementById('swipeModeBox')?.classList.remove('hidden');
+  document.body.classList.add('swipe-open');
+}
+document.getElementById('swipeExitBtn')?.addEventListener('click', ()=>{
+  document.getElementById('swipeModeBox')?.classList.add('hidden');
+  document.body.classList.remove('swipe-open');
+});
+
+function getNextWordCardInfo(){
+  const w = words[Math.floor(Math.random()*words.length)] || { imageUrl:'/images/beauty.png', word:'' };
+  return { imageUrl: w.imageUrl, alt: w.word };
+}
+
 
 	// ✅ モード選択ダイアログ（分離して使いやすく）
 	function showSwipeModeSelection() {
