@@ -2,100 +2,82 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>美女単 - スタート</title>
   <style>
-    body {
-      margin: 0; padding: 0;
-      background: linear-gradient(135deg, #f8e8f0, #f0f8ff);
-      font-family: 'Arial', sans-serif;
-      display: flex; justify-content: center; align-items: center;
-      height: 100vh; text-align: center; flex-direction: column;
-    }
-    h1 { font-size: 2.5em; color: #e91e63; margin-bottom: 40px; }
-    button {
-      font-size: 1.2em; padding: 15px 30px; background-color: #ff4081;
-      border: none; border-radius: 30px; color: #fff; cursor: pointer;
-      box-shadow: 0 4px 6px rgba(0,0,0,.1); transition: background-color .3s, opacity .2s;
-    }
-    button:hover { background-color: #f50057; }
-    button:disabled { opacity: .5; cursor: default; }
+    body{margin:0;padding:0;min-height:100svh;display:grid;place-items:center;
+         background:linear-gradient(135deg,#f8e8f0,#f0f8ff);font-family:system-ui,Arial,sans-serif}
+    .wrap{text-align:center;padding:24px}
+    h1{font-size:clamp(22px,5vw,32px);color:#e91e63;margin:0 0 18px}
+    p{color:#555;margin:0 0 22px}
+    button{font-size:1.1rem;padding:14px 28px;background:#ff4081;border:0;border-radius:9999px;
+           color:#fff;cursor:pointer;box-shadow:0 4px 10px rgba(0,0,0,.08);transition:opacity .2s}
+    button:disabled{opacity:.6;cursor:default}
+    .links{margin-top:14px;font-size:.95rem}
+    .links a{color:#e91e63;text-decoration:none;margin:0 8px}
+    .links a:hover{text-decoration:underline}
   </style>
 </head>
 <body>
-  <h1>びじょたん!へようこそ！</h1>
-  <button id="startBtn">START</button>
+  <div class="wrap">
+    <h1>びじょたん！へようこそ</h1>
+    <p>START を押すと、ログイン済みならそのまま続きへ。</p>
+    <button id="startBtn">START</button>
+    <!-- セカンダリ導線（ワンタップ主義は崩さず、困った時用） -->
+    <div class="links">
+      <a href="/register.html">新規登録</a> /
+      <a href="/login.html?from=start">ログイン</a>
+    </div>
+  </div>
 
   <script>
-    (function () {
-      const btn = document.getElementById("startBtn");
-      const state = { userId: null };
-
-      function setEnabled(v){ btn.disabled = !v; }
-
-      function saveUserId(id){ try { localStorage.setItem("userId", String(id)); } catch {} }
-      function loadUserId(){ 
-        try {
-          const v = localStorage.getItem("userId");
-          const n = parseInt(v, 10);
-          return Number.isFinite(n) ? n : null;
-        } catch { return null; }
-      }
-
-      async function fetchMe(){
-        try {
-          const res = await fetch("/api/me", { credentials: "include", cache: "no-store" });
-          if (!res.ok) return null; // 401 などは未ログイン
-          const j = await res.json();
-          const id = Number.isFinite(j?.id) ? j.id : Number.isFinite(j?.userId) ? j.userId : null;
-          return id;
-        } catch { return null; }
-      }
-
-      // 起動時：localStorage → /api/me（セッション）→ 未取得ならログイン導線
-      async function init(){
-        setEnabled(false);
-
-        // URL に userId があれば最優先で採用
-        const qid = new URLSearchParams(location.search).get("userId");
-        if (qid && Number.isFinite(parseInt(qid, 10))) {
-          state.userId = parseInt(qid, 10);
-          saveUserId(state.userId);
-          setEnabled(true);
-          return;
+    // セッション確認 → userId を返す（なければ null）
+    async function resolveUserId() {
+      try {
+        const res = await fetch('/api/me', {
+          credentials: 'include',
+          cache: 'no-store',
+        });
+        if (res.ok) {
+          const me = await res.json().catch(() => null);
+          if (me && (me.id ?? me.userId)) {
+            const id = me.id ?? me.userId;
+            localStorage.setItem('userId', String(id)); // 次回以降のフォールバック
+            return id;
+          }
         }
+      } catch (_) {}
+      // フォールバック：以前の userId が残っていれば使う（未ログイン時は意味なし）
+      const ls = parseInt(localStorage.getItem('userId') || '', 10);
+      return Number.isFinite(ls) ? ls : null;
+    }
 
-        const ls = loadUserId();
-        if (ls) {
-          state.userId = ls;
-          setEnabled(true);
-          return;
-        }
-
-        const me = await fetchMe();
-        if (me) {
-          state.userId = me;
-          saveUserId(me);
-          setEnabled(true);
-          return;
-        }
-
-        // どれも取れなければ START=ログインへ
-        setEnabled(true);
-        btn.addEventListener("click", () => location.href = "/login.html", { once: true });
-      }
-
-      // START クリック：userId が分かっていれば user.html へ、それ以外は login へ
-      btn.addEventListener("click", () => {
-        if (state.userId) {
-          location.href = `/user.html?userId=${state.userId}`;
+    async function startApp() {
+      const btn = document.getElementById('startBtn');
+      btn.disabled = true; btn.textContent = 'チェック中…';
+      try {
+        const id = await resolveUserId();
+        if (id) {
+          // ログイン済み：そのまま続きへ
+          location.assign(`/user.html?userId=${encodeURIComponent(id)}`);
         } else {
-          location.href = "/login.html";
+          // 未ログイン：ログイン画面へ（ログイン後は SecurityConfig の successHandler で user.html へ）
+          location.assign('/login.html?from=start');
         }
-      });
+      } finally {
+        // ページ遷移しなかった場合だけ戻す
+        setTimeout(() => { try { btn.disabled = false; btn.textContent = 'START'; } catch {} }, 800);
+      }
+    }
 
-      window.addEventListener("DOMContentLoaded", init);
-    })();
+    document.getElementById('startBtn').addEventListener('click', startApp);
+
+    // 便利オプション：すでにセッションがあれば自動で user.html へ（ワンタップを飛ばす）
+    // 使いたい場合は true に
+    const AUTO_REDIRECT = false;
+    if (AUTO_REDIRECT) {
+      resolveUserId().then(id => { if (id) location.replace(`/user.html?userId=${id}`); });
+    }
   </script>
 </body>
 </html>
