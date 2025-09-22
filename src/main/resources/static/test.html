@@ -124,23 +124,17 @@
   
   
   async function commitResult(userId, mode, correct, total) {
-	    try {
-	      const res = await fetch('/api/test/commit', {
-	        method:'POST',
-	        headers:{'Content-Type':'application/json'},
-	        body: JSON.stringify({ userId, mode, correct, total })
-	      });
-	      // 失敗時は例外化
-	      if (!res.ok) throw new Error('commit failed: ' + res.status);
-
-	      // サーバ側に “今回分は加算済み” の証跡をセッション中だけ残す（重複コミット防止）
-	      sessionStorage.setItem(`committed:${userId}:${mode}:${correct}/${total}`, '1');
-	      return true;
-	    } catch (e) {
-	      console.warn('commit失敗。後段の画面でフォールバックします', e);
-	      return false;
-	    }
-	  }
+	  try {
+    const res = await fetch('/api/test/commit', {
+      method:'POST',
+      credentials:'include',
+      headers:{'Content-Type':'application/json', 'Accept':'application/json'},
+      body: JSON.stringify({ userId, mode, correct, total })
+    });
+    if (!res.ok) return false;
+    sessionStorage.setItem(`committed:${userId}:${mode}:${correct}/${total}`, '1');
+    return true;
+  } catch { return false; }
 
 	  // ===== 次へ / 終了 =====
 	nextBtn.onclick = async () => {
@@ -186,25 +180,32 @@
 
   // ===== データ読み込み =====
  async function loadData() {
-  const res = await fetch(`/api/sentence-quiz?part=${encodeURIComponent(part)}&limit=1000`, { cache: "no-store" });
-  if (!res.ok) throw new Error("Failed to load questions");
-  const raw = await res.json(); // [{sentence, audio, correct, options[], answerKey}, ...]
+  const res = await fetch(`/api/sentence-quiz?part=${encodeURIComponent(part)}&limit=1000`, {
+    credentials: 'include',
+    cache: 'no-store',
+    headers: { Accept: 'application/json' }
+  });
 
+  const ct = (res.headers.get('content-type')||'').toLowerCase();
+  if (!res.ok || !ct.includes('application/json')) {
+    // 未ログイン/リダイレクト時はログインへ
+    const next = encodeURIComponent(location.href);
+    location.assign(`/login.html?next=${next}&reason=auth`);
+    return;
+  }
+
+  const raw = await res.json();
   if (!Array.isArray(raw) || raw.length === 0) {
-    sentenceEl.textContent = "問題がありません。";
+    sentenceEl.textContent = '問題がありません。';
     return;
   }
 
   testData = shuffle(raw).slice(0, MAX_QUESTIONS);
   totalQuestions = testData.length;
-
-  currentIndex = 0;
-  score = 0;
+  currentIndex = 0; score = 0;
   scoreEl.textContent = `${score} 問正解`;
-
   showQuestion();
 }
-
 //単語からファイル名用スラッグを作る
   function toSlugForImage(s) {
     return (s || "")
