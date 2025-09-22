@@ -157,21 +157,34 @@ public class UserController {
                 .build();
     }
 
-    /** プレミアム化 */
+     /** プレミアム化 */
+     // 例: com.example.demo.api.controller.UserController
+    
     @PutMapping("/upgrade")
-    public ResponseEntity<?> upgradeToPremium(@RequestParam(name = "userId") Long userId) {
-        Optional<UserEntity> optionalUser = userRepository.findById(userId);
-        if (optionalUser.isEmpty()) {
+    public ResponseEntity<String> upgradeToPremium(@RequestParam("userId") Long userId) {
+        Optional<UserEntity> opt = userRepository.findById(userId);
+        if (opt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("ユーザーが見つかりません");
         }
-
-        UserEntity user = optionalUser.get();
-        if (user.isPremium()) { // アクセサ修正
-            return ResponseEntity.ok("すでにプレミアムユーザーです");
+        UserEntity user = opt.get();
+        if (!user.isPremium()) {
+            user.setPremium(true);
+            userRepository.save(user);
         }
-
-        user.setPremium(true);
-        userRepository.save(user);
         return ResponseEntity.ok("アップグレード成功");
+    }
+
+    /** 画面遷移用（GET）。内部で同じ処理を実行し、その後 user.html に 302 リダイレクト */
+    @GetMapping("/upgrade-redirect")
+    public ResponseEntity<Void> upgradeAndRedirect(@RequestParam("userId") Long userId) {
+        // 上の処理を再利用してもOK。重複が気になるなら共通privateメソッド化してください。
+        Optional<UserEntity> opt = userRepository.findById(userId);
+        if (opt.isPresent() && !opt.get().isPremium()) {
+            UserEntity user = opt.get();
+            user.setPremium(true);
+            userRepository.save(user);
+        }
+        URI to = URI.create("/user.html?userId=" + userId);
+        return ResponseEntity.status(HttpStatus.FOUND).location(to).build(); // 302
     }
 }
