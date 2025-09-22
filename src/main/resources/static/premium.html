@@ -1,32 +1,17 @@
 <script>
-function getUserId() {
+function getUserId(){
   const q = new URLSearchParams(location.search).get("userId");
   const ls = localStorage.getItem("userId");
   const id = parseInt(q ?? ls, 10);
   return Number.isFinite(id) ? id : null;
 }
 
-async function onPaymentSuccess() {
+function onPaymentSuccess(){
   const userId = getUserId();
-  if (!userId) {
-    alert("ユーザーIDが取得できませんでした。ログインし直してください。");
-    return;
-  }
+  if(!userId){ alert("ユーザーIDが取得できませんでした"); return; }
 
-  try {
-    const res = await fetch(`/user/upgrade?userId=${userId}`, {
-      method: "PUT",              // ← ここにカンマが必要
-      credentials: "include"      // セッションCookieを使うなら付ける
-      // headers: { "Content-Type": "text/plain" } // ボディ無しなので通常は不要
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const msg = await res.text();
-    alert(msg || "アップグレード成功");
-    location.href = `user.html?userId=${userId}`;
-  } catch (err) {
-    console.error(err);
-    alert("アップグレードに失敗しました");
-  }
+  // ← これだけ。サーバが 302 で /user.html?userId=... に飛ばします
+  window.location.replace(`/user/upgrade-redirect?userId=${userId}`);
 }
 
 window.addEventListener("DOMContentLoaded", onPaymentSuccess);
