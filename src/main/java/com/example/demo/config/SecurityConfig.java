@@ -111,7 +111,8 @@ public class SecurityConfig {
           "/login",
           "/user/register",
           "/user/forgot-password",
-          "/upgrade"                 // ← premium アップグレード用
+          "/upgrade",
+          "/user/upgrade" // ← premium アップグレード用
       ))
       .headers(h -> h.frameOptions(f -> f.sameOrigin()))
       .cors(Customizer.withDefaults())
@@ -133,7 +134,8 @@ public class SecurityConfig {
           "/h2-console/**"
         ).permitAll()
         // ★ 認証不要でPUT /upgradeを許可（ログイン必須にしたい場合はここを authenticated に変更）
-        .requestMatchers(HttpMethod.PUT, "/upgrade").permitAll()
+        .requestMatchers(HttpMethod.PUT, "/upgrade", "/user/upgrade").permitAll()
+        .requestMatchers(HttpMethod.GET, "/user/upgrade-redirect").permitAll() // ← 追加
         .anyRequest().authenticated()
       )
       .formLogin(form -> form
