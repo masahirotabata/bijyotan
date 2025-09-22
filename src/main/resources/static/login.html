@@ -78,16 +78,16 @@
 
       // 2) 念のため: セッション成立を /api/me で確認し、id で遷移
       if (res.ok || res.status === 204) {
-        try {
-          const meRes = await fetch('/api/me', { credentials: 'same-origin' });
-          if (meRes.ok) {
-            const me = await meRes.json();
-            if (me && me.id) { window.location.assign('/user.html?userId=' + me.id); return; }
+      try {
+        // res.redirected の分岐のあと（または OK/204 の直後）
+        const meRes = await fetch('/api/me', { credentials: 'same-origin', cache: 'no-store' });
+        if (meRes.ok) {
+          const me = await meRes.json();
+          if (me?.id) {
+            localStorage.setItem('userId', String(me.id));
+            location.assign(`/user.html?userId=${encodeURIComponent(me.id)}`);
+            return;
           }
-        } catch (_) {}
-        // 取れない場合の最終フォールバック
-        window.location.assign('/user.html');
-        return;
       }
 
       alert('ログインに失敗しました。メールまたはパスワードをご確認ください。');
