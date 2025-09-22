@@ -160,6 +160,7 @@
       try {
         await fetch(`/api/test/commit?userId=${encodeURIComponent(userId)}`, {
           method: 'POST',
+          credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ mode: 'word', correct: score, total: COUNT })
         });
@@ -170,18 +171,27 @@
       }, 1000);
     }
 
-    async function init() {
-      const res = await fetch(`/api/quiz/word-mode?count=${COUNT}`);
-      const data = await res.json();
-      questions = Array.isArray(data.questions) ? data.questions.filter(Boolean) : [];
-      if (questions.length === 0) {
-        promptEl.textContent = '問題が取得できませんでした。';
-        return;
-      }
-      idx = 0; score = 0;
-      render();
+  async function init() {
+    const res = await fetch(`/api/quiz/word-mode?count=${COUNT}`, {
+      credentials:'include',
+      headers:{ Accept:'application/json' },
+      cache:'no-store'
+    });
+    const ct = (res.headers.get('content-type')||'').toLowerCase();
+    if (!res.ok || !ct.includes('application/json')) {
+      const next = encodeURIComponent(location.href);
+      location.assign(`/login.html?next=${next}&reason=auth`);
+      return;
     }
-
+    const data = await res.json();
+    questions = Array.isArray(data.questions) ? data.questions.filter(Boolean) : [];
+    if (questions.length === 0) {
+      promptEl.textContent = '問題が取得できませんでした。';
+      return;
+    }
+    idx = 0; score = 0;
+    render();
+}
     init();
   </script>
 </body>
