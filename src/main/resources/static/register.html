@@ -2,180 +2,142 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>美女単 - 新規登録</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ユーザー登録</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <!-- Rails なら meta[name="csrf-token"] が入っている想定 -->
   <style>
-    body{margin:0;padding:0;background:linear-gradient(135deg,#f8e8f0,#f0f8ff);
-      font-family:Arial,Helvetica,sans-serif;display:flex;justify-content:center;
-      align-items:center;min-height:100vh;flex-direction:column;text-align:center}
-    h2{color:#e91e63;font-size:2rem;margin-bottom:24px}
-    form{display:flex;flex-direction:column;gap:14px;width:min(320px,90vw)}
-    input{padding:12px;border:1px solid #ccc;border-radius:10px;font-size:1rem}
-    button{font-size:1.1rem;padding:12px 18px;background:#ff4081;border:none;
-      border-radius:30px;color:#fff;cursor:pointer;box-shadow:0 4px 6px rgba(0,0,0,.1);
-      transition:background .25s}
-    button:hover{background:#f50057}
-    .links{margin-top:16px}
-    .links a{color:#e91e63;text-decoration:none}
-    .links a:hover{text-decoration:underline}
-    small.helper{color:#666}
+    body{font-family:sans-serif;background:#f9f9f9;margin:0;padding:24px;}
+    .wrap{max-width:480px;margin:0 auto;background:#fff;border:1px solid #eee;border-radius:12px;padding:18px 16px;box-shadow:0 6px 18px rgba(0,0,0,.05);}
+    h1{color:#e91e63;font-size:1.25rem;margin:0 0 12px;}
+    label{display:block;font-weight:600;margin:12px 0 6px;}
+    input{width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;font-size:1rem;}
+    button{margin-top:14px;width:100%;padding:12px;border:none;border-radius:9999px;background:#e91e63;color:#fff;font-size:1rem;cursor:pointer;}
+    button:hover{background:#d81b60;}
+    .tip{font-size:.85rem;color:#666;margin-top:10px;line-height:1.6;}
+    .small{font-size:.8rem;color:#999;}
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
-  <h2>新規ユーザー登録</h2>
+  <div class="wrap">
+    <h1>ユーザー登録</h1>
 
-  <form id="registerForm" onsubmit="handleRegister(event);return false;">
-    <!-- 画面には出さない。送信時に email をそのまま name に入れる -->
-    <input id="regName" name="name" type="hidden" />
-    <input id="regEmail" name="email" type="email" autocomplete="email"
-           required placeholder="メールアドレス" inputmode="email" />
-    <input id="regPass" name="password" type="password" autocomplete="new-password"
-           required minlength="6" placeholder="パスワード（6文字以上）" />
-    <button>新規登録</button>
-    <small class="helper">※ ユーザー名はメールアドレスを使用します</small>
-  </form>
+    <form id="regForm">
+      <label for="username">表示名（任意）</label>
+      <input id="username" name="username" placeholder="例: Taro" />
 
-  <div class="links">
-    <a href="login.html">ログイン画面に戻る</a>
+      <label for="email">メール（任意）</label>
+      <input id="email" name="email" type="email" placeholder="例: you@example.com" />
+
+      <label for="userId">ユーザーID（任意）</label>
+      <input id="userId" name="userId" placeholder="例: your-id" />
+
+      <button type="submit">登録する</button>
+      <p class="tip">
+        入力したユーザーIDは<span style="font-weight:700">その場でSHA-256にハッシュ化</span>してサーバへ送ります。<br>
+        URLやDBにはハッシュ値のみが保存されます。
+      </p>
+      <p class="small">※ 強固な秘匿が必要な場合、サーバ側で pepper を加えた再ハッシュをご利用ください。</p>
+    </form>
   </div>
 
 <script>
-  // --- 共通 fetch（CSRF 自動付与） ---
-  const apiFetch = (path, opts = {}) => {
-    const method = (opts.method || 'GET').toUpperCase();
-    const needsCSRF = !['GET','HEAD','OPTIONS'].includes(method);
+/** 共通fetch（あなたの user.html と同等のCSRF対応） */
+const apiFetch = (path, opts = {}) => {
+  const method = (opts.method || 'GET').toUpperCase();
+  const needsCSRF = !['GET','HEAD','OPTIONS'].includes(method);
 
-    const pickCSRFFromPageOrCookie = () => {
-      const meta = document.querySelector('meta[name="csrf-token"]')?.content;
-      if (meta) return { header:'X-CSRF-Token', token: meta };
-      const ck = document.cookie || '';
-      const m1 = ck.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
-      if (m1) return { header:'X-CSRF-TOKEN', token: decodeURIComponent(m1[1]) };
-      const m2 = ck.match(/(?:^|;\s*)_csrf=([^;]+)/);
-      if (m2) return { header:'X-CSRF-Token', token: decodeURIComponent(m2[1]) };
-      return null;
-    };
-
-    const headers = new Headers({ Accept: 'application/json', ...(opts.headers||{}) });
-    if (needsCSRF && !headers.has('X-CSRF-Token') && !headers.has('X-CSRF-TOKEN')) {
-      const c = pickCSRFFromPageOrCookie();
-      if (c) headers.set(c.header, c.token);
-    }
-    return fetch(path, { credentials: 'include', ...opts, headers });
-  };
-
-  // id 取り出しのユーティリティ（そのまま）
-  const parseIdFromJson = j => {
-    const c = [j?.id,j?.userId,j?.user_id,j?.user?.id,j?.data?.id,j?.data?.user?.id];
-    for (const v of c) if (v!=null && String(v) !== '') return String(v);
-    return null;
-  };
-  const parseIdFromText = t => {
-    if (!t) return null;
-    let m = t.match(/["']?(?:userId|user_id|id)["']?\s*[:=]\s*["']?(\d{1,})["']?/i);
-    if (m) return m[1];
-    m = t.match(/\/(?:api\/)?(?:user|users)\/(\d{1,})(?:\D|$)/i);
-    if (m) return m[1];
-    return null;
-  };
-  const pollMe = async (retry=4, interval=300) => {
-    const urls = ['/api/me','/user/me','/api/user/me','/me'];
-    for (let r=0;r<retry;r++){
-      for (const u of urls){
-        try{
-          const res = await fetch(u, {credentials:'include', cache:'no-store'});
-          const ct  = (res.headers.get('content-type')||'').toLowerCase();
-          if (!res.ok || !ct.includes('application/json')) continue;
-          const id = parseIdFromJson(await res.json());
-          if (id) return id;
-        }catch{}
-      }
-      await new Promise(s=>setTimeout(s, interval));
-    }
+  const pickCSRFFromPageOrCookie = () => {
+    const meta = document.querySelector('meta[name="csrf-token"]')?.content;
+    if (meta) return { header: 'X-CSRF-Token', token: meta };
+    const m1 = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/); // Spring
+    if (m1) return { header: 'X-CSRF-TOKEN', token: decodeURIComponent(m1[1]) };
+    const m2 = document.cookie.match(/(?:^|;\s*)_csrf=([^;]+)/);      // 旧
+    if (m2) return { header: 'X-CSRF-Token', token: decodeURIComponent(m2[1]) };
     return null;
   };
 
-  // local-part を安全に取り出す
-  const localPart = (email='') => {
-    const lp = String(email).split('@')[0] || 'user';
-    // 絵文字や記号を落として長さを制限
-    return lp.normalize('NFKD')
-             .replace(/[^\w.-]/g,'_')
-             .replace(/^_+|_+$/g,'')
-             .slice(0, 30) || 'user';
+  const headers = new Headers({ Accept: 'application/json', ...(opts.headers || {}) });
+  if (needsCSRF && !headers.has('X-CSRF-Token') && !headers.has('X-CSRF-TOKEN')) {
+    const c = pickCSRFFromPageOrCookie();
+    if (c) headers.set(c.header, c.token);
+  }
+  return fetch(path, { credentials: 'include', ...opts, headers });
+};
+
+/** JSON専用fetch（エラーを例外化） */
+async function fetchJSON(url, opts = {}) {
+  const res = await apiFetch(url, opts);
+  const ct = (res.headers.get('content-type') || '').toLowerCase();
+  if (res.status === 204) return null;
+  if (!ct.includes('application/json')) {
+    const err = new Error('NON_JSON'); err.status = res.status; throw err;
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(()=> ({}));
+    const err = new Error(body.message || `HTTP ${res.status}`);
+    err.status = res.status; err.body = body; throw err;
+  }
+  return res.json();
+}
+
+/** 文字列 → SHA-256 → Base64URL */
+async function sha256Base64Url(str) {
+  const enc = new TextEncoder().encode(str);
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  const bytes = new Uint8Array(buf);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+
+/** 登録処理 */
+document.getElementById('regForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const username = document.getElementById('username').value.trim();
+  const email    = document.getElementById('email').value.trim();
+  const rawId    = document.getElementById('userId').value.trim();
+
+  // 入力が空でも動くように、ハッシュの元は以下の優先順で作る
+  const rawForHash = rawId || email || (username ? `u:${username}` : crypto.randomUUID());
+  const hashedUserId = await sha256Base64Url(rawForHash);
+
+  const payload = {
+    username: username || null,
+    email: email || null,
+    // サーバ側のカラム例: hashed_user_id
+    hashedUserId
   };
 
-  // 自動ログイン（複数パターンに対応）
-  async function autoLogin(email, password){
-    // 1) JSON系
-    try{
-      const r = await apiFetch('/api/auth/login', {
+  // 第一候補とフォールバック
+  const candidates = [
+    ['/api/register', payload],
+    ['/user/register', payload],
+  ];
+
+  let ok = false, lastErr = null, data = null;
+  for (const [url, body] of candidates) {
+    try {
+      data = await fetchJSON(url, {
         method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ email, password })
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify(body)
       });
-      if (r.ok) return true;
-    }catch{}
-
-    // 2) フォームURLエンコード（Spring Security / Rails devise など）
-    try{
-      const r = await apiFetch('/login', {
-        method:'POST',
-        headers:{'Content-Type':'application/x-www-form-urlencoded'},
-        body: new URLSearchParams({ email, password })
-      });
-      if (r.ok || r.redirected) return true;
-    }catch{}
-
-    return false;
+      ok = true; break;
+    } catch (err) {
+      lastErr = err; // 次の候補へ
+    }
+  }
+  if (!ok) {
+    alert(`登録に失敗しました: ${lastErr?.message || 'network error'}`);
+    return;
   }
 
-  async function handleRegister(e){
-    e.preventDefault();
-    const btn = e.submitter || document.querySelector('#registerForm button');
-    btn.disabled = true;
+  // 以降はハッシュIDのみをクライアントで保持・使用
+  localStorage.setItem('userId', hashedUserId);
 
-    const email = document.getElementById('regEmail').value.trim();
-    const password = document.getElementById('regPass').value;
-    const name = localPart(email);          // ← ここでユーザー名をメールの local-part に
-
-    try{
-      // 登録
-      const r = await apiFetch('/api/auth/register', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ name, email, password })
-      });
-
-      if (!(r.status===200 || r.status===201 || r.status===204)){
-        const msg = r.status===409 ? 'このメールは既に使われています' : '登録に失敗しました';
-        Swal.fire({icon:'error', text:msg}); btn.disabled=false; return false;
-      }
-
-      // 直後に自動ログイン（セッション確立）
-      await autoLogin(email, password);
-
-      // /api/me を見て userId を確定
-      let userId = await pollMe();
-      if (!userId){
-        // 念のためレスポンスからも拾う
-        try{ userId = parseIdFromJson(await r.clone().json()); }catch{}
-        if (!userId){ try{ userId = parseIdFromText(await r.clone().text()); }catch{} }
-      }
-      if (userId) localStorage.setItem('userId', userId);
-
-      const dest = userId ? `/user.html?userId=${encodeURIComponent(userId)}` : '/user.html';
-      Swal.fire({icon:'success', text:'登録できました！'}).then(()=> location.assign(dest));
-    }catch(err){
-      console.error(err);
-      Swal.fire({icon:'error', text:'通信エラーが発生しました'});
-    }finally{
-      btn.disabled = false;
-    }
-    return false;
-  }
+  // user.html へ。URLにもハッシュIDを付けたい場合:
+  location.assign(`/user.html?userId=${encodeURIComponent(hashedUserId)}`);
+});
 </script>
-
 </body>
 </html>
