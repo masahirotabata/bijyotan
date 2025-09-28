@@ -65,7 +65,10 @@
     return fetch(path, { credentials: 'include', ...opts, headers });
   };
 
-  // id 取り出しのユーティリティ（そのまま）
+  // -------- util --------
+  const sleep = (ms)=> new Promise(r=>setTimeout(r, ms));
+
+  // id 取り出し
   const parseIdFromJson = j => {
     const c = [j?.id,j?.userId,j?.user_id,j?.user?.id,j?.data?.id,j?.data?.user?.id];
     for (const v of c) if (v!=null && String(v) !== '') return String(v);
@@ -79,36 +82,37 @@
     if (m) return m[1];
     return null;
   };
-  const pollMe = async (retry=4, interval=300) => {
+
+  // /api/me の軽ポーリング
+  const pollMe = async (retry=8, interval=300) => {
     const urls = ['/api/me','/user/me','/api/user/me','/me'];
     for (let r=0;r<retry;r++){
       for (const u of urls){
         try{
-          const res = await fetch(u, {credentials:'include', cache:'no-store'});
+          const res = await apiFetch(u, {cache:'no-store'});
           const ct  = (res.headers.get('content-type')||'').toLowerCase();
           if (!res.ok || !ct.includes('application/json')) continue;
-          const id = parseIdFromJson(await res.json());
-          if (id) return id;
+          const me = await res.json();
+          const id = parseIdFromJson(me);
+          if (id) return me;
         }catch{}
       }
-      await new Promise(s=>setTimeout(s, interval));
+      await sleep(interval);
     }
     return null;
   };
 
-  // local-part を安全に取り出す
+  // local-part を安全に
   const localPart = (email='') => {
     const lp = String(email).split('@')[0] || 'user';
-    // 絵文字や記号を落として長さを制限
     return lp.normalize('NFKD')
              .replace(/[^\w.-]/g,'_')
              .replace(/^_+|_+$/g,'')
              .slice(0, 30) || 'user';
   };
 
-  // 自動ログイン（複数パターンに対応）
+  // 自動ログイン（2系統）
   async function autoLogin(email, password){
-    // 1) JSON系
     try{
       const r = await apiFetch('/api/auth/login', {
         method:'POST',
@@ -117,8 +121,6 @@
       });
       if (r.ok) return true;
     }catch{}
-
-    // 2) フォームURLエンコード（Spring Security / Rails devise など）
     try{
       const r = await apiFetch('/login', {
         method:'POST',
@@ -127,26 +129,21 @@
       });
       if (r.ok || r.redirected) return true;
     }catch{}
-
     return false;
   }
 
-  /* -------------------- ここから最小追加（クライアント・ランダムソルト） -------------------- */
-
-  /** 端末ごとに固定の“クライアント・ランダムソルト” */
+  /* ---- クライアント・ランダムソルト & ハッシュ ---- */
   const CLIENT_SALT_KEY = 'client_salt_v1';
   function getClientSalt(){
     let s = localStorage.getItem(CLIENT_SALT_KEY);
     if (!s){
-      const buf = new Uint8Array(8);           // 64bit ランダム
+      const buf = new Uint8Array(8);
       crypto.getRandomValues(buf);
       s = Array.from(buf).map(b => b.toString(16).padStart(2,'0')).join('');
       localStorage.setItem(CLIENT_SALT_KEY, s);
     }
     return s;
   }
-
-  /** 文字列 → SHA-256 → Base64URL */
   async function sha256Base64Url(str){
     const enc = new TextEncoder().encode(str);
     const buf = await crypto.subtle.digest('SHA-256', enc);
@@ -156,8 +153,7 @@
     return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
   }
 
-  /* -------------------- 追加ここまで。既存の挙動は不変 -------------------- */
-
+  /* -------------------- 登録処理 -------------------- */
   async function handleRegister(e){
     e.preventDefault();
     const btn = e.submitter || document.querySelector('#registerForm button');
@@ -165,7 +161,10 @@
 
     const email = document.getElementById('regEmail').value.trim();
     const password = document.getElementById('regPass').value;
-    const name = localPart(email);          // ← ここでユーザー名をメールの local-part に
+    const name = localPart(email);                 // 表示名に local-part を使う
+
+    // 先に表示名を保存（user.html の“ゲストさん”回避用フォールバック）
+    localStorage.setItem('displayName', name);
 
     try{
       // 登録
@@ -174,31 +173,38 @@
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ name, email, password })
       });
-
       if (!(r.status===200 || r.status===201 || r.status===204)){
         const msg = r.status===409 ? 'このメールは既に使われています' : '登録に失敗しました';
         Swal.fire({icon:'error', text:msg}); btn.disabled=false; return false;
       }
 
-      // 直後に自動ログイン（セッション確立）
+      // 自動ログイン（サーバセッションを作る）
       await autoLogin(email, password);
 
-      // /api/me を見て userId を確定
-      let userId = await pollMe();
-      if (!userId){
-        // 念のためレスポンスからも拾う
-        try{ userId = parseIdFromJson(await r.clone().json()); }catch{}
-        if (!userId){ try{ userId = parseIdFromText(await r.clone().text()); }catch{} }
+      // セッション確立を /api/me で**確実に**確認して保存
+      // （ここができていないと test や weekly でログイン画面に飛ぶ）
+      let me = await pollMe(12, 300);          // 最大 ~3.6s 待機
+      if (!me){
+        // レスポンスから拾えるなら拾う
+        try{ me = await r.clone().json(); }catch{}
       }
-      if (userId) localStorage.setItem('userId', userId);
 
-      /* ★最小追加：端末ソルト込みの“擬似ID”も保存（フロント専用の匿名ID） */
+      // userId / name を最終確定
+      let userId = parseIdFromJson(me) || null;
+      let finalName = me?.name || me?.username || (me?.email ? localPart(me.email) : name);
+
+      if (userId) localStorage.setItem('userId', String(userId));
+      localStorage.setItem('displayName', finalName);
+      localStorage.setItem('authTs', String(Date.now()));   // 直近ログイン印
+
+      // フロント専用の匿名ID（端末ソルト込み）
       try{
         const basis = userId || email || crypto.randomUUID();
         const clientUserId = await sha256Base64Url(String(basis) + '|' + getClientSalt());
         localStorage.setItem('clientUserId', clientUserId);
       }catch{}
 
+      // 遷移（userId が未確定でも一応進める）
       const dest = userId ? `/user.html?userId=${encodeURIComponent(userId)}` : '/user.html';
       Swal.fire({icon:'success', text:'登録できました！'}).then(()=> location.assign(dest));
     }catch(err){
@@ -210,6 +216,5 @@
     return false;
   }
 </script>
-
 </body>
 </html>
