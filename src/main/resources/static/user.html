@@ -1103,34 +1103,72 @@ button { writing-mode: horizontal-tb; }
 </div>
 
 <script>
-// 置き換え：apiFetch の先頭付近
+// --- 共通 fetch（CSRF 自動付与 + 401/非JSON検出） ---
 const apiFetch = (path, opts = {}) => {
   const method = (opts.method || 'GET').toUpperCase();
   const needsCSRF = !['GET','HEAD','OPTIONS'].includes(method);
 
-  // === CSRF を自動検出（Rails or Spring両対応） ===
   const pickCSRFFromPageOrCookie = () => {
-    const meta = document.querySelector('meta[name="csrf-token"]')?.content; // Rails
+    const meta = document.querySelector('meta[name="csrf-token"]')?.content;
     if (meta) return { header: 'X-CSRF-Token', token: meta };
-
-    const ck = document.cookie;
-    const mSpring = ck.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/); // Spring
-    if (mSpring) return { header: 'X-CSRF-TOKEN', token: decodeURIComponent(mSpring[1]) };
-
-    const mLegacy = ck.match(/(?:^|;\s*)_csrf=([^;]+)/);      // 旧設定
-    if (mLegacy) return { header: 'X-CSRF-Token', token: decodeURIComponent(mLegacy[1]) };
-
+    const ck = document.cookie || '';
+    const m1 = ck.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
+    if (m1) return { header: 'X-CSRF-TOKEN', token: decodeURIComponent(m1[1]) };
+    const m2 = ck.match(/(?:^|;\s*)_csrf=([^;]+)/);
+    if (m2) return { header: 'X-CSRF-Token', token: decodeURIComponent(m2[1]) };
     return null;
   };
 
-  const headers = new Headers({ Accept: 'application/json', ...(opts.headers || {}) });
+  const headers = new Headers({ Accept: 'application/json', ...(opts.headers||{}) });
   if (needsCSRF && !headers.has('X-CSRF-Token') && !headers.has('X-CSRF-TOKEN')) {
     const c = pickCSRFFromPageOrCookie();
     if (c) headers.set(c.header, c.token);
   }
-  return fetch(path, { credentials: 'include', ...opts, headers });
+  return fetch(path, { credentials:'include', ...opts, headers });
 };
 
+// JSON専用のラッパー（loginへのリダイレクト検出/204許容/非JSON検出）
+async function fetchJSON(url, opts = {}) {
+  const res = await apiFetch(url, opts);
+  const ct  = (res.headers.get('content-type')||'').toLowerCase();
+
+  const redirectedToLogin =
+    res.redirected && /\/login(?:\.html)?$/.test(new URL(res.url, location.origin).pathname);
+  if (redirectedToLogin || res.status === 401 || res.status === 403) {
+    const err = new Error('unauthorized'); err.code = 'UNAUTHORIZED'; throw err;
+  }
+  if (res.status === 204) return null;
+  if (!ct.includes('application/json')) {
+    const err = new Error('non-json'); err.code = 'NON_JSON'; err.status = res.status; throw err;
+  }
+  if (!res.ok) {
+    const err = new Error(`bad-status:${res.status}`); err.code='BAD_STATUS'; err.status=res.status; throw err;
+  }
+  return res.json();
+}
+
+async function ensureAuth(){
+  try{
+    const r = await apiFetch('/api/me', { cache:'no-store' });
+    const ct = (r.headers.get('content-type')||'').toLowerCase();
+    return r.ok && ct.includes('application/json');
+  }catch{ return false; }
+}
+async function gotoIfAuthed(url){
+  if (await ensureAuth()) { location.assign(url); return; }
+  const next = encodeURIComponent(url);
+  await Swal.fire({
+    title: 'ログインが必要です',
+    html: '続行するにはログインしてください。',
+    icon: 'info',
+    showCancelButton: true,
+    confirmButtonText: 'ログインへ',
+    cancelButtonText: 'キャンセル'
+  }).then(r=>{
+    if (r.isConfirmed) location.assign(`/login.html?next=${next}&reason=auth`);
+  });
+}
+	
 async function resolveUserId(){
   const qs = new URLSearchParams(location.search);
   let id = qs.get('userId') || qs.get('id') || localStorage.getItem('userId');
@@ -1896,77 +1934,56 @@ function getUserIdFromQuery() {
 }
 
 // どこか上の方に追加
-async function readJsonIfPossible(res) {
-  const ct = (res.headers.get('content-type') || '').toLowerCase();
-  if (!ct.includes('application/json')) return null; // HTML等は弾く
+async function readJsonIfPossible(res){
+  const ct=(res.headers.get('content-type')||'').toLowerCase();
+  if (!ct.includes('application/json')) return null;
   try { return await res.json(); } catch { return null; }
 }
 
 // これで置き換え
-// これで置き換え
 async function fetchUserInfo() {
-  // まず /api/me を最優先で
   const uid = getUserIdFromQuery() || localStorage.getItem('userId');
-  const candidates = [
-    '/api/me',
-    '/user/me',
-    ...(uid ? [`/user/${encodeURIComponent(uid)}`] : []),
-    '/api/user/me'
-  ];
+  const candidates = ['/api/me','/user/me', ...(uid? [`/user/${encodeURIComponent(uid)}`] : []), '/api/user/me'];
 
-  const normalize = (d) => ({
-    id: d.id ?? d.userId ?? null,
-    username: d.username ?? d.name ?? '',
-    premium: Boolean(d.premium ?? d.isPremium),
-    level: Number(d.level ?? 1),
-    loginPoints: Number(d.loginPoints ?? 0),
-    testCorrectTotal: Number(d.testCorrectTotal ?? 0)
+  const normalize = (d)=>({
+    id: d?.id ?? d?.userId ?? null,
+    username: d?.username ?? d?.name ?? (d?.email ? d.email.split('@')[0] : 'ゲスト'),
+    premium: Boolean(d?.premium ?? d?.isPremium),
+    level: Number(d?.level ?? 1),
+    loginPoints: Number(d?.loginPoints ?? 0),
+    testCorrectTotal: Number(d?.testCorrectTotal ?? 0),
   });
 
   for (const url of candidates) {
     try {
       const data = await fetchJSON(url);
-      const u = normalize(data);
-      user = u;
+      user = normalize(data);
+      if (user.id) localStorage.setItem('userId', String(user.id));
+      document.getElementById('username').innerText  = `${user.username} さん、ようこそ！`;
+      document.getElementById('planText').innerText  = `プラン: ${user.premium ? 'プレミアム' : '無料'}`;
+      document.getElementById('userLevel').innerText = `レベル: Lv.${user.level}`;
+      updateGirlVisual(user.level);
 
-      if (u.id) localStorage.setItem('userId', String(u.id));
-      document.getElementById("username").innerText  = `${u.username} さん、ようこそ！`;
-      document.getElementById("planText").innerText  = `プラン: ${u.premium ? "プレミアム" : "無料"}`;
-      document.getElementById("userLevel").innerText = `レベル: Lv.${u.level}`;
-      updateGirlVisual(u.level);
+      // 学習日数（/api/test/weekly がJSONならそこから推計）
+      const ok = await updateLoginPointsIfNeeded(user.id);
+      if (!ok) setLoginDays(user.loginPoints || 1);
 
-      // ログボの更新＆表示
-      const ok = await updateLoginPointsIfNeeded(u.id);
-      if (!ok) {
-        const points = Number.isFinite(u.loginPoints) ? u.loginPoints : 1;
-        setLoginDays(points);
-        showLoginBonusOncePerDay(points);
-      }
       return true;
-    } catch (_) { /* 次の候補へ */ }
+    } catch (_) { /* 次候補へ */ }
   }
 
-  // ★ ここからフォールバック：APIが全部ダメでも userId がURLにあれば“ゲスト”で進める
+  // フォールバック（URLに userId が付いている来訪）
   const fallbackId = getUserIdFromQuery();
   if (fallbackId) {
-    user = {
-      id: String(fallbackId),
-      username: 'ゲスト',
-      premium: false,
-      level: 1,
-      loginPoints: 0,
-      testCorrectTotal: 0
-    };
-    localStorage.setItem('userId', String(fallbackId));
-    document.getElementById("username").innerText  = `ゲストさん、ようこそ！`;
-    document.getElementById("planText").innerText  = `プラン: 無料`;
-    document.getElementById("userLevel").innerText = `レベル: Lv.1`;
+    user = { id:String(fallbackId), username:'ゲスト', premium:false, level:1, loginPoints:0, testCorrectTotal:0 };
+    localStorage.setItem('userId', user.id);
+    document.getElementById('username').innerText  = `ゲストさん、ようこそ！`;
+    document.getElementById('planText').innerText  = `プラン: 無料`;
+    document.getElementById('userLevel').innerText = `レベル: Lv.1`;
     updateGirlVisual(1);
-    // ログボは推計で表示（失敗しても無視）
-    try { await updateLoginPointsIfNeeded(fallbackId); } catch {}
-    return true; // ← ここで true を返すのがポイント（以降の描画に進む）
+    try { await updateLoginPointsIfNeeded(user.id); } catch {}
+    return true;
   }
-
   console.warn('user info could not be fetched as JSON');
   return false;
 }
@@ -1997,41 +2014,33 @@ function showLoginBonusOncePerDay(points){
 }
 
 // 単語取得：まずセッション認可、空なら userId 付きで再試行
-async function fetchWordsFromServer(part) {
-  const tryUrls = [
-    `/api/words?part=${encodeURIComponent(part)}`,
-    `/words?part=${encodeURIComponent(part)}`
-  ];
-  const withUserId = (u) => `${u}&userId=${encodeURIComponent(getUserId())}`;
+async function fetchWordsFromServer(part){
+  const b1 = `/api/words?part=${encodeURIComponent(part)}`;
+  const b2 = `/words?part=${encodeURIComponent(part)}`;
+  const withUid = (u)=> `${u}&userId=${encodeURIComponent(getUserId())}`;
+  const bases = [b1,b2];
 
-  for (const base of tryUrls) {
-    // 1st: セッションのみ
-    for (const url of [base]) {
-      try {
-        const res = await apiFetch(url, { headers:{Accept:'application/json'} });
-        if (res.ok) {
-          const data = await readJsonIfPossible(res);
-          if (Array.isArray(data) && data.length) {
-            return data.map(w => normalizeWord({ ...w, status: !!(w.status ?? w.learned) }));
-          }
-        }
-      } catch {}
-    }
-    // 2nd: userId を付けて再試行
-    try {
-      const res = await apiFetch(withUserId(base), { headers:{Accept:'application/json'} });
-      if (res.ok) {
-        const data = await readJsonIfPossible(res);
-        if (Array.isArray(data)) {
-          return data.map(w => normalizeWord({ ...w, status: !!(w.status ?? w.learned) }));
-        }
+  for (const base of bases){
+    // セッションのみ
+    try{
+      const r = await apiFetch(base,{ headers:{Accept:'application/json'} });
+      if (r.ok){
+        const data = await readJsonIfPossible(r);
+        if (Array.isArray(data)) return data.map(w => normalizeWord({ ...w, status: !!(w.status ?? w.learned) }));
       }
-    } catch {}
+    }catch{}
+    // userId付き
+    try{
+      const r = await apiFetch(withUid(base),{ headers:{Accept:'application/json'} });
+      if (r.ok){
+        const data = await readJsonIfPossible(r);
+        if (Array.isArray(data)) return data.map(w => normalizeWord({ ...w, status: !!(w.status ?? w.learned) }));
+      }
+    }catch{}
   }
   console.warn('words endpoint not ready');
   return [];
 }
-
 
 //=== 広告表示トリガ用のカウンタと保留実行 ===
 let pendingToggle = null;
@@ -2467,7 +2476,7 @@ async function loadWeeklyAnswers(){
 
   const candidates = [
     `/api/test/weekly?userId=${encodeURIComponent(uid)}`,
-    `/api/test/weekly` // フォールバック
+    `/api/test/weekly`
   ];
 
   for (const url of candidates) {
@@ -2484,7 +2493,6 @@ async function loadWeeklyAnswers(){
       }
 
       data = data.slice().sort((a,b)=> new Date(a.ymd) - new Date(b.ymd));
-
       const barsEl   = document.getElementById('weeklyBars');
       const labelsEl = document.getElementById('weeklyLabels');
       barsEl.innerHTML = ''; labelsEl.innerHTML = '';
@@ -2521,14 +2529,15 @@ async function loadWeeklyAnswers(){
         lab.innerHTML = `<div>${mm}/${dd}</div><div style="opacity:.75">${youbi}</div>`;
         labelsEl.appendChild(lab);
       });
-	　 // 念のためJS側でも表示を強制
-　　　　barsEl.style.display = 'flex'; labelsEl.style.display = 'flex';
+
+      barsEl.style.display = 'flex';
+      labelsEl.style.display = 'flex';
       return;
     } catch {}
   }
   console.warn('weekly endpoint returned non-JSON, skip');
 }
-
+	
 // フォーカストラップ
 function trapFocus(modal){
   const SEL = 'a,button,input,select,textarea,[tabindex]:not([tabindex="-1"])';
@@ -2628,104 +2637,85 @@ function showPremiumPopup() {
 }
 	
 function startTest() {
-		  const userId = getUserId();  
-		  const testCount = localStorage.getItem("test_started");
-
-		  if (testCount) {
-		    alert("広告を見せる処理（仮）");
-		  }
-
-		  if (isPremium()) {
-		    // プレミアムユーザーはモード選択可能
-		    Swal.fire({
-		      title: "テストモードを選んでね",
-		      html: `
-		        <button id="readingBtn" class="swal2-confirm swal2-styled" style="margin: 5px;">📘 リーディング</button>
-		        <button id="listeningBtn" class="swal2-confirm swal2-styled" style="background:#3949ab;margin: 5px;">🎧 リスニング</button>
-		      `,
-		      showConfirmButton: false,
-		      didOpen: () => {
-		        document.getElementById("readingBtn").addEventListener("click", () => {
-		          localStorage.setItem("test_started", "1");
-		          window.location.href = `test.html?userId=${userId}&mode=reading`;
-		        });
-		        document.getElementById("listeningBtn").addEventListener("click", () => {
-		          localStorage.setItem("test_started", "1");
-		          window.location.href = `test.html?userId=${userId}&mode=listening`;
-		        });
-		      }
-		    });
-		  } else {
-		    // 無料ユーザーはリーディングのみ（広告付き）
-		    Swal.fire({
-		      title: "リスニングモードはプレミアム専用🎧",
-		      html: `
-		        <p>今は <strong>リーディングモード</strong>のみご利用いただけます。</p>
-		        <p>🎀 プレミアム登録で <strong>音声リスニングテスト</strong>も可能に！</p>
-		      `,
-		      showCancelButton: true,
-		      confirmButtonText: "リーディングで始める",
-		      cancelButtonText: "プレミアムを見る",
-		    }).then(result => {
-		      if (result.isConfirmed) {
-		        localStorage.setItem("test_started", "1");
-		        window.location.href = `test.html?userId=${userId}&mode=reading`;
-		      } else if (result.dismiss === Swal.DismissReason.cancel) {
-		        showPremiumPopup(); // プレミアム案内を表示
-		      }
-		    });
-		  }
-		}
+  const userId = getUserId();
+  if (localStorage.getItem('test_started')) { /* 広告表示などあればここ */ }
+  if (isPremium()) {
+    Swal.fire({
+      title: "テストモードを選んでね",
+      html: `
+        <button id="readingBtn" class="swal2-confirm swal2-styled" style="margin: 5px;">📘 リーディング</button>
+        <button id="listeningBtn" class="swal2-confirm swal2-styled" style="background:#3949ab;margin: 5px;">🎧 リスニング</button>
+      `,
+      showConfirmButton:false,
+      didOpen:()=>{
+        document.getElementById('readingBtn').onclick = ()=> {
+          localStorage.setItem('test_started','1');
+          gotoIfAuthed(`test.html?userId=${userId}&mode=reading`);
+        };
+        document.getElementById('listeningBtn').onclick = ()=> {
+          localStorage.setItem('test_started','1');
+          gotoIfAuthed(`test.html?userId=${userId}&mode=listening`);
+        };
+      }
+    });
+  } else {
+    Swal.fire({
+      title:'リスニングモードはプレミアム専用🎧',
+      html:'今は <b>リーディング</b>のみ利用できます。<br>🎀 プレミアム登録で音声テストも可能！',
+      showCancelButton:true,
+      confirmButtonText:'リーディングで始める',
+      cancelButtonText:'プレミアムを見る'
+    }).then(r=>{
+      if (r.isConfirmed){
+        localStorage.setItem('test_started','1');
+        gotoIfAuthed(`test.html?userId=${userId}&mode=reading`);
+      } else if (r.dismiss === Swal.DismissReason.cancel){
+        showPremiumPopup();
+      }
+    });
+  }
+}
 	
-	function startVocabularyTest() {
-		  const userId = getUserId();
-		  const testCount = localStorage.getItem("test_started");
-
-		  if (testCount) {
-		    alert("広告を見せる処理（仮）");
-		  }
-
-		  if (isPremium()) {
-		    // プレミアムユーザーはモード選択可能
-		    Swal.fire({
-		      title: "テストモードを選んでね",
-		      html: `
-		        <button id="readingBtn" class="swal2-confirm swal2-styled" style="margin: 5px;">📘 リーディング</button>
-		        <button id="listeningBtn" class="swal2-confirm swal2-styled" style="background:#3949ab;margin: 5px;">🎧 リスニング</button>
-		      `,
-		      showConfirmButton: false,
-		      didOpen: () => {
-		        document.getElementById("readingBtn").addEventListener("click", () => {
-		          localStorage.setItem("test_started", "1");
-		          window.location.href = `vocabularyTest.html?userId=${userId}&mode=reading`;
-		        });
-		        document.getElementById("listeningBtn").addEventListener("click", () => {
-		          localStorage.setItem("test_started", "1");
-		          window.location.href = `vocabularyTest.html?userId=${userId}&mode=listening`;
-		        });
-		      }
-		    });
-		  } else {
-		    // 無料ユーザーはリーディングのみ（広告付き）
-		    Swal.fire({
-		      title: "リスニングモードはプレミアム専用🎧",
-		      html: `
-		        <p>今は <strong>リーディングモード</strong>のみご利用いただけます。</p>
-		        <p>🎀 プレミアム登録で <strong>音声リスニングテスト</strong>も可能に！</p>
-		      `,
-		      showCancelButton: true,
-		      confirmButtonText: "リーディングで始める",
-		      cancelButtonText: "プレミアムを見る",
-		    }).then(result => {
-		      if (result.isConfirmed) {
-		        localStorage.setItem("test_started", "1");
-		        window.location.href = `vocabularyTest.html?userId=${userId}&mode=reading`;
-		      } else if (result.dismiss === Swal.DismissReason.cancel) {
-		        showPremiumPopup(); // プレミアム案内を表示
-		      }
-		    });
-		  }
-		}
+function startVocabularyTest() {
+  const userId = getUserId();
+  if (localStorage.getItem('test_started')) { /* 広告表示など */ }
+  if (isPremium()) {
+    Swal.fire({
+      title: "テストモードを選んでね",
+      html: `
+        <button id="readingBtn" class="swal2-confirm swal2-styled" style="margin: 5px;">📘 リーディング</button>
+        <button id="listeningBtn" class="swal2-confirm swal2-styled" style="background:#3949ab;margin: 5px;">🎧 リスニング</button>
+      `,
+      showConfirmButton:false,
+      didOpen:()=>{
+        document.getElementById('readingBtn').onclick = ()=> {
+          localStorage.setItem('test_started','1');
+          gotoIfAuthed(`vocabularyTest.html?userId=${userId}&mode=reading`);
+        };
+        document.getElementById('listeningBtn').onclick = ()=> {
+          localStorage.setItem('test_started','1');
+          gotoIfAuthed(`vocabularyTest.html?userId=${userId}&mode=listening`);
+        };
+      }
+    });
+  } else {
+    Swal.fire({
+      title:'リスニングモードはプレミアム専用🎧',
+      html:'今は <b>リーディング</b>のみ利用できます。',
+      showCancelButton:true,
+      confirmButtonText:'リーディングで始める',
+      cancelButtonText:'プレミアムを見る'
+    }).then(r=>{
+      if (r.isConfirmed){
+        localStorage.setItem('test_started','1');
+        gotoIfAuthed(`vocabularyTest.html?userId=${userId}&mode=reading`);
+      } else if (r.dismiss === Swal.DismissReason.cancel){
+        showPremiumPopup();
+      }
+    });
+  }
+}
+	
 // 累計正答と学習日数を /user/me から更新。
 // loginPoints がなければ /api/test/weekly から直近7日の学習日数相当を表示。
 let _statsRetry = 0;
