@@ -102,6 +102,19 @@
     return null;
   };
 
+  // ✅ セッション確定待ち（短い間隔で /api/me）
+  async function confirmSession(retry=6, interval=250){
+    for (let i=0;i<retry;i++){
+      try{
+        const r = await apiFetch('/api/me', { cache:'no-store' });
+        const ct = (r.headers.get('content-type')||'').toLowerCase();
+        if (r.ok && ct.includes('application/json')) return await r.json();
+      }catch{}
+      await sleep(interval);
+    }
+    return null;
+  }
+
   // local-part を安全に
   const localPart = (email='') => {
     const lp = String(email).split('@')[0] || 'user';
@@ -111,25 +124,26 @@
              .slice(0, 30) || 'user';
   };
 
-  // 自動ログイン（2系統）
+  // ✅ 自動ログイン（2系統を必ず両方叩く）
   async function autoLogin(email, password){
+    let ok = false;
     try{
-      const r = await apiFetch('/api/auth/login', {
+      const r1 = await apiFetch('/api/auth/login', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ email, password })
       });
-      if (r.ok) return true;
+      ok = ok || r1.ok;
     }catch{}
     try{
-      const r = await apiFetch('/login', {
+      const r2 = await apiFetch('/login', {
         method:'POST',
         headers:{'Content-Type':'application/x-www-form-urlencoded'},
         body: new URLSearchParams({ email, password })
       });
-      if (r.ok || r.redirected) return true;
+      ok = ok || r2.ok || r2.redirected;
     }catch{}
-    return false;
+    return ok;
   }
 
   /* ---- クライアント・ランダムソルト & ハッシュ ---- */
@@ -178,15 +192,13 @@
         Swal.fire({icon:'error', text:msg}); btn.disabled=false; return false;
       }
 
-      // 自動ログイン（サーバセッションを作る）
+      // 自動ログイン（サーバセッションを作る）→ セッション確定待ち
       await autoLogin(email, password);
-
-      // セッション確立を /api/me で**確実に**確認して保存
-      // （ここができていないと test や weekly でログイン画面に飛ぶ）
-      let me = await pollMe(12, 300);          // 最大 ~3.6s 待機
+      let me = await confirmSession();
       if (!me){
-        // レスポンスから拾えるなら拾う
-        try{ me = await r.clone().json(); }catch{}
+        // 念のためさらにリトライ幅広（最大 ~3.6s）
+        me = await pollMe(12, 300);
+        if (!me){ try{ me = await r.clone().json(); }catch{} }
       }
 
       // userId / name を最終確定
@@ -204,7 +216,7 @@
         localStorage.setItem('clientUserId', clientUserId);
       }catch{}
 
-      // 遷移（userId が未確定でも一応進める）
+      // 遷移（userId 未確定でも一応進める）
       const dest = userId ? `/user.html?userId=${encodeURIComponent(userId)}` : '/user.html';
       Swal.fire({icon:'success', text:'登録できました！'}).then(()=> location.assign(dest));
     }catch(err){
