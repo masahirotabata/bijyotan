@@ -131,6 +131,33 @@
     return false;
   }
 
+  /* -------------------- ここから最小追加（クライアント・ランダムソルト） -------------------- */
+
+  /** 端末ごとに固定の“クライアント・ランダムソルト” */
+  const CLIENT_SALT_KEY = 'client_salt_v1';
+  function getClientSalt(){
+    let s = localStorage.getItem(CLIENT_SALT_KEY);
+    if (!s){
+      const buf = new Uint8Array(8);           // 64bit ランダム
+      crypto.getRandomValues(buf);
+      s = Array.from(buf).map(b => b.toString(16).padStart(2,'0')).join('');
+      localStorage.setItem(CLIENT_SALT_KEY, s);
+    }
+    return s;
+  }
+
+  /** 文字列 → SHA-256 → Base64URL */
+  async function sha256Base64Url(str){
+    const enc = new TextEncoder().encode(str);
+    const buf = await crypto.subtle.digest('SHA-256', enc);
+    const bytes = new Uint8Array(buf);
+    let bin = '';
+    for (let i=0;i<bytes.length;i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  }
+
+  /* -------------------- 追加ここまで。既存の挙動は不変 -------------------- */
+
   async function handleRegister(e){
     e.preventDefault();
     const btn = e.submitter || document.querySelector('#registerForm button');
@@ -164,6 +191,13 @@
         if (!userId){ try{ userId = parseIdFromText(await r.clone().text()); }catch{} }
       }
       if (userId) localStorage.setItem('userId', userId);
+
+      /* ★最小追加：端末ソルト込みの“擬似ID”も保存（フロント専用の匿名ID） */
+      try{
+        const basis = userId || email || crypto.randomUUID();
+        const clientUserId = await sha256Base64Url(String(basis) + '|' + getClientSalt());
+        localStorage.setItem('clientUserId', clientUserId);
+      }catch{}
 
       const dest = userId ? `/user.html?userId=${encodeURIComponent(userId)}` : '/user.html';
       Swal.fire({icon:'success', text:'登録できました！'}).then(()=> location.assign(dest));
