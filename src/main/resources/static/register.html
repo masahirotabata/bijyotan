@@ -4,8 +4,6 @@
   <meta charset="UTF-8" />
   <title>美女単 - 新規登録</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!-- サーバがRails/SpringならCSRFトークンを挿せるように（任意） -->
-  <!-- <meta name="csrf-token" content="..."> -->
   <style>
     body{margin:0;padding:0;background:linear-gradient(135deg,#f8e8f0,#f0f8ff);
       font-family:Arial,Helvetica,sans-serif;display:flex;justify-content:center;
@@ -28,14 +26,14 @@
   <h2>新規ユーザー登録</h2>
 
   <form id="registerForm" onsubmit="handleRegister(event);return false;">
-    <!-- 表示名はメールアドレスのローカル部を使用（画面には出さない） -->
+    <!-- 画面には出さない。送信時に email をそのまま name に入れる -->
     <input id="regName" name="name" type="hidden" />
     <input id="regEmail" name="email" type="email" autocomplete="email"
            required placeholder="メールアドレス" inputmode="email" />
     <input id="regPass" name="password" type="password" autocomplete="new-password"
            required minlength="6" placeholder="パスワード（6文字以上）" />
     <button>新規登録</button>
-    <small class="helper">※ ユーザー名はメールアドレスを使用します（パスワードは保存も表示もしません）</small>
+    <small class="helper">※ ユーザー名はメールアドレスを使用します</small>
   </form>
 
   <div class="links">
@@ -43,7 +41,7 @@
   </div>
 
 <script>
-  // --- 共通 fetch（CSRF 自動付与 / Cookie送信） ---
+  // --- 共通 fetch（CSRF 自動付与） ---
   const apiFetch = (path, opts = {}) => {
     const method = (opts.method || 'GET').toUpperCase();
     const needsCSRF = !['GET','HEAD','OPTIONS'].includes(method);
@@ -52,9 +50,9 @@
       const meta = document.querySelector('meta[name="csrf-token"]')?.content;
       if (meta) return { header:'X-CSRF-Token', token: meta };
       const ck = document.cookie || '';
-      const m1 = ck.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/); // Spring Security
+      const m1 = ck.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
       if (m1) return { header:'X-CSRF-TOKEN', token: decodeURIComponent(m1[1]) };
-      const m2 = ck.match(/(?:^|;\s*)_csrf=([^;]+)/);      // 旧
+      const m2 = ck.match(/(?:^|;\s*)_csrf=([^;]+)/);
       if (m2) return { header:'X-CSRF-Token', token: decodeURIComponent(m2[1]) };
       return null;
     };
@@ -74,6 +72,14 @@
   const parseIdFromJson = j => {
     const c = [j?.id,j?.userId,j?.user_id,j?.user?.id,j?.data?.id,j?.data?.user?.id];
     for (const v of c) if (v!=null && String(v) !== '') return String(v);
+    return null;
+  };
+  const parseIdFromText = t => {
+    if (!t) return null;
+    let m = t.match(/["']?(?:userId|user_id|id)["']?\s*[:=]\s*["']?(\d{1,})["']?/i);
+    if (m) return m[1];
+    m = t.match(/\/(?:api\/)?(?:user|users)\/(\d{1,})(?:\D|$)/i);
+    if (m) return m[1];
     return null;
   };
 
@@ -96,7 +102,7 @@
     return null;
   };
 
-  // ✅ セッション確定待ち
+  // ✅ セッション確定待ち（短い間隔で /api/me）
   async function confirmSession(retry=6, interval=250){
     for (let i=0;i<retry;i++){
       try{
@@ -118,7 +124,7 @@
              .slice(0, 30) || 'user';
   };
 
-  // ✅ 自動ログイン（サーバがセッション/JWTを発行）
+  // ✅ 自動ログイン（2系統を必ず両方叩く）
   async function autoLogin(email, password){
     let ok = false;
     try{
@@ -140,7 +146,7 @@
     return ok;
   }
 
-  /* ---- 端末側匿名ID用のソルト＆ハッシュ（パスワードは保存しない） ---- */
+  /* ---- クライアント・ランダムソルト & ハッシュ ---- */
   const CLIENT_SALT_KEY = 'client_salt_v1';
   function getClientSalt(){
     let s = localStorage.getItem(CLIENT_SALT_KEY);
@@ -168,58 +174,55 @@
     btn.disabled = true;
 
     const email = document.getElementById('regEmail').value.trim();
-    const password = document.getElementById('regPass').value; // 送信のみ。保存はしない
-    const name = localPart(email); // 表示名
+    const password = document.getElementById('regPass').value;
+    const name = localPart(email);                 // 表示名に local-part を使う
 
-    // 先に表示名を保存（user.htmlの“ゲストさん”回避フォールバック）
+    // 先に表示名を保存（user.html の“ゲストさん”回避用フォールバック）
     localStorage.setItem('displayName', name);
 
     try{
-      // 1) サーバでユーザー作成（ハッシュ保存 & 直後のログインに備える）
+      // 登録
       const r = await apiFetch('/api/auth/register', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ name, email, password })
       });
-
       if (!(r.status===200 || r.status===201 || r.status===204)){
         const msg = r.status===409 ? 'このメールは既に使われています' : '登録に失敗しました';
         Swal.fire({icon:'error', text:msg}); btn.disabled=false; return false;
       }
 
-      // 2) 自動ログイン（セッション/JWT発行）
+      // 自動ログイン（サーバセッションを作る）→ セッション確定待ち
       await autoLogin(email, password);
-
-      // 3) セッション確定待ち（/api/me）
       let me = await confirmSession();
       if (!me){
-        me = await pollMe(12, 300); // 追加の猶予
+        // 念のためさらにリトライ幅広（最大 ~3.6s）
+        me = await pollMe(12, 300);
+        if (!me){ try{ me = await r.clone().json(); }catch{} }
       }
 
-      // 4) userId / name を最終確定
+      // userId / name を最終確定
       let userId = parseIdFromJson(me) || null;
       let finalName = me?.name || me?.username || (me?.email ? localPart(me.email) : name);
 
       if (userId) localStorage.setItem('userId', String(userId));
       localStorage.setItem('displayName', finalName);
-      localStorage.setItem('authTs', String(Date.now()));
+      localStorage.setItem('authTs', String(Date.now()));   // 直近ログイン印
 
-      // フロント専用の匿名ID（端末ソルト込み）。※パスワードは一切保存しない
+      // フロント専用の匿名ID（端末ソルト込み）
       try{
         const basis = userId || email || crypto.randomUUID();
         const clientUserId = await sha256Base64Url(String(basis) + '|' + getClientSalt());
         localStorage.setItem('clientUserId', clientUserId);
       }catch{}
 
-      // 5) 遷移（userId 未確定でも一応進む）
+      // 遷移（userId 未確定でも一応進める）
       const dest = userId ? `/user.html?userId=${encodeURIComponent(userId)}` : '/user.html';
       Swal.fire({icon:'success', text:'登録できました！'}).then(()=> location.assign(dest));
     }catch(err){
       console.error(err);
       Swal.fire({icon:'error', text:'通信エラーが発生しました'});
     }finally{
-      // フォーム側にパスワードを残さない（視覚的にも空に）
-      try{ document.getElementById('regPass').value = ''; }catch{}
       btn.disabled = false;
     }
     return false;
