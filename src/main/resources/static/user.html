@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <title>美女単語（ユーザー）</title>
- <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+　<meta name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+
 
 
   <style>
@@ -1566,31 +1568,48 @@ const candidates = [
 
     /* ===== AdMobバナーの下余白（adSpacer）を調整 ===== */
     (function(){
-      const adSpacer = document.getElementById('adSpacer');
-      let bannerHeight = 50; // デフォルト推定
+  const adSpacer = document.getElementById('adSpacer');
+  const tabbar   = document.getElementById('tabbar');
 
-      function applyPadding(){
-        adSpacer.style.height = (bannerHeight + 8) + 'px';
-        // 表示中ビューの下パディングも増やす（タブバー56px + バナー）
-        document.querySelectorAll('.app-view.is-active').forEach(v=>{
-          v.style.paddingBottom = `calc(${bannerHeight + 56}px + env(safe-area-inset-bottom))`;
-        });
-      }
-      window.adjustBottomPadding = applyPadding;
-      applyPadding();
+  let bannerHeight = 50;       // デフォルト推定（SDKから上書き）
+  const TABBAR_H   = 56;
 
-      // CapacitorのAdMobプラグインがあれば高さを受け取って更新
-      const Cap = window.Capacitor;
-      const AdMob = Cap?.Plugins?.AdMob;
-      if (AdMob && AdMob.addListener) {
-        try {
-          AdMob.addListener('onAdLoaded', (ev) => {
-            if (Number(ev?.height)) { bannerHeight = Number(ev.height); applyPadding(); }
-          });
-        } catch (e) {}
-      }
-      setTimeout(applyPadding, 300);
-    })();
+  function applyPadding(){
+    // 1) バナーの下余白（Web側の疑似スペーサ）
+    adSpacer.style.height = (bannerHeight) + 'px';
+
+    // 2) アクティブビューの下パディング（tabbar + バナー + セーフエリア）
+    document.querySelectorAll('.app-view.is-active').forEach(v=>{
+      v.style.paddingBottom = `calc(${TABBAR_H + bannerHeight}px + env(safe-area-inset-bottom))`;
+    });
+
+    // 3) tabbar 自体をバナー高さだけ持ち上げる（= バナーの上に出す）
+    if (tabbar){
+      tabbar.style.bottom = `calc(${bannerHeight}px + env(safe-area-inset-bottom))`;
+    }
+  }
+
+  // 他の場所で使うために公開しておく（あなたの既存と合わせる）
+  window.adjustBottomPadding = applyPadding;
+  applyPadding();
+
+  // Capacitor AdMob から実際の高さが届いたら更新
+  const Cap = window.Capacitor;
+  const AdMob = Cap?.Plugins?.AdMob;
+  if (AdMob?.addListener){
+    try {
+      AdMob.addListener('onAdLoaded', (ev) => {
+        if (Number(ev?.height)) {
+          bannerHeight = Number(ev.height);
+          applyPadding();
+        }
+      });
+    } catch(e){}
+  }
+
+  // 念のため遅延でもう一度
+  setTimeout(applyPadding, 300);
+})();
 
 	// 追加（どこでもOK、updateLoginPointsIfNeeded より上でも下でも）
 function setLoginDays(points){
@@ -2049,6 +2068,8 @@ function showNextCard() {
 // ▼ここ差し替え：無双Partは出さない（フラグで抑止）
 const MUSOU_ENABLED = false;
 window.addEventListener('DOMContentLoaded', () => {
+　document.getElementById('watchAdBtn')?.addEventListener('click', handleAdAccept);
+  document.getElementById('cancelAdBtn')?.addEventListener('click', closeAdModal);
   if (!MUSOU_ENABLED) {
     const musouNav = document.getElementById('nav-muso'); // メニュー項目などに付与してあるIDを指定
     if (musouNav) musouNav.style.display = 'none';
@@ -3744,6 +3765,34 @@ document.addEventListener('keydown', (e) => {
     if (ok) await showBottomBanner();
   });
 })(); // ← IIFE はこれ1つだけ
+
+async function hideNativeBannerIfPossible(){
+  const Cap = window.Capacitor;
+  const AdMob = Cap?.Plugins?.AdMob;
+  try {
+    await AdMob?.hideBanner?.();   // 一時的に非表示
+    await AdMob?.removeBanner?.(); // 破棄（実装がある場合）
+  } catch(e){}
+}
+
+// 初期描画時
+document.addEventListener('DOMContentLoaded', async ()=>{
+  try{
+    if (typeof isPremium === 'function' && isPremium()){
+      await hideNativeBannerIfPossible();
+      // tabbar の位置を戻す
+      window.adjustBottomPadding?.();
+    }
+  }catch{}
+});
+
+// プレミアムに昇格した瞬間（あなたの markPremiumEnabled の中など）でも：
+async function markPremiumEnabled(){
+  // ...既存処理...
+  await hideNativeBannerIfPossible();
+  window.adjustBottomPadding?.();
+}
+
 </script>
 	
 </body>
