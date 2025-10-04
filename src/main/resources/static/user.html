@@ -1617,8 +1617,74 @@ function setLoginDays(points){
   if (el) el.textContent = `学習日数: ${points}日目`;
 }
 
-function isPremium() { return Boolean(user?.premium); } 
+// ===== Premium bridge (Capacitor + StoreKit 2) =====
 
+// 0) ブリッジの参照＆キャッシュ初期化（※1回だけ定義）
+const Cap = window.Capacitor;
+const NativePremium = Cap?.Plugins?.PremiumPlugin;
+const premiumState = { value: Boolean(window.user?.premium || false) };
+
+// 1) 既存コード互換：同期関数のまま（キャッシュ参照）
+function isPremium() { return !!premiumState.value; }
+
+// 2) ネイティブから最新状態を取得（起動時/ログイン後に1回）
+async function refreshPremium() {
+  if (!NativePremium) return isPremium(); // Web/Simulator など
+  try {
+    const { value } = await NativePremium.isPremium();
+    premiumState.value = !!value;
+    if (window.user) window.user.premium = premiumState.value;
+  } catch { /* ネット無し等は現状維持 */ }
+  return isPremium();
+}
+
+// 3) 購入
+async function purchasePremium() {
+  if (!NativePremium) {
+    alert('この環境では購入できません（ネイティブ専用）');
+    return false;
+  }
+  try {
+    const { success } = await NativePremium.purchase();
+    if (success) {
+      premiumState.value = true;
+      if (window.user) window.user.premium = true;
+      try { await setUserPremium(getUserId()); } catch {}
+      try { await hideNativeBannerIfPossible(); } catch {}
+      window.adjustBottomPadding?.();
+      try { await refreshUserStats?.(); } catch {}
+    }
+    return !!success;
+  } catch (e) {
+    console.warn('purchase failed', e);
+    alert('購入に失敗しました。時間をおいてお試しください。');
+    return false;
+  }
+}
+
+// 4) 復元
+async function restorePurchase() {
+  if (!NativePremium) return false;
+  try {
+    const { success } = await NativePremium.restore();
+    premiumState.value = !!success;
+    if (window.user) window.user.premium = premiumState.value;
+    if (premiumState.value) {
+      try { await setUserPremium(getUserId()); } catch {}
+      try { await hideNativeBannerIfPossible(); } catch {}
+      window.adjustBottomPadding?.();
+    }
+    return premiumState.value;
+  } catch (e) {
+    console.warn('restore failed', e);
+    return false;
+  }
+}
+
+// 5) 起動時に最新状態へ
+document.addEventListener('DOMContentLoaded', () => {
+  refreshPremium();
+});
 /* ========= StoreKit bridge (Web <-> iOS) =========
  * - iOSアプリの WKWebView に載せたときは window.webkit.messageHandlers.storekit が使えます
  * - ブラウザでは存在しないので自動でフォールバックします（従来の広告/Stripeのフロー）
