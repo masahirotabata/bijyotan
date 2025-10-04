@@ -1172,6 +1172,14 @@ button { writing-mode: horizontal-tb; }
   <!-- NEW: タブ切替＆バナー余白調整スクリプト -->
 
 <script>
+
+// ===== Premium bridge (Capacitor + StoreKit 2) =====
+// 0) ブリッジの参照＆キャッシュ初期化（※1回だけ定義）
+
+const Cap = window.Capacitor || null;
+const AdMob = Cap?.Plugins?.AdMob || null;            // ← 追加
+const NativePremium = Cap?.Plugins?.PremiumPlugin;
+const premiumState = { value: Boolean(window.user?.premium || false) };
 // 置き換え：apiFetch の先頭付近
 const apiFetch = (path, opts = {}) => {
   const method = (opts.method || 'GET').toUpperCase();
@@ -1615,14 +1623,6 @@ function setLoginDays(points){
   const el = document.getElementById('loginDays');
   if (el) el.textContent = `学習日数: ${points}日目`;
 }
-
-// ===== Premium bridge (Capacitor + StoreKit 2) =====
-// 0) ブリッジの参照＆キャッシュ初期化（※1回だけ定義）
-
-const Cap = window.Capacitor || null;
-const AdMob = Cap?.Plugins?.AdMob || null;            // ← 追加
-const NativePremium = Cap?.Plugins?.PremiumPlugin;
-const premiumState = { value: Boolean(window.user?.premium || false) };
 
 // UIだけ反映（フラグは変更しない）
 // 旧: function markPremiumEnabled(){ ... user.premium = true; ... }
@@ -3763,6 +3763,7 @@ document.addEventListener('keydown', (e) => {
 
   // ===== 初期化 =====
   async function initAdMob() {
+	const ad = AdMob;            // ← 関数内で参照（実行時）
     if (!AdMob) return false;         // ブラウザ等はフォールバックへ
     try {
       await AdMob.initialize({
@@ -3778,6 +3779,7 @@ document.addEventListener('keydown', (e) => {
 
   // ===== バナー（下固定） =====
   async function showBottomBanner() {
+	const ad = AdMob;            // 実行時参照
     if (!AdMob) return;
     try {
       await AdMob.showBanner({
