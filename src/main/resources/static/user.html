@@ -1385,7 +1385,7 @@ function isPremium() { return Boolean(user?.premium); }
  * - iOSアプリの WKWebView に載せたときは window.webkit.messageHandlers.storekit が使えます
  * - ブラウザでは存在しないので自動でフォールバックします（従来の広告/Stripeのフロー）
  */
-const SK_PRODUCT_ID = "premium_monthly_300";  // App Store Connect で作成した商品IDに置き換え
+const SK_PRODUCT_ID = "premium_unlock_300";  // App Store Connect で作成した商品IDに置き換え
 
 // iOS(WKWebView)判定
 function isIOSApp() {
