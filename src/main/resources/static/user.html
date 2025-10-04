@@ -3721,12 +3721,27 @@ document.addEventListener('keydown', (e) => {
 
   // ====== 既存コードに合わせたフック ======
   // 既存の showAd() を“本物のAdMob”で置き換える
-  window.showAd = async function(){
-    // premium ユーザーならスキップ
-    const ok = await initAdMob();
+  // 既存：この位置に余分な '});' が入って syntax error になっている
+window.showAd = async function(){
+  // premium ユーザーならスキップ
+  const ok = await initAdMob();
   if (ok) showBottomBanner();
-});
-   
+  // ここに '});' を置かない！ 関数はまだ続きます
+
+  // AdMob 実行 or Webフォールバック
+  const ok2 = await initAdMob();
+  if (!ok2) {
+    const yes = window.confirm('【デモ】広告を最後まで視聴しましたか？\nOK=成功 / Cancel=キャンセル');
+    if (yes) onAdWatchedSuccess?.(); else onAdClosedOrFailed?.();
+    return;
+  }
+  try {
+    await showRewardedAdReal(); // 成功→ onAdWatchedSuccess()
+  } catch (e) {
+    console.warn('rewarded failed', e);
+    onAdClosedOrFailed?.(e);
+  }
+}; // ← ここで関数を閉じる
 
     // AdMob 実行 or Webフォールバック
     const ok = await initAdMob();
