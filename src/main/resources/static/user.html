@@ -3428,6 +3428,125 @@ document.addEventListener('keydown', (e) => {
   </div>
 </div>
 
+<script>
+/* ===== AdMob bridge for Capacitor (Banner + Rewarded) =====
+ * - ネイティブ（Capacitor）では AdMob SDK を使用
+ * - ブラウザではフォールバック（confirmダイアログ）で安全に動作
+ */
+(function(){
+  const Cap = window.Capacitor;
+  const AdMob = Cap?.Plugins?.AdMob;
+
+  // 端末種別
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const isAndroid = /Android/i.test(navigator.userAgent);
+
+  // テストユニットID（公式）
+  const TEST = {
+    banner:   isIOS ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111',
+    inter:    isIOS ? 'ca-app-pub-3940256099942544/4411468910' : 'ca-app-pub-3940256099942544/1033173712',
+    rewarded: isIOS ? 'ca-app-pub-3940256099942544/1712485313' : 'ca-app-pub-3940256099942544/5224354917'
+  };
+
+  // 本番ユニットID（用意できたら差し替え）
+  const PROD = {
+    banner:   '', // 例: 'ca-app-pub-xxxxxxxxxxxxxxxx/BBBBBBBBBB'
+    inter:    '',
+    rewarded: ''
+  };
+
+  // ひとまずテストで動かす（本番切替は下の useProd を true に）
+  const useProd = false;
+  const AD_UNIT = useProd ? PROD : TEST;
+
+  // ====== 初期化 ======
+  async function initAdMob(){
+    if (!AdMob) return false; // Webフォールバック
+    try {
+      await AdMob.initialize({
+        requestTrackingAuthorization: true,   // iOS 14+ のATT (文言は Info.plist に記載)
+        initializeForTesting: !useProd
+      });
+      return true;
+    } catch(e){
+      console.warn('AdMob init failed', e);
+      return false;
+    }
+  }
+
+  // ====== バナー（画面下部固定） ======
+  async function showBottomBanner(){
+    if (!AdMob) return; // Webではバナーなし
+    try {
+      await AdMob.showBanner({
+        adId: AD_UNIT.banner,
+        adSize: 'BANNER',             // または 'ADAPTIVE_BANNER'
+        position: 'BOTTOM_CENTER',    // 画面下部に固定
+        isTesting: !useProd
+      });
+    } catch(e){
+      console.warn('banner error', e);
+    }
+  }
+
+  // ====== リワード広告（+6枚付与やPREMIUM解放に利用） ======
+  async function showRewardedAdReal(){
+    if (!AdMob) throw new Error('NO_ADMOB');
+    // 事前ロード
+    await AdMob.prepareRewardVideoAd({
+      adId: AD_UNIT.rewarded,
+      isTesting: !useProd,
+      // サーバーサイド検証を使う場合はここで customData 等を付与
+    });
+    // 表示
+    const res = await AdMob.showRewardVideoAd(); // { amount, type } が入る
+    // ここまで来たら“視聴完了”相当：アプリ側のご褒美を実行
+    if (typeof onAdWatchedSuccess === 'function') onAdWatchedSuccess();
+    return res;
+  }
+
+  // ====== 既存コードに合わせたフック ======
+  // 既存の showAd() を“本物のAdMob”で置き換える
+  window.showAd = async function(){
+    // premium ユーザーならスキップ
+    try {
+      if (typeof isPremium === 'function' && isPremium()) {
+        if (typeof onAdWatchedSuccess === 'function') onAdWatchedSuccess();
+        return;
+      }
+    } catch{}
+
+    // AdMob 実行 or Webフォールバック
+    const ok = await initAdMob();
+    if (!ok) {
+      // Web/開発ビルド等：簡易フォールバック
+      const yes = window.confirm('【デモ】広告を最後まで視聴しましたか？\nOK=成功 / Cancel=キャンセル');
+      if (yes) { if (typeof onAdWatchedSuccess==='function') onAdWatchedSuccess(); }
+      else     { if (typeof onAdClosedOrFailed==='function') onAdClosedOrFailed(); }
+      return;
+    }
+
+    try {
+      await showRewardedAdReal(); // 成功で onAdWatchedSuccess が呼ばれる
+    } catch(e) {
+      console.warn('rewarded failed', e);
+      if (typeof onAdClosedOrFailed==='function') onAdClosedOrFailed(e);
+    }
+  };
+
+  // 初期描画時にバナー表示（無料ユーザーのみ）
+  document.addEventListener('DOMContentLoaded', async () => {
+    try{
+      if (typeof isPremium === 'function' && isPremium()) return;
+    }catch{}
+    const ok = await initAdMob();
+    if (ok) showBottomBanner();
+  });
+
+})();
+</script>
+
+
 
 	</body>
 	</html>
