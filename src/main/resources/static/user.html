@@ -1381,6 +1381,99 @@ function setLoginDays(points){
 
 function isPremium() { return Boolean(user?.premium); } 
 
+/* ========= StoreKit bridge (Web <-> iOS) =========
+ * - iOSアプリの WKWebView に載せたときは window.webkit.messageHandlers.storekit が使えます
+ * - ブラウザでは存在しないので自動でフォールバックします（従来の広告/Stripeのフロー）
+ */
+const SK_PRODUCT_ID = "premium_monthly_300";  // App Store Connect で作成した商品IDに置き換え
+
+// iOS(WKWebView)判定
+function isIOSApp() {
+  return !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.storekit);
+}
+
+// JS -> iOS (StoreKit) へメッセージ
+function skPost(action, payload = {}) {
+  if (!isIOSApp()) return false;
+  window.webkit.messageHandlers.storekit.postMessage({ action, ...payload });
+  return true;
+}
+
+// iOS -> JS のコールバック入口（ネイティブ側から呼びます）
+window.onStoreKitMessage = function (msg) {
+  // msg = { event: 'purchased' | 'restored' | 'failed' | 'deferred' | 'entitlements',
+  //         premium: boolean, error?: string }
+  try {
+    if (msg.event === 'entitlements') {
+      if (msg.premium) markPremiumEnabled();
+      return;
+    }
+    if (msg.event === 'purchased' || msg.event === 'restored') {
+      markPremiumEnabled();
+      Swal.fire({icon:'success', title:'プレミアムを解放しました！'});
+      return;
+    }
+    if (msg.event === 'failed') {
+      Swal.fire({icon:'error', title:'購入に失敗しました', text: msg.error || 'キャンセル/失敗'});
+      return;
+    }
+    if (msg.event === 'deferred') {
+      Swal.fire({icon:'info', title:'承認待ち', text:'ファミリー承認待ちなどで保留になりました。'});
+    }
+  } catch (e) { console.warn(e); }
+};
+
+// プレミアムON（既存UIへ反映）
+function markPremiumEnabled() {
+  try {
+    // 既存の user オブジェクトとUIを更新（あなたのコードに合わせて）
+    user.premium = true;
+    document.getElementById("planText").innerText = "プラン: プレミアム";
+    ensureHeroVideo();
+    updateCounter('soft');
+    refreshUserStats();
+    // DBへ反映（既存のヘルパー）
+    setUserPremium(getUserId());
+  } catch {}
+}
+
+// ===== モーダルのボタンの配線（既存IDを流用） =====
+(function wireAdModalToStoreKit(){
+  const watchBtn  = document.getElementById('watchAdBtn');
+  const cancelBtn = document.getElementById('cancelAdBtn');
+
+  if (!watchBtn || !cancelBtn) return;
+
+  cancelBtn.addEventListener('click', () => {
+    // 従来の広告モーダルを閉じるだけ
+    closeAdModal();
+  });
+
+  watchBtn.addEventListener('click', async () => {
+    // iOSアプリ内なら StoreKit を起動、ブラウザなら従来のフロー
+    if (isIOSApp()) {
+      closeAdModal();
+      // 1) 現在の権利チェック（すでに購入済みなら即反映）
+      skPost('checkEntitlements');
+      // 2) 未購入なら購入シート表示
+      skPost('purchase', { productId: SK_PRODUCT_ID });
+    } else {
+      // ブラウザ/PWAでは従来どおりの処理（広告 or Stripe）
+      handleAdAccept();    // ← あなたの既存関数（広告→6枚付与）
+      // あるいは Stripe へ誘導するなら: showPremiumPopup();
+    }
+  });
+
+  // 任意：JSから復元を出したい場合の例
+  window.restorePremium = function(){
+    if (isIOSApp()) skPost('restore');
+    else Swal.fire({icon:'info', text:'アプリ内で復元を実行してください。'});
+  };
+
+  // 読み込み時に一度だけ権利確認（アプリ内）
+  if (isIOSApp()) skPost('checkEntitlements');
+})();
+
 // ✅ 初回ログイン or バージョン変更時のみ表示
 function showUpdateInfoIfNeeded() {
   const shownVersion = localStorage.getItem("updateInfoShownVersion");
