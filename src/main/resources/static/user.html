@@ -1143,9 +1143,11 @@ button { writing-mode: horizontal-tb; }
 </main>
 
 <!-- ==== 共有フッター（※ここだけ） ==== -->
+<!-- 3つの main の直後、最後に1つ置く -->
 <footer class="app-footer">
-  <div id="ad-banner" class="ad-banner" aria-label="広告"></div>
+  <div class="ad-banner" aria-label="広告"></div>
 </footer>
+
 
   <!-- ================== /3つのビュー ================== -->
 
@@ -1246,6 +1248,31 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (plan === "free") await initBanner();
 });
+
+function renderHouseAd(){
+  const a=document.createElement('a');
+  a.href='https://example.com'; a.target='_blank'; a.rel='noopener';
+  a.textContent='🎀 広告：英単語で遊ぼう！タップしてみる';
+  Object.assign(a.style,{
+    display:'block', width:'100%', textAlign:'center',
+    padding:'14px 12px', borderRadius:'10px', background:'#ffe0ef',
+    fontWeight:'600'
+  });
+  return a;
+}
+function mountBanners(){
+  const isPremium = window.user?.plan === 'premium';
+  document.querySelectorAll('.ad-banner').forEach(el=>{
+    el.innerHTML='';
+    if(isPremium){ el.style.display='none'; return; }
+    el.style.display='flex';
+    el.appendChild(renderHouseAd());
+  });
+}
+document.addEventListener('DOMContentLoaded', mountBanners);
+// タブ切替のたびに呼ぶイベントがあるならそれでも呼ぶ
+document.addEventListener('viewchange', mountBanners);
+
 
 async function resolveUserId(){
   const qs = new URLSearchParams(location.search);
