@@ -1594,8 +1594,7 @@ const candidates = [
   applyPadding();
 
   // Capacitor AdMob から実際の高さが届いたら更新
-  const Cap = window.Capacitor;
-  const AdMob = Cap?.Plugins?.AdMob;
+  
   if (AdMob?.addListener){
     try {
       AdMob.addListener('onAdLoaded', (ev) => {
@@ -1618,11 +1617,32 @@ function setLoginDays(points){
 }
 
 // ===== Premium bridge (Capacitor + StoreKit 2) =====
-
 // 0) ブリッジの参照＆キャッシュ初期化（※1回だけ定義）
-const Cap = window.Capacitor;
+
+const Cap = window.Capacitor || null;
+const AdMob = Cap?.Plugins?.AdMob || null;            // ← 追加
 const NativePremium = Cap?.Plugins?.PremiumPlugin;
 const premiumState = { value: Boolean(window.user?.premium || false) };
+
+// UIだけ反映（フラグは変更しない）
+// 旧: function markPremiumEnabled(){ ... user.premium = true; ... }
+function applyPremiumUI() {
+  try {
+    // 表示だけ更新（フラグは isPremium()/premiumState を参照）
+    const planEl = document.getElementById("planText");
+    if (planEl) planEl.innerText = `プラン: ${isPremium() ? "プレミアム" : "無料"}`;
+
+    ensureHeroVideo?.();
+    updateCounter?.('soft');
+    refreshUserStats?.();
+
+    // 広告非表示など（存在すれば）
+    hideNativeBannerIfPossible?.();
+    window.adjustBottomPadding?.();
+  } catch (e) {
+    console.warn('applyPremiumUI error:', e);
+  }
+}
 
 // 1) 既存コード互換：同期関数のまま（キャッシュ参照）
 function isPremium() { return !!premiumState.value; }
@@ -1640,19 +1660,19 @@ async function refreshPremium() {
 
 // 3) 購入
 async function purchasePremium() {
-  if (!NativePremium) {
-    alert('この環境では購入できません（ネイティブ専用）');
-    return false;
-  }
+  if (!NativePremium) { alert('この環境では購入できません（ネイティブ専用）'); return false; }
   try {
     const { success } = await NativePremium.purchase();
-    if (success) {
+    if (success === true) {
       premiumState.value = true;
       if (window.user) window.user.premium = true;
+
       try { await setUserPremium(getUserId()); } catch {}
       try { await hideNativeBannerIfPossible(); } catch {}
       window.adjustBottomPadding?.();
       try { await refreshUserStats?.(); } catch {}
+
+      applyPremiumUI(); // 成功時のみ反映
     }
     return !!success;
   } catch (e) {
@@ -1669,10 +1689,12 @@ async function restorePurchase() {
     const { success } = await NativePremium.restore();
     premiumState.value = !!success;
     if (window.user) window.user.premium = premiumState.value;
+
     if (premiumState.value) {
       try { await setUserPremium(getUserId()); } catch {}
       try { await hideNativeBannerIfPossible(); } catch {}
       window.adjustBottomPadding?.();
+      applyPremiumUI(); // 復元成功時のみ反映
     }
     return premiumState.value;
   } catch (e) {
@@ -1681,9 +1703,10 @@ async function restorePurchase() {
   }
 }
 
-// 5) 起動時に最新状態へ
-document.addEventListener('DOMContentLoaded', () => {
-  refreshPremium();
+// 5) 起動時に最新状態へ（← async を付ける）
+document.addEventListener('DOMContentLoaded', async () => {
+  await refreshPremium();
+  applyPremiumUI();
 });
 /* ========= StoreKit bridge (Web <-> iOS) =========
  * - iOSアプリの WKWebView に載せたときは window.webkit.messageHandlers.storekit が使えます
@@ -1709,11 +1732,11 @@ window.onStoreKitMessage = function (msg) {
   //         premium: boolean, error?: string }
   try {
     if (msg.event === 'entitlements') {
-      if (msg.premium) markPremiumEnabled();
+      if (msg.premium) { premiumState.value = true; window.user && (window.user.premium = true); applyPremiumUI(); }
       return;
     }
     if (msg.event === 'purchased' || msg.event === 'restored') {
-      markPremiumEnabled();
+	　premiumState.value = true; window.user && (window.user.premium = true); applyPremiumUI();
       Swal.fire({icon:'success', title:'プレミアムを解放しました！'});
       return;
     }
@@ -1726,20 +1749,6 @@ window.onStoreKitMessage = function (msg) {
     }
   } catch (e) { console.warn(e); }
 };
-
-// プレミアムON（既存UIへ反映）
-function markPremiumEnabled() {
-  try {
-    // 既存の user オブジェクトとUIを更新（あなたのコードに合わせて）
-    user.premium = true;
-    document.getElementById("planText").innerText = "プラン: プレミアム";
-    ensureHeroVideo();
-    updateCounter('soft');
-    refreshUserStats();
-    // DBへ反映（既存のヘルパー）
-    setUserPremium(getUserId());
-  } catch {}
-}
 
 // ===== モーダルのボタンの配線（既存IDを流用） =====
 (function wireAdModalToStoreKit(){
@@ -3734,9 +3743,6 @@ document.addEventListener('keydown', (e) => {
  * - Capacitor(iOS/Android) では AdMob SDK、本ブラウザでは confirm フォールバック
  */
 (function () {
-  const Cap   = window.Capacitor;
-  const AdMob = Cap?.Plugins?.AdMob;
-
   // 端末判定（必要なら isAndroid を使ってもOK）
   const isIOS     = /iPhone|iPad|iPod/i.test(navigator.userAgent);
   const isAndroid = /Android/i.test(navigator.userAgent);
@@ -3833,8 +3839,6 @@ document.addEventListener('keydown', (e) => {
 })(); // ← IIFE はこれ1つだけ
 
 async function hideNativeBannerIfPossible(){
-  const Cap = window.Capacitor;
-  const AdMob = Cap?.Plugins?.AdMob;
   try {
     await AdMob?.hideBanner?.();   // 一時的に非表示
     await AdMob?.removeBanner?.(); // 破棄（実装がある場合）
