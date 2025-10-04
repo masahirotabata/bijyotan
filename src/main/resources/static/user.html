@@ -1053,6 +1053,12 @@ button { writing-mode: horizontal-tb; }
 	/* 既存の“横並び”指定を無効化 */
 	#test-section.cta-row{ display:block !important; }
 
+	/* バナーは常に枠を確保（ブロッカー時のガタつき防止） */
+	.ad-banner { min-height:60px; display:flex; align-items:center; justify-content:center; margin:8px 8px calc(8px + env(safe-area-inset-bottom, 0px)); }
+	.ad-banner.fallback { background:#ffe6ef; color:#ef2a67; font-size:12px; border-radius:12px; padding:8px 12px; }
+	
+	.app-footer { padding-bottom: env(safe-area-inset-bottom, 0px); }
+
 
   </style>
 	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -1068,86 +1074,79 @@ button { writing-mode: horizontal-tb; }
 </div>
 
 
-<!-- ================== NEW: 3つのビュー ================== -->
-  <!-- トップページ -->
-  <main id="view-home" class="app-view is-active"> <!-- NEW: is-activeが初期表示 -->
-    <div id="user-info">
-      <div id="username"></div>
-      <div id="planText"></div>
-      <div id="userLevel"></div>
+<!-- ================== 3つのビュー ================== -->
+<!-- トップページ -->
+<main id="view-home" class="app-view is-active">
+  <div id="user-info">
+    <div id="username"></div>
+    <div id="planText"></div>
+    <div id="userLevel"></div>
+  </div>
+
+  <div id="levelGirlContainer" class="level-girl">
+    <div id="bgEffect" class="star-bg"></div>
+    <video id="girlVideo" preload="metadata" autoplay muted loop playsinline width="180"></video>
+  </div>
+
+  <div id="statsBox">
+    <div id="learningStatus" aria-live="polite"></div>
+    <div id="subStats">
+      <div id="loginDays"></div>
+      <div id="testStats"></div>
     </div>
+  </div>
 
-    <div id="levelGirlContainer" style="text-align:center; margin: 10px 0;">
-      <div id="bgEffect" class="star-bg"></div>
-      <video id="girlVideo" preload="metadata" autoplay muted loop playsinline width="180" style="border-radius:10px;"></video>
+  <div id="weeklyAnswersBox">
+    <h3>1週間の解答数:(目標解答数:80が目安)</h3>
+    <div class="weekly-wrap">
+      <div id="weeklyBars" class="weekly-bars"></div>
     </div>
+    <div id="weeklyLabels" class="weekly-labels"></div>
+  </div>
+</main>
 
-    <div id="statsBox">
-      <div id="learningStatus" aria-live="polite"></div>
-      <div id="subStats">
-        <div id="loginDays"></div>
-        <div id="testStats"></div>
-      </div>
+<!-- テスト受検ページ -->
+<main id="view-test" class="app-view">
+  <div id="test-section" class="buttons">
+    <!-- 広告版はJSで free & 広告可のときだけ表示 -->
+    <button id="btn-rewarded" class="btn is-hidden">広告を見て美女で英単語を表現</button>
+    <button id="btn-test" class="btn">テストを開始する</button>
+    <button id="btn-test-vocab" class="btn">テストを開始する(単語モード)</button>
+    <button id="btn-swipe" class="btn">スワイプ学習を始める</button>
+  </div>
+
+  <div id="swipeModeBox" class="hidden">
+    <div class="swipe-hud">
+      <button id="swipeExitBtn">一覧に戻る</button>
+      <div id="swipeCounter" aria-live="polite">0 / 0</div>
+      <div id="swipeStats" aria-live="polite">覚えた: 0 / 覚えたい: 0</div>
     </div>
-
-    <div id="weeklyAnswersBox">
-      <h3 style="text-align:center;margin:10px 0;">1週間の解答数:(目標解答数:80が目安)</h3>
-      <div class="weekly-wrap">
-        <div id="weeklyBars" class="weekly-bars"></div>
-      </div>
-      <div id="weeklyLabels" class="weekly-labels"></div>
+    <div id="swipeDeck"></div>
+    <div class="swipe-hints">
+      <span>← 覚えてない</span><span>覚えた →</span>
     </div>
-  </main>
+  </div>
 
-  <!-- テスト受検ページ -->
-  <main id="view-test" class="app-view"> <!-- NEW -->
-	<!-- 置き換え -->
-	<div id="test-section" class="cta-col" style="margin: 30px 0;">
-	  <button id="adCtaBtn" onclick="watchAdGlobal()">広告を見て美女で英単語を表現</button>
-	  <button id="testStartBtn" onclick="startTest()">テストを開始する</button>
-	  <button id="testStartBtnVocab" onclick="startVocabularyTest()">テストを開始する(単語モード)</button>
-	  <button id="swipeStartBtn" onclick="startSwipeMode()">スワイプ学習を始める</button>
-	</div>
+  <div id="cardWrap">
+    <div id="cardCounter">残り 0 枚</div>
+    <div id="cardArea"></div>
+  </div>
+</main>
 
-    <!-- スワイプ学習 -->
-    <div style="text-align:center; margin:6px 0 14px;">
-      <button id="swipeStartBtn" onclick="startSwipeMode()">スワイプ学習を始める</button>
-    </div>
-    <div id="swipeModeBox" class="hidden">
-      <div class="swipe-hud">
-        <button id="swipeExitBtn">一覧に戻る</button>
-        <div id="swipeCounter" aria-live="polite">0 / 0</div>
-        <div id="swipeStats" aria-live="polite">覚えた: 0 / 覚えたい: 0</div>
-      </div>
-      <div id="swipeDeck"></div>
-      <div class="swipe-hints">
-        <span>← 覚えてない</span>
-        <span>覚えた →</span>
-      </div>
-    </div>
+<!-- 単語一覧ページ -->
+<main id="view-words" class="app-view">
+  <div id="partButtons"></div>
+  <div class="pagination" id="partPagination"></div>
 
-    <!-- （使うなら）カードUI -->
-    <div id="cardWrap" style="position:relative; display:inline-block;">
-      <div id="cardCounter">残り 0 枚</div>
-      <div id="cardArea" style="width:300px; height:400px; border:1px solid #ccc; border-radius:8px; background:#fff; overflow:hidden;"></div>
-    </div>
+  <div id="wordContainer"></div>
+  <div class="pagination" id="pagination"></div>
+</main>
 
-    <!-- 動画モーダル -->
-    <div id="videoModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background-color:rgba(0,0,0,0.8); justify-content:center; align-items:center; z-index:999;">
-      <video id="videoPlayer" controls autoplay width="80%"></video>
-    </div>
-  </main>
+<!-- ==== 共有フッター（※ここだけ） ==== -->
+<footer class="app-footer">
+  <div id="ad-banner" class="ad-banner" aria-label="広告"></div>
+</footer>
 
-  <!-- 単語一覧ページ -->
-  <main id="view-words" class="app-view"> <!-- NEW -->
-    <!-- パート切り替え -->
-    <div id="partButtons"></div>
-    <!-- Part用ページネーション（上のボタン群に対応） -->
-    <div class="pagination" id="partPagination"></div>
-
-    <div id="wordContainer"></div>
-    <div class="pagination" id="pagination"></div>
-  </main>
   <!-- ================== /3つのビュー ================== -->
 
   <!-- NEW: 画面下の固定タブバー -->
@@ -1198,7 +1197,55 @@ const apiFetch = (path, opts = {}) => {
 };
 
  // 一番最初のグローバル定義の近くに追加
-  window.adjustBottomPadding = function(){};
+// 1) 調整用ユーティリティ（先に読み込む）
+window.adjustBottomPadding = function () {
+  const tabbar = document.querySelector(".app-tabbar");
+  const main   = document.querySelector("main.app-view.is-active");
+  if (!tabbar || !main) return;
+  const h = tabbar.getBoundingClientRect().height || 0;
+  main.style.paddingBottom = `calc(${h}px + env(safe-area-inset-bottom, 0px))`;
+};
+addEventListener("resize", adjustBottomPadding);
+document.addEventListener("DOMContentLoaded", adjustBottomPadding);
+
+// 2) CTAの出し分け（無料＆広告レディの時だけ報酬広告ボタン表示）
+async function readyRewarded() {
+  try { /* SDKのready判定 */ return true; } catch { return false; }
+}
+async function setupCtas(plan) {
+  const rewarded = document.querySelector("#btn-rewarded");
+  const adsOK = await readyRewarded();
+  if (plan === "free" && adsOK) rewarded.classList.remove("is-hidden");
+  else rewarded.remove(); // ← 二重表示の根を断つ
+
+  // ここで addEventListener でハンドラ登録（onclickは使わない）
+  document.querySelector("#btn-test").addEventListener("click", startTest);
+  document.querySelector("#btn-test-vocab").addEventListener("click", startVocabularyTest);
+  document.querySelector("#btn-swipe").addEventListener("click", startSwipeMode);
+}
+
+// 3) バナー生成（表示ビューが変わるたびに中身を差し替える）
+async function initBanner() {
+  const el = document.getElementById("ad-banner");
+  if (!el) return;
+  el.replaceChildren(); // 既存を空に
+  try {
+    // 実際のバナーSDKで el に挿入
+    // await loadBannerInto(el);
+  } catch (e) {
+    console.warn("banner init failed", e);
+    el.classList.add("fallback");
+    el.textContent = "（広告を表示できませんでした）";
+  }
+}
+
+// 4) 入口例
+document.addEventListener("DOMContentLoaded", async () => {
+  const plan = window.CURRENT_USER?.plan || "free";
+  await setupCtas(plan);
+
+  if (plan === "free") await initBanner();
+});
 
 async function resolveUserId(){
   const qs = new URLSearchParams(location.search);
