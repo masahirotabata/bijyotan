@@ -1176,6 +1176,9 @@ const apiFetch = (path, opts = {}) => {
   return fetch(path, { credentials: 'include', ...opts, headers });
 };
 
+ // 一番最初のグローバル定義の近くに追加
+  window.adjustBottomPadding = function(){};
+
 async function resolveUserId(){
   const qs = new URLSearchParams(location.search);
   let id = qs.get('userId') || qs.get('id') || localStorage.getItem('userId');
@@ -1241,6 +1244,9 @@ let selectedPart = "part1"; // ← 初期値を設定
 let currentPart = 1; // 初期値として Part1 = 1 を設定
 const AD_EVERY_TOGGLE = 6;
 const AD_EVERY_SWIPE  = 7;
+//追加：Part用ページング
+let partsPage = 1;
+const partsPerPage = 4; // 1ページに出すPart数（お好みで）
 
 const style = document.createElement('style');
 style.innerHTML = `
@@ -1976,11 +1982,6 @@ function showLevelUpPopup(newLevel) {
 	    }
 	  });
 	}
-
-
-//追加：Part用ページング
-let partsPage = 1;
-const partsPerPage = 4; // 1ページに出すPart数（お好みで）
 
 // 置き換え：ボタンの描画（ページ内のPartだけ表示）
 function renderPartButtons() {
