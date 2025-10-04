@@ -1035,6 +1035,25 @@ button { writing-mode: horizontal-tb; }
     /* ビュー幅の統一（既存のmax-width指定に馴染ませる） */
     .app-view > * { max-width: 920px; margin-left:auto; margin-right:auto; }
 
+		/* --- Test CTA を縦一列・同じ幅で統一 --- */
+	#test-section.cta-col{
+	  display:flex !important;
+	  flex-direction:column !important;
+	  align-items:center !important;
+	  gap:12px !important;
+	  text-align:center !important;
+	}
+	
+	#test-section.cta-col > button{
+	  width:min(420px, 92%) !important;
+	  min-height:44px !important;
+	  border-radius:9999px !important;
+	}
+	
+	/* 既存の“横並び”指定を無効化 */
+	#test-section.cta-row{ display:block !important; }
+
+
   </style>
 	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
@@ -1082,11 +1101,13 @@ button { writing-mode: horizontal-tb; }
 
   <!-- テスト受検ページ -->
   <main id="view-test" class="app-view"> <!-- NEW -->
-    <div id="test-section" class="cta-row" style="text-align: center; margin: 30px 0;">
-      <button id="adCtaBtn" onclick="watchAdGlobal()">広告を見て美女で英単語を表現</button>
-      <button id="testStartBtn" onclick="startTest()">テストを開始する</button>
-      <button id="testStartBtnVocab" onclick="startVocabularyTest()">テストを開始する(単語モード)</button>
-    </div>
+	<!-- 置き換え -->
+	<div id="test-section" class="cta-col" style="margin: 30px 0;">
+	  <button id="adCtaBtn" onclick="watchAdGlobal()">広告を見て美女で英単語を表現</button>
+	  <button id="testStartBtn" onclick="startTest()">テストを開始する</button>
+	  <button id="testStartBtnVocab" onclick="startVocabularyTest()">テストを開始する(単語モード)</button>
+	  <button id="swipeStartBtn" onclick="startSwipeMode()">スワイプ学習を始める</button>
+	</div>
 
     <!-- スワイプ学習 -->
     <div style="text-align:center; margin:6px 0 14px;">
@@ -1424,6 +1445,9 @@ const candidates = [
   }
 }
 
+  // ★ タブ起動時点で未定義エラーを防ぐためのプレースホルダ
+  window.adjustBottomPadding = window.adjustBottomPadding || function(){};
+
     /* ===== 下タブ切替 ===== */
     (function(){
       const views = {
@@ -1434,18 +1458,23 @@ const candidates = [
       const tabbar = document.getElementById('tabbar');
       const tabs = Array.from(tabbar.querySelectorAll('.tab'));
 
-      function activate(tab){
-        localStorage.setItem('activeTab', tab);
-        Object.values(views).forEach(v => v.classList.remove('is-active'));
-        views[tab]?.classList.add('is-active');
+    function activate(tab){
+	  localStorage.setItem('activeTab', tab);
+	  Object.values(views).forEach(v => v.classList.remove('is-active'));
+	  views[tab]?.classList.add('is-active');
+	
+	  tabs.forEach(b => {
+	    const on = b.dataset.tab === tab;
+	    b.classList.toggle('is-active', on);
+	    b.setAttribute('aria-selected', on ? 'true' : 'false');
+	  });
+	
+	  // ここを安全呼び出しに
+	  if (typeof window.adjustBottomPadding === 'function') {
+	    window.adjustBottomPadding();
+	  }
+	}
 
-        tabs.forEach(b => {
-          const on = b.dataset.tab === tab;
-          b.classList.toggle('is-active', on);
-          b.setAttribute('aria-selected', on ? 'true' : 'false');
-        });
-        adjustBottomPadding();
-      }
 
       tabbar.addEventListener('click', (e)=>{
         const btn = e.target.closest('.tab');
@@ -3620,12 +3649,10 @@ document.addEventListener('keydown', (e) => {
   // 既存の showAd() を“本物のAdMob”で置き換える
   window.showAd = async function(){
     // premium ユーザーならスキップ
-    try {
-      if (typeof isPremium === 'function' && isPremium()) {
-        if (typeof onAdWatchedSuccess === 'function') onAdWatchedSuccess();
-        return;
-      }
-    } catch{}
+    const ok = await initAdMob();
+  if (ok) showBottomBanner();
+});
+   
 
     // AdMob 実行 or Webフォールバック
     const ok = await initAdMob();
