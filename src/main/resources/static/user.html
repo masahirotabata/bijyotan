@@ -1005,7 +1005,36 @@ button { writing-mode: horizontal-tb; }
   }
 }
 
-  
+/* === ここからNEW：3タブ＋固定タブバー用の最小追記 ========== */
+
+    /* 3つのビュー（main）を切替。is-activeだけ表示 */
+    .app-view{ display:none; padding-bottom: calc(56px + env(safe-area-inset-bottom)); }
+    .app-view.is-active{ display:block; }
+
+    /* 画面下の固定タブバー */
+    .tabbar{
+      position: fixed; left: 0; right: 0; bottom: 0;
+      height: 56px;
+      padding-bottom: env(safe-area-inset-bottom);
+      background: #fff; border-top: 1px solid #eee;
+      display: grid; grid-template-columns: repeat(3,1fr);
+      z-index: 9998;
+    }
+    .tabbar .tab{
+      appearance: none; background: none; border: 0; margin: 0;
+      font: inherit; color: #555;
+      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+      cursor:pointer;
+    }
+    .tabbar .tab i{ font-size: 18px; }
+    .tabbar .tab.is-active{ color: #e91e63; font-weight: 700; }
+
+    /* ネイティブのAdMobバナーに重ならないための余白 */
+    #adSpacer{ height: 0px; }
+
+    /* ビュー幅の統一（既存のmax-width指定に馴染ませる） */
+    .app-view > * { max-width: 920px; margin-left:auto; margin-right:auto; }
+
   </style>
 	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
@@ -1020,87 +1049,103 @@ button { writing-mode: horizontal-tb; }
 </div>
 
 
-<div id="user-info">
-  <div id="username"></div>
-  <div id="planText"></div>
-  <div id="userLevel"></div> <!-- ← 追加 -->
-</div>
-<div id="levelGirlContainer" style="text-align:center; margin: 10px 0;">
-  <div id="bgEffect" class="star-bg"></div>
-  <video id="girlVideo" preload="metadata" autoplay muted loop playsinline width="180" style="border-radius:10px;"></video>
-</div>
+<!-- ================== NEW: 3つのビュー ================== -->
+  <!-- トップページ -->
+  <main id="view-home" class="app-view is-active"> <!-- NEW: is-activeが初期表示 -->
+    <div id="user-info">
+      <div id="username"></div>
+      <div id="planText"></div>
+      <div id="userLevel"></div>
+    </div>
 
-<!-- パート切り替え -->
-<div id="partButtons"></div>
+    <div id="levelGirlContainer" style="text-align:center; margin: 10px 0;">
+      <div id="bgEffect" class="star-bg"></div>
+      <video id="girlVideo" preload="metadata" autoplay muted loop playsinline width="180" style="border-radius:10px;"></video>
+    </div>
 
-<!-- 追加：Part用ページネーション（下） -->
-<div class="pagination" id="partPagination"></div>
-<!-- これを追加 -->
-<div style="text-align:center; margin:6px 0 14px;">
-  <button id="swipeStartBtn" onclick="startSwipeMode()">
-    スワイプ学習を始める
-  </button>
-</div>
-<div id="swipeModeBox" class="hidden">
-  <div class="swipe-hud">
-    <button id="swipeExitBtn">一覧に戻る</button>
-   <div id="swipeCounter" aria-live="polite">0 / 0</div>
-    <div id="swipeStats" aria-live="polite">覚えた: 0 / 覚えたい: 0</div>
-  </div>
+    <div id="statsBox">
+      <div id="learningStatus" aria-live="polite"></div>
+      <div id="subStats">
+        <div id="loginDays"></div>
+        <div id="testStats"></div>
+      </div>
+    </div>
 
-  <div id="swipeDeck">
-    <!-- ここにカードを重ねて描画 -->
-  </div>
+    <div id="weeklyAnswersBox">
+      <h3 style="text-align:center;margin:10px 0;">1週間の解答数:(目標解答数:80が目安)</h3>
+      <div class="weekly-wrap">
+        <div id="weeklyBars" class="weekly-bars"></div>
+      </div>
+      <div id="weeklyLabels" class="weekly-labels"></div>
+    </div>
+  </main>
 
-  <div class="swipe-hints">
-    <span>← 覚えてない</span>
-    <span>覚えた →</span>
-  </div>
-</div>
+  <!-- テスト受検ページ -->
+  <main id="view-test" class="app-view"> <!-- NEW -->
+    <div id="test-section" class="cta-row" style="text-align: center; margin: 30px 0;">
+      <button id="adCtaBtn" onclick="watchAdGlobal()">広告を見て美女で英単語を表現</button>
+      <button id="testStartBtn" onclick="startTest()">テストを開始する</button>
+      <button id="testStartBtnVocab" onclick="startVocabularyTest()">テストを開始する(単語モード)</button>
+    </div>
 
+    <!-- スワイプ学習 -->
+    <div style="text-align:center; margin:6px 0 14px;">
+      <button id="swipeStartBtn" onclick="startSwipeMode()">スワイプ学習を始める</button>
+    </div>
+    <div id="swipeModeBox" class="hidden">
+      <div class="swipe-hud">
+        <button id="swipeExitBtn">一覧に戻る</button>
+        <div id="swipeCounter" aria-live="polite">0 / 0</div>
+        <div id="swipeStats" aria-live="polite">覚えた: 0 / 覚えたい: 0</div>
+      </div>
+      <div id="swipeDeck"></div>
+      <div class="swipe-hints">
+        <span>← 覚えてない</span>
+        <span>覚えた →</span>
+      </div>
+    </div>
 
-<div id="statsBox">
-  <div id="learningStatus" aria-live="polite"></div>
-  <div id="subStats">
-    <div id="loginDays"></div>
-    <div id="testStats"></div>
-  </div>
-</div>
+    <!-- （使うなら）カードUI -->
+    <div id="cardWrap" style="position:relative; display:inline-block;">
+      <div id="cardCounter">残り 0 枚</div>
+      <div id="cardArea" style="width:300px; height:400px; border:1px solid #ccc; border-radius:8px; background:#fff; overflow:hidden;"></div>
+    </div>
 
-<!-- <div style="margin: 10px;">
-  <button onclick="showPremiumPopup()">100円でホットパンツ美女解放</button>
-</div> -->
+    <!-- 動画モーダル -->
+    <div id="videoModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background-color:rgba(0,0,0,0.8); justify-content:center; align-items:center; z-index:999;">
+      <video id="videoPlayer" controls autoplay width="80%"></video>
+    </div>
+  </main>
 
-<div id="test-section" style="text-align: center; margin: 30px 0;">
-<button id="adCtaBtn" onclick="watchAdGlobal()">広告を見て美女で英単語を表現</button>
-<button id="testStartBtn" onclick="startTest()">テストを開始する</button>
-<button id="testStartBtnVocab" onclick="startVocabularyTest()">テストを開始する(単語モード)</button>
-<!-- <button onclick="goToPart(getUserId(), '無双Part')">無双Partへ</button> -->
-</div>
-	
-<div id="weeklyAnswersBox">
-  <h3 style="text-align:center;margin:10px 0;">1週間の解答数:(目標解答数:80が目安)</h3>
-  <div class="weekly-wrap">
-    <div id="weeklyBars" class="weekly-bars"></div>
-  </div>
-  <div id="weeklyLabels" class="weekly-labels"></div>
-</div>
+  <!-- 単語一覧ページ -->
+  <main id="view-words" class="app-view"> <!-- NEW -->
+    <!-- パート切り替え -->
+    <div id="partButtons"></div>
+    <!-- Part用ページネーション（上のボタン群に対応） -->
+    <div class="pagination" id="partPagination"></div>
 
-<div id="cardWrap" style="position:relative; display:inline-block;">
-  <div id="cardCounter">残り 0 枚</div>
+    <div id="wordContainer"></div>
+    <div class="pagination" id="pagination"></div>
+  </main>
+  <!-- ================== /3つのビュー ================== -->
 
-  <div id="cardArea" style="width:300px; height:400px; border:1px solid #ccc; border-radius:8px; background:#fff; overflow:hidden;">
-    <!-- showNextCard() がここへカード要素(画像など)を差し込む -->
-  </div>
-</div>
-<div id="wordContainer"></div>
-<div class="pagination" id="pagination"></div>
-<!-- HTMLの一番下に追加 -->
-<div id="videoModal" style="display:none; position:fixed; top:0; left:0; 
-  width:100%; height:100%; background-color:rgba(0,0,0,0.8); 
-  justify-content:center; align-items:center; z-index:999;">
-  <video id="videoPlayer" controls autoplay width="80%"></video>
-</div>
+  <!-- NEW: 画面下の固定タブバー -->
+  <nav id="tabbar" class="tabbar" role="tablist" aria-label="Main tabs">
+    <button class="tab is-active" data-tab="home"  aria-selected="true"  role="tab">
+      <i class="fa fa-house"></i><span>トップ</span>
+    </button>
+    <button class="tab"          data-tab="test"  aria-selected="false" role="tab">
+      <i class="fa fa-graduation-cap"></i><span>テスト</span>
+    </button>
+    <button class="tab"          data-tab="words" aria-selected="false" role="tab">
+      <i class="fa fa-book"></i><span>単語</span>
+    </button>
+  </nav>
+
+  <!-- NEW: ネイティブAdMobバナー分の余白（高さはJSで調整） -->
+  <div id="adSpacer" aria-hidden="true"></div>
+
+  <!-- NEW: タブ切替＆バナー余白調整スクリプト -->
 
 <script>
 // 置き換え：apiFetch の先頭付近
@@ -1372,6 +1417,71 @@ const candidates = [
     p.appendChild(img);
   }
 }
+
+    /* ===== 下タブ切替 ===== */
+    (function(){
+      const views = {
+        home:  document.getElementById('view-home'),
+        test:  document.getElementById('view-test'),
+        words: document.getElementById('view-words')
+      };
+      const tabbar = document.getElementById('tabbar');
+      const tabs = Array.from(tabbar.querySelectorAll('.tab'));
+
+      function activate(tab){
+        localStorage.setItem('activeTab', tab);
+        Object.values(views).forEach(v => v.classList.remove('is-active'));
+        views[tab]?.classList.add('is-active');
+
+        tabs.forEach(b => {
+          const on = b.dataset.tab === tab;
+          b.classList.toggle('is-active', on);
+          b.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        adjustBottomPadding();
+      }
+
+      tabbar.addEventListener('click', (e)=>{
+        const btn = e.target.closest('.tab');
+        if (!btn) return;
+        const tab = btn.dataset.tab;
+        if (tab) activate(tab);
+      });
+
+      const ini = localStorage.getItem('activeTab') || 'home';
+      activate(ini);
+
+      // 外から呼べるように
+      window.switchTab = activate;
+    })();
+
+    /* ===== AdMobバナーの下余白（adSpacer）を調整 ===== */
+    (function(){
+      const adSpacer = document.getElementById('adSpacer');
+      let bannerHeight = 50; // デフォルト推定
+
+      function applyPadding(){
+        adSpacer.style.height = (bannerHeight + 8) + 'px';
+        // 表示中ビューの下パディングも増やす（タブバー56px + バナー）
+        document.querySelectorAll('.app-view.is-active').forEach(v=>{
+          v.style.paddingBottom = `calc(${bannerHeight + 56}px + env(safe-area-inset-bottom))`;
+        });
+      }
+      window.adjustBottomPadding = applyPadding;
+      applyPadding();
+
+      // CapacitorのAdMobプラグインがあれば高さを受け取って更新
+      const Cap = window.Capacitor;
+      const AdMob = Cap?.Plugins?.AdMob;
+      if (AdMob && AdMob.addListener) {
+        try {
+          AdMob.addListener('onAdLoaded', (ev) => {
+            if (Number(ev?.height)) { bannerHeight = Number(ev.height); applyPadding(); }
+          });
+        } catch (e) {}
+      }
+      setTimeout(applyPadding, 300);
+    })();
 
 	// 追加（どこでもOK、updateLoginPointsIfNeeded より上でも下でも）
 function setLoginDays(points){
