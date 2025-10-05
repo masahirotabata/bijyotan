@@ -3177,7 +3177,7 @@ function startTest() {
 		  }
 		}
 	
-	function startVocabularyTest() {
+	async function startVocabularyTest() {
 		  await ensurePremiumTruth();   // ← 追加
 		  const userId = getUserId();
 		  const testCount = localStorage.getItem("test_started");
