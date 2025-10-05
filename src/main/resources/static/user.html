@@ -3126,7 +3126,7 @@ async function ensurePremiumTruth() {
   }
 }
 	
-function startTest() {
+async function startTest() {
 	      await ensurePremiumTruth();   // ← 追加
 		  const userId = getUserId();  
 		  const testCount = localStorage.getItem("test_started");
