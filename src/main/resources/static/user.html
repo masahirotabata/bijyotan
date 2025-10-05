@@ -1176,10 +1176,17 @@ button { writing-mode: horizontal-tb; }
 // ===== Premium bridge (Capacitor + StoreKit 2) =====
 // 0) ブリッジの参照＆キャッシュ初期化（※1回だけ定義）
 
-const Cap = window.Capacitor || null;
-const AdMob = Cap?.Plugins?.AdMob || null;            // ← 追加
-const NativePremium = Cap?.Plugins?.PremiumPlugin;
-const premiumState = { value: Boolean(window.user?.premium || false) };
+// === globals shared by all scripts ===
+window.Cap           = window.Capacitor || null;
+window.AdMob         = window.Cap?.Plugins?.AdMob || null;
+window.NativePremium = window.Cap?.Plugins?.PremiumPlugin || null;
+
+// 既にあれば再利用（2重読込でも安全）
+window.premiumState  = window.premiumState ?? { value: Boolean(window.user?.premium || false) };
+window.isPremium     = window.isPremium    ?? function () {
+  return !!(window.premiumState && window.premiumState.value);
+};
+
 // 置き換え：apiFetch の先頭付近
 const apiFetch = (path, opts = {}) => {
   const method = (opts.method || 'GET').toUpperCase();
@@ -1211,14 +1218,12 @@ const apiFetch = (path, opts = {}) => {
  // 一番最初のグローバル定義の近くに追加
 // 1) 調整用ユーティリティ（先に読み込む）
 window.adjustBottomPadding = function () {
-  const tabbar = document.querySelector(".app-tabbar");
+  const tabbar = document.getElementById("tabbar");
   const main   = document.querySelector("main.app-view.is-active");
   if (!tabbar || !main) return;
   const h = tabbar.getBoundingClientRect().height || 0;
   main.style.paddingBottom = `calc(${h}px + env(safe-area-inset-bottom, 0px))`;
 };
-addEventListener("resize", adjustBottomPadding);
-document.addEventListener("DOMContentLoaded", adjustBottomPadding);
 
 // 2) CTAの出し分け（無料＆広告レディの時だけ報酬広告ボタン表示）
 async function readyRewarded() {
@@ -1231,9 +1236,9 @@ async function setupCtas(plan) {
   else rewarded.remove(); // ← 二重表示の根を断つ
 
   // ここで addEventListener でハンドラ登録（onclickは使わない）
-  document.querySelector("#btn-test").addEventListener("click", startTest);
-  document.querySelector("#btn-test-vocab").addEventListener("click", startVocabularyTest);
-  document.querySelector("#btn-swipe").addEventListener("click", startSwipeMode);
+	document.querySelector("#btn-test")?.addEventListener("click", startTest);
+	document.querySelector("#btn-test-vocab")?.addEventListener("click", startVocabularyTest);
+	document.querySelector("#btn-swipe")?.addEventListener("click", startSwipeMode);
 }
 
 // 3) バナー生成（表示ビューが変わるたびに中身を差し替える）
@@ -1270,15 +1275,23 @@ function renderHouseAd(){
   });
   return a;
 }
+
+function swipeTodayKey(userId){
+  const d = new Date();
+  const ymd = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return `swipeExcluded:${userId}:${ymd}`;
+}
+	
 function mountBanners(){
-  const isPremium = window.user?.plan === 'premium';
+  const prem = window.isPremium?.() === true;
   document.querySelectorAll('.ad-banner').forEach(el=>{
     el.innerHTML='';
-    if(isPremium){ el.style.display='none'; return; }
+    if (prem){ el.style.display='none'; return; }
     el.style.display='flex';
     el.appendChild(renderHouseAd());
   });
 }
+
 document.addEventListener('DOMContentLoaded', mountBanners);
 // タブ切替のたびに呼ぶイベントがあるならそれでも呼ぶ
 document.addEventListener('viewchange', mountBanners);
@@ -1309,8 +1322,8 @@ async function resolveUserId(){
     credentials: 'include'
   });
   if (!res.ok) { console.error('GET /api/words failed', res.status); return; }
-  const words = await res.json();
-  // TODO: ここで words を描画
+const rows = await res.json();
+// TODO: rows を描画 or 正規化
 })();
 
 // JSONしか受け付けないfetch（Cookie付き・非JSONは例外）
@@ -1506,7 +1519,7 @@ async function ensureHeroVideo(){
   const v = document.getElementById('girlVideo');
   if (!v) return;
 
-const prefer = isPremium() ? ['/videos/run_girl_motion.mp4'] : [];
+const prefer = window.isPremium() ? ['/videos/run_girl_motion.mp4'] : [];
 const candidates = [
   ...prefer,
   '/videos/girl_idle_loop.mp4',
@@ -1530,7 +1543,10 @@ const candidates = [
 }
 
   // ★ タブ起動時点で未定義エラーを防ぐためのプレースホルダ
-  window.adjustBottomPadding = window.adjustBottomPadding || function(){};
+ // 置き換え
+	addEventListener("resize", () => window.adjustBottomPadding && window.adjustBottomPadding());
+	document.addEventListener("DOMContentLoaded", () => window.adjustBottomPadding && window.adjustBottomPadding());
+
 
     /* ===== 下タブ切替 ===== */
     (function(){
@@ -1603,9 +1619,9 @@ const candidates = [
 
   // Capacitor AdMob から実際の高さが届いたら更新
   
-  if (AdMob?.addListener){
+  if (window.AdMob?.addListener){
     try {
-      AdMob.addListener('onAdLoaded', (ev) => {
+      window.AdMob.addListener('onAdLoaded', (ev) => {
         if (Number(ev?.height)) {
           bannerHeight = Number(ev.height);
           applyPadding();
@@ -1628,9 +1644,9 @@ function setLoginDays(points){
 // 旧: function markPremiumEnabled(){ ... user.premium = true; ... }
 function applyPremiumUI() {
   try {
-    // 表示だけ更新（フラグは isPremium()/premiumState を参照）
+    // 表示だけ更新（フラグは window.isPremium()/premiumState を参照）
     const planEl = document.getElementById("planText");
-    if (planEl) planEl.innerText = `プラン: ${isPremium() ? "プレミアム" : "無料"}`;
+    if (planEl) planEl.innerText = `プラン: ${window.isPremium() ? "プレミアム" : "無料"}`;
 
     ensureHeroVideo?.();
     updateCounter?.('soft');
@@ -1639,23 +1655,21 @@ function applyPremiumUI() {
     // 広告非表示など（存在すれば）
     hideNativeBannerIfPossible?.();
     window.adjustBottomPadding?.();
+	mountBanners?.();
   } catch (e) {
     console.warn('applyPremiumUI error:', e);
   }
 }
 
-// 1) 既存コード互換：同期関数のまま（キャッシュ参照）
-function isPremium() { return !!premiumState.value; }
-
 // 2) ネイティブから最新状態を取得（起動時/ログイン後に1回）
 async function refreshPremium() {
-  if (!NativePremium) return isPremium(); // Web/Simulator など
+  if (!NativePremium) return window.isPremium(); // Web/Simulator など
   try {
     const { value } = await NativePremium.isPremium();
     premiumState.value = !!value;
     if (window.user) window.user.premium = premiumState.value;
   } catch { /* ネット無し等は現状維持 */ }
-  return isPremium();
+  return window.isPremium();
 }
 
 // 3) 購入
@@ -1923,7 +1937,7 @@ async function onFileChange(e, currentWord) {
 // 互換のため第1引数は未使用
 function goToPart(_unused, partName) {
   const locked = ["無双Part", "part4", "part5", "part6", "partHealing", "musou"];
-  if (!isPremium() && locked.includes(partName) && !isAdEnabled()) {
+  if (!window.isPremium() && locked.includes(partName) && !isAdEnabled()) {
     Swal.fire({
       title: "このパートは広告視聴が必要です",
       html: `<p>広告を見れば<strong>残り6枚めくれます</strong>。<br>
@@ -1965,7 +1979,7 @@ function renderWordCard(word, musouMode, user) {
         ${word.audioUrl ? `<audio controls src="${word.audioUrl}"></audio>` : ""}
         ${word.videoUrl ? `<video controls width="200" src="${word.videoUrl}"></video>` : ""}
         ${imgTag(word.imageUrl, word.word)}
-        <button onclick="${isPremium() ? `playAll('${word.word}')` : 'showPremiumPopup()'}">美女を動かす</button>
+        <button onclick="${window.isPremium() ? `playAll('${word.word}')` : 'showPremiumPopup()'}">美女を動かす</button>
       </div>`;
   } else {
     return `
@@ -1975,7 +1989,7 @@ function renderWordCard(word, musouMode, user) {
         <br>
         ${imgTag(word.imageUrl, word.word)}
         <br>
-        <button onclick="${isPremium() ? `playVideo('${esc(String(word.videoUrl||''))}')` : 'showPremiumPopup()'}">美女を動かす</button>
+        <button onclick="${window.isPremium() ? `playVideo('${esc(String(word.videoUrl||''))}')` : 'showPremiumPopup()'}">美女を動かす</button>
       </div>`;
   }
 }
@@ -1983,7 +1997,7 @@ function renderWordCard(word, musouMode, user) {
 let remainingCards = Number(localStorage.getItem('remainingCards') || 0);
 
 function consumeOne(){
-  if (isPremium()) return true;           // プレミアムは消費しない
+  if (window.isPremium()) return true;           // プレミアムは消費しない
   if (remainingCards <= 0){ showAd(); return false; }
   remainingCards = Math.max(0, remainingCards - 1);
   saveRemaining();
@@ -2006,7 +2020,7 @@ function saveRemaining() {
 function updateRemainingInline(){
   const nodes = document.querySelectorAll('.remaining-inline');
   nodes.forEach(el => {
-    if (isPremium()){
+    if (window.isPremium()){
       el.textContent = '無制限';
       el.classList.add('is-premium');
     } else {
@@ -2024,7 +2038,7 @@ function updateCounter(effect='none'){
   // ← 既存の右上バッジ（#cardCounter）は残っていてもOK / 無ければスキップ
   const badge = document.getElementById('cardCounter');
   if (badge){
-    if (isPremium()){
+    if (window.isPremium()){
       badge.textContent = '無制限';
       badge.onclick = null;
       badge.style.opacity = '1';
@@ -2062,23 +2076,50 @@ function flipCard() {
   updateCounter('soft');    // 軽いポン演出
 }
 
-// ▼ここ差し替え：広告表示（ラッパー）
-function showAd() {
-  // ここで AdMob などのリワード広告を表示する
-  // 重要：視聴完了（報酬付与条件）だけ onAdWatchedSuccess() を呼ぶこと
-  // キャンセル / 失敗 / 閉じる は onAdClosedOrFailed() 側で扱う
+// ▼ここ差し替え：広告表示（Capacitor + AdMob ラッパー対応）
+async function showAd() {
+  // AdMobプラグインが存在しない（ブラウザなど）場合は confirm フォールバック
+  if (!window.AdMob) {
+    const ok = confirm('【デモ】広告を最後まで視聴しましたか？\nOK=成功 / Cancel=キャンセル');
+    if (ok) onAdWatchedSuccess(); else onAdClosedOrFailed();
+    return;
+  }
 
-  // 例：擬似コード（実装している広告SDKに合わせて置換）
-  /*
-  admob.rewarded.show({
-    onRewarded: () => onAdWatchedSuccess(),
-    onDismissed: () => onAdClosedOrFailed(),
-    onError: (e) => onAdClosedOrFailed(e)
-  });
-  */
-  // 暫定デモ（本番は↑のSDKコールに置き換え）
-  const ok = confirm('【デモ】広告を最後まで視聴しましたか？\nOK=成功 / Cancel=キャンセル');
-  if (ok) onAdWatchedSuccess(); else onAdClosedOrFailed();
+  try {
+    // === AdMob初期化（まだなら一度だけ） ===
+    await window.AdMob.initialize({
+      requestTrackingAuthorization: true,
+      initializeForTesting: false, // ← テスト時は true
+    });
+
+    // === リワード広告を準備 ===
+    await window.AdMob.prepareRewardVideoAd({
+      adId: 'ca-app-pub-3517487281025314/1240830098', // ← ご自身のリワード広告IDに差し替え
+      isTesting: false // ← テスト時は true
+    });
+
+    // === 表示 + コールバック処理 ===
+    await window.AdMob.showRewardVideoAd({
+      onRewarded: () => {
+        console.log('✅ onRewarded: 報酬付与');
+        onAdWatchedSuccess();
+      },
+      onDismissed: () => {
+        console.log('🟡 onDismissed: 閉じる or スキップ');
+        onAdClosedOrFailed();
+      },
+      onError: (e) => {
+        console.error('❌ onError', e);
+        onAdClosedOrFailed(e);
+      }
+    });
+
+  } catch (e) {
+    console.error('AdMob showAd error:', e);
+    // ネイティブで失敗した場合は confirm フォールバック
+    const ok = confirm('【デモ】広告を最後まで視聴しましたか？\nOK=成功 / Cancel=キャンセル');
+    if (ok) onAdWatchedSuccess(); else onAdClosedOrFailed();
+  }
 }
 
 // ▼ここ差し替え：広告“成功時のみ”6枚付与（バグの根本対策）
@@ -2268,7 +2309,7 @@ function selectPart(part) {
     loadWords();
   };
 
-  if (!isPremium() && isLockedPart && !isAdEnabled()) {
+  if (!window.isPremium() && isLockedPart && !isAdEnabled()) {
     Swal.fire({
       title: "このパートは広告視聴が必要です",
       html: `<p>広告を見れば<strong>残り6枚めくれます</strong>。<br>
@@ -2525,7 +2566,7 @@ function renderWords() {
     const div = document.createElement("div");
     div.className = "word-card";
 
-    const premiumUser = isPremium();
+    const premiumUser = window.isPremium();
     const actionButton = ""; // 無料は非表示
 
     const checkboxId = `status-${word.id ?? 'na'}`;
@@ -2544,8 +2585,10 @@ function renderWords() {
 	const stateKey = `imgState:${keyBase}`;
 	
 	// ← 初期表示は必ず beauty.png （キーが '2' のときだけ特別画像）
-  　const initState = '1';
-  　const initSrc   = baseImg;
+  	const saved = localStorage.getItem(stateKey);
+	const initState = (saved === '2') ? '2' : '1';
+	const initSrc   = (initState === '2') ? specificImg : baseImg;
+
 	
 	div.innerHTML = `
 	  <div class="wc-img">
@@ -2564,11 +2607,11 @@ function renderWords() {
         <div class="wc-body">
         　<div class="wc-head">
           <strong>${esc(word.word)}</strong>
-          ${isPremium() ? `
+          ${window.isPremium() ? `
             <span class="remaining-inline is-premium">無制限</span>
           ` : `
             <span class="remaining-inline">${
-              remainingCards > 0 ? `残り ${remainingCards} 枚` : '広告で 6 枚'
+             remainingCards > 0 ? `残り ${remainingCards} 枚` : '広告で +6 枚'
             }</span>
           `}
         </div>
@@ -2679,7 +2722,7 @@ function toggleImage(imgId, btnId, img1, img2, index) {
 
 function handleToggleImage(imgId, btnId, img1, img2, index){
   const proceed = () => toggleImage(imgId, btnId, img1, img2, index);
-  if (isPremium()){ proceed(); return; }
+  if (window.isPremium()){ proceed(); return; }
   if (!consumeOne()) return;  // 残0なら広告→終了
   proceed();
 }
@@ -2744,7 +2787,7 @@ async function loadWords() {
 
 	
 function isAdEnabled() {
-	return isPremium() || remainingCards > 0;
+	return window.isPremium() || remainingCards > 0;
 }
 
 
@@ -3038,7 +3081,7 @@ function startTest() {
 		    alert("広告を見せる処理（仮）");
 		  }
 
-		  if (isPremium()) {
+		  if (window.isPremium()) {
 		    // プレミアムユーザーはモード選択可能
 		    Swal.fire({
 		      title: "テストモードを選んでね",
@@ -3088,7 +3131,7 @@ function startTest() {
 		    alert("広告を見せる処理（仮）");
 		  }
 
-		  if (isPremium()) {
+		  if (window.isPremium()) {
 		    // プレミアムユーザーはモード選択可能
 		    Swal.fire({
 		      title: "テストモードを選んでね",
@@ -3211,8 +3254,8 @@ async function setUserPremium(userId) {
     });
     if (!res.ok) throw new Error("更新に失敗");
     console.log("✅ プレミアム状態をDBに反映しました");
-  } catch (err) {
-    console.error("❌ プレミアム設定失敗:", err);
+  } catch (e) {
+    console.warn('setUserPremium failed:', e);
   }
 }
 
@@ -3301,7 +3344,7 @@ window.addEventListener('resize', () => {
 
 	  const lockedParts = ["part4", "part5", "part6", "partHealing", "musou"];
 	  const isLocked = lockedParts.includes(selectedPart);
-	  const premium = isPremium();
+	  const premium = window.isPremium();
   const htmlMsg = premium
     ? "プレミアムのため広告は表示されません。<br>学習を始めます！"
     : "学習開始前と終了時に広告が表示されます（計2回）<br>美女と一緒に楽しく学習しましょう！";
@@ -3404,7 +3447,7 @@ function exitSwipeMode(fromBack = false) {
   renderWords();
   updateStatusCount();
   disableSwipeBackGuard();
-  if (!isPremium()) showAd();
+  if (!window.isPremium()) showAd();
 
   // ← 「一覧に戻る」ボタン等で閉じたときだけ、ガード分の1つを戻す
   if (!fromBack) history.back();
@@ -3618,7 +3661,7 @@ async function decideSwipe(card, dir){
 
   updateSwipeHUD();
 
-  if (!isPremium() && AD_EVERY_SWIPE > 0 &&
+  if (!window.isPremium() && AD_EVERY_SWIPE > 0 &&
       swipeIndex % AD_EVERY_SWIPE === 0 &&
       swipeIndex < swipeWords.length) {
     showAd();
@@ -3763,10 +3806,10 @@ document.addEventListener('keydown', (e) => {
 
   // ===== 初期化 =====
   async function initAdMob() {
-	const ad = AdMob;            // ← 関数内で参照（実行時）
-    if (!AdMob) return false;         // ブラウザ等はフォールバックへ
+	const ad = window.AdMob;            // ← 関数内で参照（実行時）
+    if (!window.AdMob) return false;         // ブラウザ等はフォールバックへ
     try {
-      await AdMob.initialize({
+      await window.AdMob.initialize({
         requestTrackingAuthorization: true,
         initializeForTesting: !useProd
       });
@@ -3779,10 +3822,10 @@ document.addEventListener('keydown', (e) => {
 
   // ===== バナー（下固定） =====
   async function showBottomBanner() {
-	const ad = AdMob;            // 実行時参照
-    if (!AdMob) return;
+	const ad = window.AdMob;            // 実行時参照
+    if (!window.AdMob) return;
     try {
-      await AdMob.showBanner({
+      await window.AdMob.showBanner({
         adId: AD_UNIT.banner,
         adSize: 'BANNER',             // or 'ADAPTIVE_BANNER'
         position: 'BOTTOM_CENTER',
@@ -3795,12 +3838,12 @@ document.addEventListener('keydown', (e) => {
 
   // ===== リワード =====
   async function showRewardedAdReal() {
-    if (!AdMob) throw new Error('NO_ADMOB');
-    await AdMob.prepareRewardVideoAd({
+    if (!window.AdMob) throw new Error('NO_ADMOB');
+    await window.AdMob.prepareRewardVideoAd({
       adId: AD_UNIT.rewarded,
       isTesting: !useProd
     });
-    const res = await AdMob.showRewardVideoAd();
+    const res = await window.AdMob.showRewardVideoAd();
     // 視聴完了の報酬
     if (typeof onAdWatchedSuccess === 'function') onAdWatchedSuccess();
     return res;
@@ -3818,7 +3861,7 @@ document.addEventListener('keydown', (e) => {
 
     // 2) 無料ユーザーなら下部バナーも
     try {
-      if (typeof isPremium !== 'function' || !isPremium()) {
+      if (typeof isPremium !== 'function' || !window.isPremium()) {
         await showBottomBanner();
       }
     } catch {}
@@ -3834,7 +3877,7 @@ document.addEventListener('keydown', (e) => {
 
   // 初期描画時（無料のみ）にバナー
   document.addEventListener('DOMContentLoaded', async () => {
-    try { if (typeof isPremium === 'function' && isPremium()) return; } catch {}
+    try { if (typeof isPremium === 'function' && window.isPremium()) return; } catch {}
     const ok = await initAdMob();
     if (ok) await showBottomBanner();
   });
@@ -3842,15 +3885,15 @@ document.addEventListener('keydown', (e) => {
 
 async function hideNativeBannerIfPossible(){
   try {
-    await AdMob?.hideBanner?.();   // 一時的に非表示
-    await AdMob?.removeBanner?.(); // 破棄（実装がある場合）
+    await window.AdMob?.hideBanner?.();   // 一時的に非表示
+    await window.AdMob?.removeBanner?.(); // 破棄（実装がある場合）
   } catch(e){}
 }
 
 // 初期描画時
 document.addEventListener('DOMContentLoaded', async ()=>{
   try{
-    if (typeof isPremium === 'function' && isPremium()){
+    if (typeof isPremium === 'function' && window.isPremium()){
       await hideNativeBannerIfPossible();
       // tabbar の位置を戻す
       window.adjustBottomPadding?.();
