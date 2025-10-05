@@ -1181,12 +1181,6 @@ window.Cap           = window.Capacitor || null;
 window.AdMob         = window.Cap?.Plugins?.AdMob || null;
 window.NativePremium = window.Cap?.Plugins?.PremiumPlugin || null;
 
-// 既にあれば再利用（2重読込でも安全）
-window.premiumState  = window.premiumState ?? { value: Boolean(window.user?.premium || false) };
-window.isPremium     = window.isPremium    ?? function () {
-  return !!(window.premiumState && window.premiumState.value);
-};
-
 // 置き換え：apiFetch の先頭付近
 const apiFetch = (path, opts = {}) => {
   const method = (opts.method || 'GET').toUpperCase();
@@ -1214,6 +1208,42 @@ const apiFetch = (path, opts = {}) => {
   }
   return fetch(path, { credentials: 'include', ...opts, headers });
 };
+
+// === Premium state: 単一ソース化 & 早期復元 ===
+// === Premium state: 単一ソース化 & 早期復元 ===
+window.premiumState = window.premiumState ?? { value: false };
+
+(function hydratePremiumEarly(){
+  const cached = localStorage.getItem('app.premium') === '1';
+  if (cached) window.premiumState.value = true;
+})();
+
+// どこからでもこれだけ叩けばOK（保存・UI更新まで一括）
+window.setPremium = function setPremium(enabled){
+  const v = !!enabled;
+  window.premiumState.value = v;
+  try { localStorage.setItem('app.premium', v ? '1' : '0'); } catch {}
+  if (window.user) window.user.premium = v;
+  try { applyPremiumUI?.(); } catch {}
+};
+
+// 判定は常にこれを使う
+window.isPremium = window.isPremium ?? function(){
+  return !!window.premiumState?.value;
+};
+
+// どこから来てもここだけ叩けばUI/保存まで一括反映
+window.setPremium = function setPremium(enabled){
+  const v = !!enabled;
+  window.premiumState.value = v;
+  try { localStorage.setItem('app.premium', v ? '1' : '0'); } catch {}
+  if (window.user) window.user.premium = v;
+  try { applyPremiumUI?.(); } catch {}
+};
+
+// 既存のユーティリティ（変更なし）
+window.isPremium = window.isPremium ?? function(){ return !!window.premiumState?.value; };
+
 
  // 一番最初のグローバル定義の近くに追加
 // 1) 調整用ユーティリティ（先に読み込む）
@@ -1401,18 +1431,11 @@ async function initApp() {
 
   const urlParams = new URLSearchParams(window.location.search);
   const sessionId = urlParams.get('session_id');
-  if (sessionId) {
-    try {
-      const r = await apiFetch(`/api/payment/confirm?session_id=${encodeURIComponent(sessionId)}`);
-      const j = await r.json();
-      user.premium = !!j.premium;
-   // ★ ここを追加
-    if (user.premium) {
-      premiumState.value = true;      // ← isPremium() が true になる
-      applyPremiumUI();               // ← 表示全体を更新
-      // 任意: クエリを消しておく（F5で再実行されないように）
-      history.replaceState(null, '', location.pathname + location.hash);
-    }
+if (sessionId) {
+  try {
+    const r = await apiFetch(`/api/payment/confirm?session_id=${encodeURIComponent(sessionId)}`);
+    const j = await r.json();
+    setPremium(!!j.premium);  // ← ここを user.premium = ... ではなく setPremium に
   } catch {}
 }
 
@@ -1670,12 +1693,11 @@ function applyPremiumUI() {
 
 // 2) ネイティブから最新状態を取得（起動時/ログイン後に1回）
 async function refreshPremium() {
-  if (!NativePremium) return window.isPremium(); // Web/Simulator など
+  if (!NativePremium) return window.isPremium();
   try {
     const { value } = await NativePremium.isPremium();
-    premiumState.value = !!value;
-    if (window.user) window.user.premium = premiumState.value;
-  } catch { /* ネット無し等は現状維持 */ }
+    setPremium(!!value);
+  } catch { /* 現状維持 */ }
   return window.isPremium();
 }
 
@@ -1685,15 +1707,11 @@ async function purchasePremium() {
   try {
     const { success } = await NativePremium.purchase();
     if (success === true) {
-      premiumState.value = true;
-      if (window.user) window.user.premium = true;
-
+      setPremium(true); // ← これだけ
       try { await setUserPremium(getUserId()); } catch {}
       try { await hideNativeBannerIfPossible(); } catch {}
       window.adjustBottomPadding?.();
       try { await refreshUserStats?.(); } catch {}
-
-      applyPremiumUI(); // 成功時のみ反映
     }
     return !!success;
   } catch (e) {
@@ -1703,21 +1721,17 @@ async function purchasePremium() {
   }
 }
 
-// 4) 復元
 async function restorePurchase() {
   if (!NativePremium) return false;
   try {
     const { success } = await NativePremium.restore();
-    premiumState.value = !!success;
-    if (window.user) window.user.premium = premiumState.value;
-
-    if (premiumState.value) {
+    if (success) {
+      setPremium(true); // ← これだけ
       try { await setUserPremium(getUserId()); } catch {}
       try { await hideNativeBannerIfPossible(); } catch {}
       window.adjustBottomPadding?.();
-      applyPremiumUI(); // 復元成功時のみ反映
     }
-    return premiumState.value;
+    return !!success;
   } catch (e) {
     console.warn('restore failed', e);
     return false;
@@ -1747,17 +1761,15 @@ function skPost(action, payload = {}) {
   return true;
 }
 
-// iOS -> JS のコールバック入口（ネイティブ側から呼びます）
+// iOS -> JS コールバック
 window.onStoreKitMessage = function (msg) {
-  // msg = { event: 'purchased' | 'restored' | 'failed' | 'deferred' | 'entitlements',
-  //         premium: boolean, error?: string }
   try {
     if (msg.event === 'entitlements') {
-      if (msg.premium) { premiumState.value = true; window.user && (window.user.premium = true); applyPremiumUI(); }
+      if (msg.premium) setPremium(true);
       return;
     }
     if (msg.event === 'purchased' || msg.event === 'restored') {
-	　premiumState.value = true; window.user && (window.user.premium = true); applyPremiumUI();
+      setPremium(true);
       Swal.fire({icon:'success', title:'プレミアムを解放しました！'});
       return;
     }
@@ -1770,6 +1782,7 @@ window.onStoreKitMessage = function (msg) {
     }
   } catch (e) { console.warn(e); }
 };
+
 
 // ===== モーダルのボタンの配線（既存IDを流用） =====
 (function wireAdModalToStoreKit(){
@@ -2379,6 +2392,7 @@ async function fetchUserInfo() {
       const data = await fetchJSON(url);
       const u = normalize(data);
       user = u;
+	  setPremium(!!u.premium);
 
       if (u.id) localStorage.setItem('userId', String(u.id));
       document.getElementById("username").innerText  = `${u.username} さん、ようこそ！`;
@@ -3103,8 +3117,17 @@ function showPremiumPopup() {
     }
   });
 }
+
+async function ensurePremiumTruth() {
+  // ネイティブ権利 or Webセッションの真偽をもう一度合わせる
+  try { await refreshPremium(); } catch {}
+  if (!window.isPremium() && (window.user?.premium === true)) {
+    setPremium(true);
+  }
+}
 	
 function startTest() {
+	      await ensurePremiumTruth();   // ← 追加
 		  const userId = getUserId();  
 		  const testCount = localStorage.getItem("test_started");
 
@@ -3155,6 +3178,7 @@ function startTest() {
 		}
 	
 	function startVocabularyTest() {
+		  await ensurePremiumTruth();   // ← 追加
 		  const userId = getUserId();
 		  const testCount = localStorage.getItem("test_started");
 
