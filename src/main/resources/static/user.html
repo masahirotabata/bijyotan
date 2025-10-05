@@ -1480,7 +1480,7 @@ async function applyTestParamsAndCommit() {
   // ローカル加算（今回が未処理のときだけ）
   const localTotalCorrectKey = `localTotalCorrect:${userId}`;
   const prevLocal = parseInt(localStorage.getItem(localTotalCorrectKey) || '0', 10);
-  const newLocal  = prevLocal  score;
+ 　const newLocal  = prevLocal + score;   // ← ここを修正
   localStorage.setItem(localTotalCorrectKey, String(newLocal));
 
   // レベル演出（差分分だけ）
