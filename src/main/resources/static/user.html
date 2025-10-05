@@ -1214,8 +1214,8 @@ const apiFetch = (path, opts = {}) => {
 window.premiumState = window.premiumState ?? { value: false };
 
 (function hydratePremiumEarly(){
-  const cached = localStorage.getItem('app.premium') === '1';
-  if (cached) window.premiumState.value = true;
+  window.premiumState.value = false;
+  // ただし iOS ネイティブからの確認で上書き（下の refreshPremium / entitlements）
 })();
 
 // どこからでもこれだけ叩けばOK（保存・UI更新まで一括）
@@ -1764,10 +1764,16 @@ function skPost(action, payload = {}) {
 // iOS -> JS コールバック
 window.onStoreKitMessage = function (msg) {
   try {
-    if (msg.event === 'entitlements') {
-      if (msg.premium) setPremium(true);
-      return;
-    }
+	// entitlements は “購入済みかの照会” だけ。true/false をそのまま信じない。
+	if (msg.event === 'entitlements') {
+	  if (msg && msg.premium === true) {
+	    setPremium(true);
+		} else {
+		  // 未購入ならここでは何もしない（purchase を待つ）
+		  console.log('[SK] entitlements: not premium');
+		  }
+		return;
+	}
     if (msg.event === 'purchased' || msg.event === 'restored') {
       setPremium(true);
       Swal.fire({icon:'success', title:'プレミアムを解放しました！'});
@@ -3082,6 +3088,7 @@ function showPremiumPopup() {
 
     // ---- iOSアプリ（WKWebView）なら StoreKit へ ----
     if (typeof isIOSApp === 'function' && isIOSApp()) {
+	  console.log('[SK] iOS branch. Asking entitlements then purchase...');
       try {
         // 既存購入の権利があれば即時反映（onStoreKitMessage で受け取る）
         skPost('checkEntitlements');
@@ -3093,6 +3100,7 @@ function showPremiumPopup() {
       }
       return;
     }
+	console.log('[Stripe] Web/PWA branch. Creating checkout session...');
 
     // ---- Web / PWA は Stripe チェックアウトへ遷移 ----
     try {
@@ -3120,23 +3128,21 @@ function showPremiumPopup() {
 
 async function ensurePremiumTruth() {
   try {
-    // ネイティブ権利チェック（Capacitor がある場合）
-    if (typeof refreshPremium === 'function') {
-      await refreshPremium(); // NativePremium.isPremium() -> setPremium()
+    // ネイティブがあればそれを信頼
+    if (window.NativePremium?.isPremium) {
+      const { value } = await window.NativePremium.isPremium();
+      setPremium(!!value);
+      return !!value;
     }
-    // まだ false ならサーバの /api/me でも確認
-    if (typeof window.isPremium === 'function' && !window.isPremium()) {
-      try {
-        const me = await fetchJSON('/api/me');
-        if (me && (me.premium === true || me.isPremium === true)) {
-          setPremium(true);
-        }
-      } catch {}
-    }
-  } catch {}
+    // サーバにも聞く（Cookieセッション）
+    const me = await fetchJSON('/api/me');
+    setPremium(!!me?.premium);
+    return !!me?.premium;
+  } catch {
+    return window.isPremium();
+  }
 }
 
-	
 async function startTest() {
 	      await ensurePremiumTruth();   // ← 追加
 		  const userId = getUserId();  
