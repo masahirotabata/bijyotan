@@ -1468,8 +1468,8 @@ async function applyTestParamsAndCommit() {
   // ★ この結果はもう処理済み？
   const resultKey = `testResultHandled:${userId}:${mode}:${score}/${total}`;
   if (sessionStorage.getItem(resultKey) === '1') {
-    // 既に処理済みならクエリだけ消しておく
-    history.replaceState(null, '', location.pathname  location.hash);
+  // 文字列連結
+　history.replaceState(null, '', location.pathname + location.hash);
     return;
   }
 
