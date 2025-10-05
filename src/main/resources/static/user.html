@@ -59,7 +59,7 @@
     inset: 0;
     width: 100vw;
     height: 100vh;            /* 旧端末フォールバック */
-    height: 100svh;           /* iOS 15 */
+    height: 100svh;           /* iOS 15+ */
     height: 100dvh;           /* 新しい動的vh */
     background:#fff;
     z-index: 10000;
@@ -430,7 +430,7 @@
 }
 #loginBonusOkBtn{
   position:sticky; bottom:0;
-  margin:8px auto calc(env(safe-area-inset-bottom)  8px);
+  margin:8px auto calc(env(safe-area-inset-bottom) + 8px);
   width:min(380px, 90%);
 }
 
@@ -686,7 +686,7 @@ h1, h3, #learningStatus{ color: #e91e63; }
 .weekly-bars { min-height: 140px; }
 .weekly-bar  { width: 22px; min-height: 6px; }
 
-/* ③ “ガタガタ”対策：横スクロール禁止画像のサイズを固定 */
+/* ③ “ガタガタ”対策：横スクロール禁止＋画像のサイズを固定 */
 html, body { overflow-x: hidden; }
 img, video { max-width: 100%; height: auto; }
 
@@ -901,7 +901,7 @@ button { writing-mode: horizontal-tb; }
   contain:layout;                  /* レイアウト波及を遮断（微振れ防止） */
 }
 
-/* モバイル：2カラム下段にボタン列。横幅100%で一列に */
+/* モバイル：2カラム+下段にボタン列。横幅100%で一列に */
 @media (max-width:480px){
   .word-card{
     grid-template-columns: var(--imgW) 1fr;
@@ -1007,10 +1007,10 @@ button { writing-mode: horizontal-tb; }
   }
 }
 
-/* === ここからNEW：3タブ固定タブバー用の最小追記 ========== */
+/* === ここからNEW：3タブ＋固定タブバー用の最小追記 ========== */
 
     /* 3つのビュー（main）を切替。is-activeだけ表示 */
-    .app-view{ display:none; padding-bottom: calc(56px  env(safe-area-inset-bottom)); }
+    .app-view{ display:none; padding-bottom: calc(56px + env(safe-area-inset-bottom)); }
     .app-view.is-active{ display:block; }
 
     /* 画面下の固定タブバー */
@@ -1056,7 +1056,7 @@ button { writing-mode: horizontal-tb; }
 	#test-section.cta-row{ display:block !important; }
 
 	/* バナーは常に枠を確保（ブロッカー時のガタつき防止） */
-	.ad-banner { min-height:60px; display:flex; align-items:center; justify-content:center; margin:8px 8px calc(8px  env(safe-area-inset-bottom, 0px)); }
+	.ad-banner { min-height:60px; display:flex; align-items:center; justify-content:center; margin:8px 8px calc(8px + env(safe-area-inset-bottom, 0px)); }
 	.ad-banner.fallback { background:#ffe6ef; color:#ef2a67; font-size:12px; border-radius:12px; padding:8px 12px; }
 	
 	.app-footer { padding-bottom: env(safe-area-inset-bottom, 0px); }
@@ -1173,7 +1173,7 @@ button { writing-mode: horizontal-tb; }
 
 <script>
 
-// ===== Premium bridge (Capacitor  StoreKit 2) =====
+// ===== Premium bridge (Capacitor + StoreKit 2) =====
 // 0) ブリッジの参照＆キャッシュ初期化（※1回だけ定義）
 
 // === globals shared by all scripts ===
@@ -1192,10 +1192,10 @@ const apiFetch = (path, opts = {}) => {
     if (meta) return { header: 'X-CSRF-Token', token: meta };
 
     const ck = document.cookie;
-    const mSpring = ck.match(/(?:^|;\s*)XSRF-TOKEN=([^;])/); // Spring
+    const mSpring = ck.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/); // Spring
     if (mSpring) return { header: 'X-CSRF-TOKEN', token: decodeURIComponent(mSpring[1]) };
 
-    const mLegacy = ck.match(/(?:^|;\s*)_csrf=([^;])/);      // 旧設定
+    const mLegacy = ck.match(/(?:^|;\s*)_csrf=([^;]+)/);      // 旧設定
     if (mLegacy) return { header: 'X-CSRF-Token', token: decodeURIComponent(mLegacy[1]) };
 
     return null;
@@ -1214,9 +1214,8 @@ const apiFetch = (path, opts = {}) => {
 window.premiumState = window.premiumState ?? { value: false };
 
 (function hydratePremiumEarly(){
-  window.premiumState.value = false;
+  const cached = localStorage.getItem('app.premium') === '1';
   if (cached) window.premiumState.value = true;
-　// ただし iOS ネイティブからの確認で上書き（下の refreshPremium / entitlements）
 })();
 
 // どこからでもこれだけ叩けばOK（保存・UI更新まで一括）
@@ -1253,7 +1252,7 @@ window.adjustBottomPadding = function () {
   const main   = document.querySelector("main.app-view.is-active");
   if (!tabbar || !main) return;
   const h = tabbar.getBoundingClientRect().height || 0;
-  main.style.paddingBottom = `calc(${h}px  env(safe-area-inset-bottom, 0px))`;
+  main.style.paddingBottom = `calc(${h}px + env(safe-area-inset-bottom, 0px))`;
 };
 
 // 2) CTAの出し分け（無料＆広告レディの時だけ報酬広告ボタン表示）
@@ -1307,16 +1306,11 @@ function renderHouseAd(){
   return a;
 }
 
-function swipeTodayKey(userId) {
-  const d   = new Date();
-  const y   = d.getFullYear();
-  const m   = String(d.getMonth() + 1).padStart(2, '0'); // ← +1 を忘れない
-  const day = String(d.getDate()).padStart(2, '0');
-
-  const ymd = `${y}-${m}-${day}`;
+function swipeTodayKey(userId){
+  const d = new Date();
+  const ymd = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   return `swipeExcluded:${userId}:${ymd}`;
 }
-
 	
 function mountBanners(){
   const prem = window.isPremium?.() === true;
@@ -1468,8 +1462,8 @@ async function applyTestParamsAndCommit() {
   // ★ この結果はもう処理済み？
   const resultKey = `testResultHandled:${userId}:${mode}:${score}/${total}`;
   if (sessionStorage.getItem(resultKey) === '1') {
-  // 文字列連結
-　history.replaceState(null, '', location.pathname + location.hash);
+    // 既に処理済みならクエリだけ消しておく
+    history.replaceState(null, '', location.pathname + location.hash);
     return;
   }
 
@@ -1480,13 +1474,13 @@ async function applyTestParamsAndCommit() {
   // ローカル加算（今回が未処理のときだけ）
   const localTotalCorrectKey = `localTotalCorrect:${userId}`;
   const prevLocal = parseInt(localStorage.getItem(localTotalCorrectKey) || '0', 10);
- 　const newLocal  = prevLocal + score;   // ← ここを修正
+  const newLocal  = prevLocal + score;
   localStorage.setItem(localTotalCorrectKey, String(newLocal));
 
   // レベル演出（差分分だけ）
   const prevLevel = Math.floor(prevLocal / 10);
   const newLevel  = Math.floor(newLocal / 10);
-  for (let lv = prevLevel  1; lv <= newLevel; lv) showLevelUpPopup(lv);
+  for (let lv = prevLevel + 1; lv <= newLevel; lv++) showLevelUpPopup(lv);
 
   // サーバへコミット（未コミット時のみ）
   const committedKey = `committed:${userId}:${mode}:${score}/${total}`;
@@ -1503,7 +1497,7 @@ async function applyTestParamsAndCommit() {
 
   // ★ 二重起動防止フラグを立て、URLのクエリを除去
   sessionStorage.setItem(resultKey, '1');
-  history.replaceState(null, '', location.pathname  location.hash);
+  history.replaceState(null, '', location.pathname + location.hash);
 }
 
 // 既存の DOMContentLoaded 後や loadWords() 完了後に呼んでOK
@@ -1636,16 +1630,16 @@ const candidates = [
 
   function applyPadding(){
     // 1) バナーの下余白（Web側の疑似スペーサ）
-    adSpacer.style.height = (bannerHeight)  'px';
+    adSpacer.style.height = (bannerHeight) + 'px';
 
-    // 2) アクティブビューの下パディング（tabbar  バナー  セーフエリア）
+    // 2) アクティブビューの下パディング（tabbar + バナー + セーフエリア）
     document.querySelectorAll('.app-view.is-active').forEach(v=>{
-      v.style.paddingBottom = `calc(${TABBAR_H  bannerHeight}px  env(safe-area-inset-bottom))`;
+      v.style.paddingBottom = `calc(${TABBAR_H + bannerHeight}px + env(safe-area-inset-bottom))`;
     });
 
     // 3) tabbar 自体をバナー高さだけ持ち上げる（= バナーの上に出す）
     if (tabbar){
-      tabbar.style.bottom = `calc(${bannerHeight}px  env(safe-area-inset-bottom))`;
+      tabbar.style.bottom = `calc(${bannerHeight}px + env(safe-area-inset-bottom))`;
     }
   }
 
@@ -1770,14 +1764,8 @@ function skPost(action, payload = {}) {
 // iOS -> JS コールバック
 window.onStoreKitMessage = function (msg) {
   try {
-	// entitlements は “購入済みかの照会” だけ。true/false をそのまま信じない。
-	if (msg.event === 'entitlements') {
-      if (msg && msg.premium === true) {
-        setPremium(true);
-      } else {
-        // 未購入ならここでは何もしない（purchase を待つ）
-        console.log('[SK] entitlements: not premium');
-      }
+    if (msg.event === 'entitlements') {
+      if (msg.premium) setPremium(true);
       return;
     }
     if (msg.event === 'purchased' || msg.event === 'restored') {
@@ -1838,7 +1826,7 @@ function showUpdateInfoIfNeeded() {
   const shownVersion = localStorage.getItem("updateInfoShownVersion");
   if (shownVersion !== latestUpdateVersion) {
     Swal.fire({
-      title: "✨アップデート情報 (v"  latestUpdateVersion  ")✨",
+      title: "✨アップデート情報 (v" + latestUpdateVersion + ")✨",
       html: updateMessage,
       icon: "info",
       confirmButtonText: "閉じる",
@@ -1902,7 +1890,7 @@ function toSlugForImage(s) {
     .toLowerCase()
     .trim()
     .replace(/['’`"]/g, "")
-    .replace(/\s/g, "_")
+    .replace(/\s+/g, "_")
     .replace(/[^a-z0-9_]/g, "");
 }
 
@@ -2057,7 +2045,7 @@ function updateRemainingInline(){
       el.classList.add('is-premium');
     } else {
       el.classList.remove('is-premium');
-      el.textContent = (remainingCards > 0) ? `残り ${remainingCards} 枚` : '広告で 6 枚';
+      el.textContent = (remainingCards > 0) ? `残り ${remainingCards} 枚` : '広告で +6 枚';
     }
   });
 }
@@ -2108,7 +2096,7 @@ function flipCard() {
   updateCounter('soft');    // 軽いポン演出
 }
 
-// ▼ここ差し替え：広告表示（Capacitor  AdMob ラッパー対応）
+// ▼ここ差し替え：広告表示（Capacitor + AdMob ラッパー対応）
 async function showAd() {
   // AdMobプラグインが存在しない（ブラウザなど）場合は confirm フォールバック
   if (!window.AdMob) {
@@ -2130,7 +2118,7 @@ async function showAd() {
       isTesting: false // ← テスト時は true
     });
 
-    // === 表示  コールバック処理 ===
+    // === 表示 + コールバック処理 ===
     await window.AdMob.showRewardVideoAd({
       onRewarded: () => {
         console.log('✅ onRewarded: 報酬付与');
@@ -2262,7 +2250,7 @@ function renderPartButtons() {
   container.innerHTML = "";
 
   const start = (partsPage - 1) * partsPerPage;
-  const view = parts.slice(start, start  partsPerPage);
+  const view = parts.slice(start, start + partsPerPage);
 
   view.forEach(({ label, value }) => {
     const btn = document.createElement("button");
@@ -2316,11 +2304,11 @@ const makeBtn = (label, page, disabled = false, active = false) => {
     const addDots = () => { const s=document.createElement("span"); s.className="ellipsis"; s.textContent="…"; wrap.appendChild(s); };
 
     wrap.appendChild(makeBtn("‹", partsPage - 1, partsPage === 1));
-    if (pageCount <= 5) for (let i=1;i<=pageCount;i) addPage(i);
+    if (pageCount <= 5) for (let i=1;i<=pageCount;i++) addPage(i);
     else if (partsPage <= 3){ addPage(1);addPage(2);addPage(3);addDots();addPage(pageCount); }
     else if (partsPage >= pageCount-2){ addPage(1);addDots();addPage(pageCount-2);addPage(pageCount-1);addPage(pageCount); }
-    else { addPage(1);addDots();addPage(partsPage-1);addPage(partsPage);addPage(partsPage1);addDots();addPage(pageCount); }
-    wrap.appendChild(makeBtn("›", partsPage  1, partsPage === pageCount));
+    else { addPage(1);addDots();addPage(partsPage-1);addPage(partsPage);addPage(partsPage+1);addDots();addPage(pageCount); }
+    wrap.appendChild(makeBtn("›", partsPage + 1, partsPage === pageCount));
   };
 
   containers.forEach(build);
@@ -2334,8 +2322,8 @@ function selectPart(part) {
   const show = () => {
     selectedPart = part;
     const idx = Math.max(0, parts.findIndex(p => p.value === part));
-    partsPage = Math.floor(idx / partsPerPage)  1; // そのPartが載っている「Partページ」を表示
-    currentPart = idx  1;
+    partsPage = Math.floor(idx / partsPerPage) + 1; // そのPartが載っている「Partページ」を表示
+    currentPart = idx + 1;
     currentPage = 1;
     renderPartButtons();
     loadWords();
@@ -2466,7 +2454,7 @@ async function updateLoginPointsIfNeeded(userId) {
 // 1日1回だけポップアップ
 function showLoginBonusOncePerDay(points){
   const d = new Date();
-  const ymd = `${d.getFullYear()}-${String(d.getMonth()1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const ymd = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const key = `loginBonusShown:${ymd}`;
   if (localStorage.getItem(key) === '1') return;
   showLoginBonus(points);
@@ -2518,7 +2506,7 @@ function getBeautyClickCount() {
   return isNaN(n) ? 0 : n;
 }
 function incBeautyClickCount() {
-  const n = getBeautyClickCount()  1;
+  const n = getBeautyClickCount() + 1;
   localStorage.setItem('beauty_clicks', String(n));
   return n;
 }
@@ -2584,7 +2572,7 @@ function escHTML(v=''){ return String(v)
   .replace(/'/g,'&#39;'); }
 
 function h(parts, ...vals){
-  return parts.reduce((s, p, i) => s  p  (i < vals.length ? escHTML(vals[i]) : ''), '');
+  return parts.reduce((s, p, i) => s + p + (i < vals.length ? escHTML(vals[i]) : ''), '');
 }
 
 function renderWords() {
@@ -2593,7 +2581,7 @@ function renderWords() {
   container.innerHTML = "";
 
   const start = (currentPage - 1) * pageSize;
-  const pageWords = words.slice(start, start  pageSize);
+  const pageWords = words.slice(start, start + pageSize);
 
   pageWords.forEach((word, index) => {
     const div = document.createElement("div");
@@ -2644,7 +2632,7 @@ function renderWords() {
             <span class="remaining-inline is-premium">無制限</span>
           ` : `
             <span class="remaining-inline">${
-             remainingCards > 0 ? `残り ${remainingCards} 枚` : '広告で 6 枚'
+             remainingCards > 0 ? `残り ${remainingCards} 枚` : '広告で +6 枚'
             }</span>
           `}
         </div>
@@ -2790,11 +2778,11 @@ function renderPagination(totalItems) {
     const addDots = () => { const s=document.createElement("span"); s.className="ellipsis"; s.textContent="…"; wrap.appendChild(s); };
 
     wrap.appendChild(makeBtn("‹", currentPage - 1, currentPage === 1));
-    if (pageCount <= 5) for (let i=1;i<=pageCount;i) addPage(i);
+    if (pageCount <= 5) for (let i=1;i<=pageCount;i++) addPage(i);
     else if (currentPage <= 3){ addPage(1);addPage(2);addPage(3);addDots();addPage(pageCount); }
     else if (currentPage >= pageCount-2){ addPage(1);addDots();addPage(pageCount-2);addPage(pageCount-1);addPage(pageCount); }
-    else { addPage(1);addDots();addPage(currentPage-1);addPage(currentPage);addPage(currentPage1);addDots();addPage(pageCount); }
-    wrap.appendChild(makeBtn("›", currentPage  1, currentPage === pageCount));
+    else { addPage(1);addDots();addPage(currentPage-1);addPage(currentPage);addPage(currentPage+1);addDots();addPage(pageCount); }
+    wrap.appendChild(makeBtn("›", currentPage + 1, currentPage === pageCount));
   };
 
   containers.forEach(build);
@@ -2992,7 +2980,7 @@ async function loadWeeklyAnswers(){
         barsEl.appendChild(col);
 
         const dt = new Date(d.ymd);
-        const mm = String(dt.getMonth()1).padStart(2,'0');
+        const mm = String(dt.getMonth()+1).padStart(2,'0');
         const dd = String(dt.getDate()).padStart(2,'0');
         const youbi = ['日','月','火','水','木','金','土'][dt.getDay()];
         const lab = document.createElement('div');
@@ -3028,9 +3016,9 @@ let removeTrapLoginBonus = null;
 function showLoginBonus(points){
   const title = document.getElementById('loginBonusTitle');
   const grid  = document.getElementById('stampGrid');
-  title.textContent = 'ログインボーナス（学習日数: '  points  '日目）';
+  title.textContent = 'ログインボーナス（学習日数: ' + points + '日目）';
   grid.innerHTML = '';
-  for (let i=1;i<=7;i){
+  for (let i=1;i<=7;i++){
     const cell = document.createElement('div');
     cell.style.cssText = 'aspect-ratio:1/1;border:1px dashed #f48fb1;border-radius:8px;display:flex;align-items:center;justify-content:center;';
     cell.textContent = (i <= (points%7||7)) ? '✅' : '—';
@@ -3094,7 +3082,6 @@ function showPremiumPopup() {
 
     // ---- iOSアプリ（WKWebView）なら StoreKit へ ----
     if (typeof isIOSApp === 'function' && isIOSApp()) {
-	　　console.log('[SK] iOS branch. Asking entitlements then purchase...');
       try {
         // 既存購入の権利があれば即時反映（onStoreKitMessage で受け取る）
         skPost('checkEntitlements');
@@ -3106,7 +3093,7 @@ function showPremiumPopup() {
       }
       return;
     }
-　　console.log('[Stripe] Web/PWA branch. Creating checkout session...');
+
     // ---- Web / PWA は Stripe チェックアウトへ遷移 ----
     try {
       const r = await apiFetch('/api/payment/create-checkout-session', {
@@ -3133,21 +3120,21 @@ function showPremiumPopup() {
 
 async function ensurePremiumTruth() {
   try {
-    // ネイティブがあればそれを信頼
-    if (window.NativePremium?.isPremium) {
-      const { value } = await window.NativePremium.isPremium();
-      setPremium(!!value);
-      return !!value;
+    // ネイティブ権利チェック（Capacitor がある場合）
+    if (typeof refreshPremium === 'function') {
+      await refreshPremium(); // NativePremium.isPremium() -> setPremium()
     }
-    // サーバにも聞く（Cookieセッション）
-    const me = await fetchJSON('/api/me');
-    setPremium(!!me?.premium);
-    return !!me?.premium;
-  } catch {
-    return window.isPremium();
-  }
+    // まだ false ならサーバの /api/me でも確認
+    if (typeof window.isPremium === 'function' && !window.isPremium()) {
+      try {
+        const me = await fetchJSON('/api/me');
+        if (me && (me.premium === true || me.isPremium === true)) {
+          setPremium(true);
+        }
+      } catch {}
+    }
+  } catch {}
 }
-
 
 	
 async function startTest() {
@@ -3256,7 +3243,7 @@ async function startTest() {
 let _statsRetry = 0;
 // 累計正答と学習日数を /user/me から更新。
 // loginPoints がなければ /api/test/weekly から直近7日の学習日数相当を表示。
-// 置き換え：/api/me 優先フォールバック
+// 置き換え：/api/me 優先＋フォールバック
 async function refreshUserStats() {
   const candidates = ['/api/me', '/user/me', '/api/user/me'];
   let u = null;
@@ -3276,7 +3263,7 @@ async function refreshUserStats() {
     const testStatsEl = document.getElementById("testStats");
     if (testStatsEl) testStatsEl.textContent = `正答数（累計）: ${totalCorrect}`;
 
-    const newLevel = Math.max(1, Math.floor(totalCorrect / 10)  1);
+    const newLevel = Math.max(1, Math.floor(totalCorrect / 10) + 1);
     const currentLevel = Number(u.level ?? 1);
     if (currentLevel !== newLevel) {
       try {
@@ -3305,7 +3292,7 @@ async function refreshUserStats() {
     const prevLv = Math.floor(prev / 10);
     const newLv  = Math.floor(totalCorrect / 10);
     if (newLv > prevLv) {
-      for (let lv2 = prevLv  1; lv2 <= newLv; lv2) showLevelUpPopup(lv2);
+      for (let lv2 = prevLv + 1; lv2 <= newLv; lv2++) showLevelUpPopup(lv2);
     }
     localStorage.setItem('previousCorrect', String(totalCorrect));
     return;
@@ -3352,13 +3339,13 @@ async function setUserPremium(userId) {
 	// 🔸 今日の日付キー
 	function swipeTodayKey(userId){
 	  const d = new Date();
-	  const ymd = `${d.getFullYear()}-${String(d.getMonth()1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+	  const ymd = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 	  return `swipeExcluded:${userId}:${ymd}`;   // 例: swipeExcluded:1:2025-08-24
 	}
 	
 	function todayKey(type){
 		  const d = new Date();
-		  const ymd = `${d.getFullYear()}-${String(d.getMonth()1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+		  const ymd = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 		  return `swipe:${type}:${getUserId()}:${ymd}`;
 		}
 
@@ -3405,8 +3392,8 @@ function resizeSwipeDeck(){
   if (!box || !deck) return;
   // グリッドで1frにしているので明示指定は不要だが、
   // iOSの一部で高さが足りなく見える時の保険として最低高さだけ与える
-  const h = Math.max(320, box.clientHeight - 96); // だいたいHUDヒントぶん
-  deck.style.minHeight = h  'px';
+  const h = Math.max(320, box.clientHeight - 96); // だいたいHUD+ヒントぶん
+  deck.style.minHeight = h + 'px';
 }
 window.addEventListener('resize', () => {
   if (!document.getElementById('swipeModeBox').classList.contains('hidden')) {
@@ -3558,13 +3545,13 @@ async function initSwipeMode(mode = "unlearned"){
   preventIOSBackSwipe();
   enableSwipeBackGuard();
 }		
-		// 🔸 スワイプ用デッキを組む（未学習のみ  今日の除外を引く）
+		// 🔸 スワイプ用デッキを組む（未学習のみ + 今日の除外を引く）
 // ランダムサンプル用ユーティリティ（Fisher–Yates）
 // ランダムに配列をシャッフル（in-place）
 // in-place shuffle
 function shuffle(arr){
   for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i  1));
+    const j = Math.floor(Math.random() * (i + 1));
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
@@ -3615,13 +3602,13 @@ if (!Array.isArray(swipeWords) || swipeWords.length === 0) {
 }
 
   // 今の位置から3枚だけ描画
-  const show = swipeWords.slice(swipeIndex, Math.min(swipeIndex  3, swipeWords.length));
+  const show = swipeWords.slice(swipeIndex, Math.min(swipeIndex + 3, swipeWords.length));
 
   show.forEach((w, idx) => {
     const card = document.createElement('div');
     card.className = 'swipe-card';
     card.style.zIndex = String(100 - idx);
-    card.dataset.index = String(swipeIndex  idx);
+    card.dataset.index = String(swipeIndex + idx);
 
     // renderSwipeDeck
 	const src = safeSrc(imageUrlForWord(w), { allowDataImage: true });
@@ -3720,22 +3707,22 @@ async function decideSwipe(card, dir){
     if (isRight) {
       addTodaySet('learned', w.id);
       addToSwipeExcluded(getUserId(), w.id);
-      swipeLearned;
+      swipeLearned++;
       onSwipeRightLearned(w);
-      swipeIndex; // 右は確定なので進める
+      swipeIndex++; // 右は確定なので進める
     } else {
       // ← 左は今の要素を末尾へ移動（重複させない）
       const [cur] = swipeWords.splice(i, 1);
       swipeWords.push(cur);
       addTodaySet('unlearned', w.id);
-      swipeUnlearned;
+      swipeUnlearned++;
       // swipeIndex は据え置き：同じ i に次のカードが入る
     }
   } else { // review
-    if (isRight) { swipeLearned; addTodaySet('review_ok', w.id); }
-    else         { swipeUnlearned; addTodaySet('review_ng', w.id); }
+    if (isRight) { swipeLearned++; addTodaySet('review_ok', w.id); }
+    else         { swipeUnlearned++; addTodaySet('review_ng', w.id); }
     addToSwipeExcluded(getUserId(), w.id);
-    swipeIndex;
+    swipeIndex++;
   }
 
   updateSwipeHUD();
@@ -3772,7 +3759,7 @@ function updateSwipeHUD(){
 
 // 先頭あたりに
 const getCSRFFromCookie = (name='_csrf') => {
-  const m = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;])`));
+  const m = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]+)`));
   return m ? decodeURIComponent(m[1]) : null;
 };
 
@@ -3861,7 +3848,7 @@ document.addEventListener('keydown', (e) => {
 </div>
 
 <script>
-/* ===== AdMob bridge for Capacitor (Banner  Rewarded) =====
+/* ===== AdMob bridge for Capacitor (Banner + Rewarded) =====
  * - Capacitor(iOS/Android) では AdMob SDK、本ブラウザでは confirm フォールバック
  */
 (function () {
