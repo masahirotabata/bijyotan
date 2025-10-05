@@ -1406,8 +1406,15 @@ async function initApp() {
       const r = await apiFetch(`/api/payment/confirm?session_id=${encodeURIComponent(sessionId)}`);
       const j = await r.json();
       user.premium = !!j.premium;
-    } catch {}
-  }
+   // ★ ここを追加
+    if (user.premium) {
+      premiumState.value = true;      // ← isPremium() が true になる
+      applyPremiumUI();               // ← 表示全体を更新
+      // 任意: クエリを消しておく（F5で再実行されないように）
+      history.replaceState(null, '', location.pathname + location.hash);
+    }
+  } catch {}
+}
 
   renderPartButtons();
   await loadWords();
@@ -3031,6 +3038,12 @@ function getTitleByLevel(level) {
 }
 	
 function showPremiumPopup() {
+  // すでにプレミアムなら案内だけ
+  if (typeof window.isPremium === 'function' && window.isPremium()) {
+    Swal.fire({ icon: 'success', title: 'もうプレミアムです🎀', timer: 1600, showConfirmButton: false });
+    return;
+  }
+
   Swal.fire({
     title: '🎀 美女単プレミアムプラン 🎀',
     html: `
@@ -3053,24 +3066,42 @@ function showPremiumPopup() {
   }).then(async ({ isConfirmed }) => {
     if (!isConfirmed) return;
 
+    // ---- iOSアプリ（WKWebView）なら StoreKit へ ----
+    if (typeof isIOSApp === 'function' && isIOSApp()) {
+      try {
+        // 既存購入の権利があれば即時反映（onStoreKitMessage で受け取る）
+        skPost('checkEntitlements');
+        // 未購入なら購入シート表示（商品IDは App Store Connect と一致させる）
+        skPost('purchase', { productId: (typeof SK_PRODUCT_ID !== 'undefined' ? SK_PRODUCT_ID : 'premium_unlock_300') });
+      } catch (e) {
+        console.warn('StoreKit purchase start failed:', e);
+        Swal.fire({ icon: 'error', title: '購入を開始できませんでした', text: 'しばらくしてからお試しください。' });
+      }
+      return;
+    }
+
+    // ---- Web / PWA は Stripe チェックアウトへ遷移 ----
     try {
       const r = await apiFetch('/api/payment/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
       });
-
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
+
       const ct = r.headers.get('content-type') || '';
       const data = ct.includes('application/json') ? await r.json() : null;
-		const url = data?.checkoutUrl || data?.url;
-		if (!/^https?:\/\//.test(url)) throw new Error('bad url');
-			location.assign(url); // ← これだけでOK
-	    } catch (e) {
-	      console.error('checkout failed:', e);
-	      window.location.href = '/premium.html';
-	    }
-	  });
+      const url = data?.checkoutUrl || data?.url;
+      if (!/^https?:\/\//.test(url)) throw new Error('bad url');
+
+      // Stripe ホストへ遷移（決済後は session_id 付きで戻る想定）
+      location.assign(url);
+    } catch (e) {
+      console.error('checkout failed:', e);
+      // 失敗時のフォールバック（説明ページなど）
+      window.location.href = '/premium.html';
+    }
+  });
 }
 	
 function startTest() {
