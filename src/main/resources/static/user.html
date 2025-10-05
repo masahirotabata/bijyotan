@@ -3119,12 +3119,23 @@ function showPremiumPopup() {
 }
 
 async function ensurePremiumTruth() {
-  // ネイティブ権利 or Webセッションの真偽をもう一度合わせる
-  try { await refreshPremium(); } catch {}
-  if (!window.isPremium() && (window.user?.premium === true)) {
-    setPremium(true);
-  }
+  try {
+    // ネイティブ権利チェック（Capacitor がある場合）
+    if (typeof refreshPremium === 'function') {
+      await refreshPremium(); // NativePremium.isPremium() -> setPremium()
+    }
+    // まだ false ならサーバの /api/me でも確認
+    if (typeof window.isPremium === 'function' && !window.isPremium()) {
+      try {
+        const me = await fetchJSON('/api/me');
+        if (me && (me.premium === true || me.isPremium === true)) {
+          setPremium(true);
+        }
+      } catch {}
+    }
+  } catch {}
 }
+
 	
 async function startTest() {
 	      await ensurePremiumTruth();   // ← 追加
