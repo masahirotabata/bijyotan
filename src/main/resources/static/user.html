@@ -1307,11 +1307,16 @@ function renderHouseAd(){
   return a;
 }
 
-function swipeTodayKey(userId){
-  const d = new Date();
-  const ymd = `${d.getFullYear()}-${String(d.getMonth()1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+function swipeTodayKey(userId) {
+  const d   = new Date();
+  const y   = d.getFullYear();
+  const m   = String(d.getMonth() + 1).padStart(2, '0'); // ← +1 を忘れない
+  const day = String(d.getDate()).padStart(2, '0');
+
+  const ymd = `${y}-${m}-${day}`;
   return `swipeExcluded:${userId}:${ymd}`;
 }
+
 	
 function mountBanners(){
   const prem = window.isPremium?.() === true;
