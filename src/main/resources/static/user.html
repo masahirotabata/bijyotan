@@ -1294,6 +1294,24 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (plan === "free") await initBanner();
 });
 
+// === 先行プレミアム開放（先行ダウンロード特典） ===
+// 期日を過ぎたら自動で元の挙動に戻ります（UTCで指定）
+const EARLY_PREMIUM_UNTIL = new Date("2025-11-30T14:59:59Z"); // ←必要に応じて変更
+
+function isEarlyPremiumActive(nowMs = Date.now()) {
+  return nowMs <= EARLY_PREMIUM_UNTIL.getTime();
+}
+
+// 元の isPremium を保持し、期間中だけ上書き
+const _isPremiumBase =
+  (typeof window.isPremium === "function" ? window.isPremium.bind(window) : () => false);
+
+window.isPremium = function () {
+  if (isEarlyPremiumActive()) return true; // 期間中は全員プレミアム扱い
+  return _isPremiumBase();                  // 期間外は従来判定
+};
+
+
 function renderHouseAd(){
   const a=document.createElement('a');
   a.href='https://example.com'; a.target='_blank'; a.rel='noopener';
