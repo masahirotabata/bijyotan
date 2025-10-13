@@ -1079,10 +1079,17 @@ button { writing-mode: horizontal-tb; }
 <!-- ================== 3つのビュー ================== -->
 <!-- トップページ -->
 <main id="view-home" class="app-view is-active">
-  <div id="user-info">
-    <div id="username"></div>
-    <div id="planText"></div>
-    <div id="userLevel"></div>
+  <!-- ユーザー情報＋設定ボタン -->
+  <div id="by-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:8px 12px;">
+    <div id="user-info">
+      <div id="username"></div>
+      <div id="planText"></div>
+      <div id="userLevel"></div>
+    </div>
+    <button id="by-settings-btn" aria-haspopup="dialog"
+      style="padding:8px 12px;border-radius:10px;border:1px solid #e5e7eb;background:#fff;cursor:pointer;white-space:nowrap;">
+      ⚙︎ 設定
+    </button>
   </div>
 
   <div id="levelGirlContainer" class="level-girl">
@@ -1106,6 +1113,104 @@ button { writing-mode: horizontal-tb; }
     <div id="weeklyLabels" class="weekly-labels"></div>
   </div>
 </main>
+
+<!-- ▼ 設定モーダル（※1つだけ） -->
+<div id="by-settings-modal" role="dialog" aria-modal="true" aria-labelledby="by-settings-title"
+     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:9999;">
+  <div style="max-width:560px;margin:10vh auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.15)">
+    <div style="padding:14px 16px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
+      <h2 id="by-settings-title" style="margin:0;font-size:18px;">設定</h2>
+      <button id="by-close" style="border:none;background:transparent;font-size:20px;cursor:pointer;" aria-label="閉じる">×</button>
+    </div>
+
+    <div style="padding:16px;display:grid;gap:12px;">
+      <a href="/privacy.html" style="color:#0ea5e9;text-decoration:none">プライバシーポリシー</a>
+      <a href="/terms.html" style="color:#0ea5e9;text-decoration:none">利用規約</a>
+
+      <hr style="border:none;border-top:1px solid #f1f5f9;margin:8px 0;">
+
+      <button id="by-delete-btn"
+        style="padding:12px;border-radius:10px;background:#ef4444;color:#fff;border:none;cursor:pointer;font-weight:600;">
+        アカウント削除
+      </button>
+      <p style="font-size:12px;color:#64748b;margin:0;">
+        削除は取り消せません。サーバー上の学習履歴・アカウント情報は完全に消去されます。
+      </p>
+    </div>
+  </div>
+</div>
+<!-- ▲ 設定モーダル -->
+
+<script>
+  // ==== 二重初期化ガード ====
+  if (!window.__byInit) {
+    window.__byInit = true;
+
+    const byOpen  = document.getElementById('by-settings-btn');
+    const byModal = document.getElementById('by-settings-modal');
+    const byClose = document.getElementById('by-close');
+    const byDelete = document.getElementById('by-delete-btn');
+
+    byOpen?.addEventListener('click', () => { byModal.style.display = 'block'; });
+    byClose?.addEventListener('click', () => { byModal.style.display = 'none'; });
+    byModal?.addEventListener('click', (e) => { if (e.target === byModal) byModal.style.display = 'none'; });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') byModal.style.display = 'none'; });
+
+    // 退会（多重タップ防止＋簡易ローディング）
+    let deleting = false;
+    byDelete?.addEventListener('click', async () => {
+      if (deleting) return;
+      if (!confirm('本当にアカウントを削除しますか？この操作は取り消せません。')) return;
+
+      deleting = true;
+      const origLabel = byDelete.textContent;
+      byDelete.disabled = true;
+      byDelete.textContent = '削除中…';
+
+      try {
+        const res = await fetch('/api/account/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          // 認証やCSRFが必要なら適宜追加:
+          // credentials: 'include',
+          // headers: { 'X-CSRF-TOKEN': token, ... }
+        });
+
+        if (res.ok || res.status === 204) {
+          await byClearLocalData();
+          alert('アカウントを削除しました。ご利用ありがとうございました。');
+          location.href = '/start.html';
+        } else {
+          alert('削除に失敗しました。時間をおいて再度お試しください。');
+        }
+      } catch {
+        alert('通信エラーが発生しました。');
+      } finally {
+        deleting = false;
+        byDelete.disabled = false;
+        byDelete.textContent = origLabel;
+      }
+    });
+
+    async function byClearLocalData() {
+      try {
+        localStorage.clear(); sessionStorage.clear();
+        document.cookie.split(';').forEach(c => {
+          const eq = c.indexOf('=');
+          const name = eq > -1 ? c.slice(0, eq) : c;
+          document.cookie = name.trim() + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
+        });
+        if (indexedDB && indexedDB.databases) {
+          const dbs = await indexedDB.databases();
+          await Promise.all(dbs.map(db => new Promise((resolve) => {
+            const req = indexedDB.deleteDatabase(db.name);
+            req.onsuccess = req.onerror = req.onblocked = () => resolve();
+          })));
+        }
+      } catch {}
+    }
+  }
+</script>
 
 <!-- テスト受検ページ -->
 <main id="view-test" class="app-view">
