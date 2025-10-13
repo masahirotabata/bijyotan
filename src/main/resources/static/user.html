@@ -1065,6 +1065,36 @@ button { writing-mode: horizontal-tb; }
   </style>
 	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+　<style>
+  /* 設定モーダルのボタンを強制整形 */
+  #by-delete-btn{
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    width:100% !important;
+    min-height:44px !important;
+    padding:12px !important;
+    border:none !important;
+    border-radius:10px !important;
+    background:#ef4444 !important;
+    color:#fff !important;
+    font-size:16px !important;
+    font-weight:700 !important;
+    line-height:1.2 !important;
+    text-indent:0 !important;
+    letter-spacing:normal !important;
+    text-transform:none !important;
+    white-space:nowrap !important;
+  }
+  /* アイコンフォントや汎用CSSで文字を隠すパターンの無効化 */
+  #by-delete-btn::before,
+  #by-delete-btn::after{
+    content:none !important;
+    display:none !important;
+  }
+</style>
+
 </head>
 <body>
 
@@ -1085,11 +1115,11 @@ button { writing-mode: horizontal-tb; }
       <div id="username"></div>
       <div id="planText"></div>
       <div id="userLevel"></div>
-    </div>
-    <button id="by-settings-btn" aria-haspopup="dialog"
+	　<button id="by-settings-btn" aria-haspopup="dialog"
       style="padding:8px 12px;border-radius:10px;border:1px solid #e5e7eb;background:#fff;cursor:pointer;white-space:nowrap;">
       ⚙︎ 設定
-    </button>
+    　</button>
+    </div>
   </div>
 
   <div id="levelGirlContainer" class="level-girl">
