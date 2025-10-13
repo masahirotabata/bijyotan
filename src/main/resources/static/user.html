@@ -1110,16 +1110,29 @@ button { writing-mode: horizontal-tb; }
 <!-- トップページ -->
 <main id="view-home" class="app-view is-active">
   <!-- ユーザー情報＋設定ボタン -->
-  <div id="by-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:8px 12px;">
-    <div id="user-info">
-      <div id="username"></div>
-      <div id="planText"></div>
-      <div id="userLevel"></div>
-	　<button id="by-settings-btn" aria-haspopup="dialog"
-      style="padding:8px 12px;border-radius:10px;border:1px solid #e5e7eb;background:#fff;cursor:pointer;white-space:nowrap;">
-      ⚙︎ 設定
-    　</button>
-    </div>
+<!-- ユーザー情報＋アカウント削除ボタン（直置き） -->
+<div id="by-header" style="margin:8px 12px;">
+  <div id="user-info" style="display:flex; flex-direction:column; gap:8px;">
+    <div id="username"></div>
+    <div id="planText"></div>
+    <div id="userLevel"></div>
+
+    <!-- ★ 直置きの削除ボタン -->
+    <button id="by-delete-btn" type="button" aria-label="アカウント削除"
+      style="
+        display:flex !important; align-items:center !important; justify-content:center !important;
+        width:180px !important; min-height:44px !important; padding:10px 14px !important;
+        border:none !important; border-radius:10px !important;
+        background:#ef4444 !important; color:#fff !important;
+        font-size:16px !important; font-weight:700 !important; line-height:1.2 !important;
+        letter-spacing:normal !important; text-indent:0 !important; text-transform:none !important;
+        white-space:nowrap !important; cursor:pointer !important;
+      ">
+      <span style="pointer-events:none">アカウント削除</span>
+    </button>
+  </div>
+</div>
+
   </div>
 
   <div id="levelGirlContainer" class="level-girl">
