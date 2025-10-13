@@ -1,6 +1,7 @@
 package com.example.demo.api.controller;
 
 import java.net.URI;
+import java.security.Principal;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -8,14 +9,7 @@ import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*; // ★ まとめて
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import com.example.demo.api.dto.UserResponseDto;
@@ -25,7 +19,7 @@ import com.example.demo.domain.repository.UserRepository;
 import com.example.demo.service.MailService;
 
 @RestController
-@RequestMapping("/user")
+@RequestMapping({"/user", "/api/account"}) // ★ どちらのベースPATHでも同じメソッドが使える
 public class UserController {
 
     private final UserService userService;
@@ -57,7 +51,6 @@ public class UserController {
                     userRepository.save(u);
                     return ResponseEntity.ok(Map.of("level", u.getLevel()));
                 })
-                // notFound() のビルダー型を明示して型不一致を回避
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).<Map<String, Integer>>build());
     }
 
@@ -69,7 +62,6 @@ public class UserController {
                         new UserResponseDto(
                                 user.getId(),
                                 user.getUsername(),
-                                // boolean アクセサに修正
                                 user.isPremium(),
                                 user.isCanWatchVideo(),
                                 user.getLoginPoints(),
@@ -117,7 +109,6 @@ public class UserController {
         user.setUsername(email);
         user.setPassword(passwordEncoder.encode(password));
 
-        // primitive なので null チェック不要。初期値を明示セット
         user.setLevel(1);
         user.setLoginPoints(0);
         user.setPremium(false);
@@ -157,9 +148,7 @@ public class UserController {
                 .build();
     }
 
-     /** プレミアム化 */
-     // 例: com.example.demo.api.controller.UserController
-    
+    /** プレミアム化 */
     @PutMapping("/upgrade")
     public ResponseEntity<String> upgradeToPremium(@RequestParam("userId") Long userId) {
         Optional<UserEntity> opt = userRepository.findById(userId);
@@ -177,7 +166,6 @@ public class UserController {
     /** 画面遷移用（GET）。内部で同じ処理を実行し、その後 user.html に 302 リダイレクト */
     @GetMapping("/upgrade-redirect")
     public ResponseEntity<Void> upgradeAndRedirect(@RequestParam("userId") Long userId) {
-        // 上の処理を再利用してもOK。重複が気になるなら共通privateメソッド化してください。
         Optional<UserEntity> opt = userRepository.findById(userId);
         if (opt.isPresent() && !opt.get().isPremium()) {
             UserEntity user = opt.get();
@@ -186,5 +174,44 @@ public class UserController {
         }
         URI to = URI.create("/user.html?userId=" + userId);
         return ResponseEntity.status(HttpStatus.FOUND).location(to).build(); // 302
+    }
+
+    // ============================================================
+    // ★ アカウント削除（/user/delete と /api/account/delete の両方に対応）
+    // ============================================================
+    @PostMapping("/delete")
+    public ResponseEntity<Void> deleteAccount(
+            Principal principal,
+            @RequestParam(value = "userId", required = false) Long userId
+    ) {
+        try {
+            // 1) 認証主体があれば優先（例：principal.name = email）
+            if (principal != null && principal.getName() != null) {
+                Optional<UserEntity> byEmail = userRepository.findByEmail(principal.getName());
+                if (byEmail.isPresent()) {
+                    userRepository.delete(byEmail.get());
+                    // ここで関連データ削除が必要なら、FKのON DELETE CASCADE、
+                    // または userService 側で子テーブルも合わせて削除してください。
+                    return ResponseEntity.noContent().build();
+                }
+            }
+
+            // 2) userId パラメータがあれば fallback
+            if (userId != null) {
+                Optional<UserEntity> byId = userRepository.findById(userId);
+                if (byId.isPresent()) {
+                    userRepository.delete(byId.get());
+                    return ResponseEntity.noContent().build();
+                }
+            }
+
+            // 3) ユーザー特定できなくても 204 を返す（存在有無を漏らさない）
+            return ResponseEntity.noContent().build();
+
+        } catch (Exception e) {
+            // 失敗時でも内部情報を出さず 204 にしてもよいが、運用上はログ推奨
+            // log.error("Account delete failed", e);
+            return ResponseEntity.noContent().build();
+        }
     }
 }
