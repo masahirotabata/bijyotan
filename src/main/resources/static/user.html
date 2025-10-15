@@ -4305,6 +4305,96 @@ document.addEventListener('keydown', (e) => {
   };
 })();
 </script>
-	
+<script>
+// ====== 堅牢版：報酬広告ボタン初期化（デリゲーション採用） ======
+(function rewardedButtonInit(){
+  // クリック処理（視聴→成功後の続行処理はここに書く）
+  function handleRewardedClick(e){
+    const el = e.target.closest('#btn-rewarded');
+    if (!el) return;                // 他のクリックは無視
+    e.preventDefault();
+
+    if (el.disabled) return;        // 無効なら何もしない
+
+    // 視聴成功後に行いたい処理（例：ページ遷移やUI更新）
+    window.setAdPendingToggle?.(() => {
+      // TODO: 成功後の処理をここに
+      // 例）location.href = 'musou.html?part=part4';
+    });
+
+    // showAd が未ロードでも落ちないようにガード
+    if (typeof window.showAd === 'function') {
+      window.showAd();
+    } else {
+      // フォールバック（デモ）※本番では不要なら削除
+      const yes = confirm('【デモ】広告を視聴しましたか？\nOK=成功 / Cancel=キャンセル');
+      if (yes && typeof window.onAdWatchedSuccess === 'function') window.onAdWatchedSuccess();
+    }
+  }
+
+  // デリゲーション：#btn-rewarded が後から差し替えられてもOK
+  document.addEventListener('click', handleRewardedClick);
+
+  // DOM生成後に表示/活性状態を整える
+  function ready(fn){ 
+    if (document.readyState !== 'loading') fn(); 
+    else document.addEventListener('DOMContentLoaded', fn);
+  }
+
+  ready(() => {
+    const btn = document.getElementById('btn-rewarded');
+    if (!btn) return;
+
+    // form内でも誤送信させない
+    if (!btn.hasAttribute('type')) btn.setAttribute('type','button');
+
+    // 無料ユーザーのみ表示
+    const premium = typeof window.isPremium === 'function' ? window.isPremium() : false;
+    if (premium) {
+      btn.classList.add('is-hidden');
+      btn.setAttribute('aria-hidden','true');
+    } else {
+      btn.classList.remove('is-hidden');
+      btn.removeAttribute('aria-hidden');
+      btn.style.display = ''; // CSSでdisplay:none;が残っても可視化
+    }
+
+    // 初期は無効 → Ad初期化の合図で有効化
+    btn.disabled = true;
+
+    const enable = () => {
+      const b = document.getElementById('btn-rewarded');
+      if (b) b.disabled = false;
+    };
+
+    // ネイティブ側の初期化合図（どちらか採用していればOK）
+    window.addEventListener('gmaInitialized', enable);
+
+    const prev = window.onGmaInitialized;
+    window.onGmaInitialized = function(){
+      try { prev?.(); } catch(e){}
+      enable();
+    };
+
+    // showAdスクリプトが後読み込みでも最終的に有効化
+    window.addEventListener('load', () => {
+      if (typeof window.showAd === 'function') enable();
+    });
+  });
+
+  // デバッグ支援：被さり・無効・非表示の典型を検知
+  window.debugRewardedButton = function(){
+    const b = document.getElementById('btn-rewarded');
+    if (!b) return console.warn('[btn-rewarded] not found');
+    const cs = getComputedStyle(b);
+    console.log('[btn-rewarded] visible=', cs.display !== 'none', 'opacity=', cs.opacity, 'pe=', cs.pointerEvents, 'disabled=', b.disabled);
+    const elAtCenter = document.elementFromPoint(
+      Math.round(b.getBoundingClientRect().left + b.offsetWidth/2),
+      Math.round(b.getBoundingClientRect().top + b.offsetHeight/2)
+    );
+    console.log('[btn-rewarded] elementFromPoint=', elAtCenter);
+  };
+})();
+</script>
 </body>
 </html>
