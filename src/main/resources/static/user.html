@@ -3317,113 +3317,106 @@ async function ensurePremiumTruth() {
 }
 
 async function startTest() {
-  await ensurePremiumTruth?.();
-  const userId    = getUserId?.();
-  const testCount = localStorage.getItem("test_started");
+	      await ensurePremiumTruth();   // ← 追加
+		  const userId = getUserId();  
+		  const testCount = localStorage.getItem("test_started");
 
-  // ★ 2回目以降 & 無料 & まだ解放されていない → 広告を表示してから再実行
-  if (testCount && !(typeof window.isPremium === 'function' && window.isPremium()) && !(typeof window.isAdEnabled === 'function' && window.isAdEnabled())) {
-    window.setAdPendingToggle?.(() => startTest());
-    window.showAd?.();
-    return; // いったん終了（視聴成功後に再入）
-  }
+		  if (testCount) {
+		    alert("広告を見せる処理（仮）");
+		  }
 
-  if (window.isPremium && window.isPremium()) {
-    // プレミアム：モード選択（広告なし）
-    Swal.fire({
-      title: "テストモードを選んでね",
-      html: `
-        <button id="readingBtn" class="swal2-confirm swal2-styled" style="margin: 5px;">📘 リーディング</button>
-        <button id="listeningBtn" class="swal2-confirm swal2-styled" style="background:#3949ab;margin: 5px;">🎧 リスニング</button>
-      `,
-      showConfirmButton: false,
-      didOpen: () => {
-        document.getElementById("readingBtn")?.addEventListener("click", () => {
-          localStorage.setItem("test_started", "1");
-          window.location.href = `test.html?userId=${userId}&mode=reading`;
-        });
-        document.getElementById("listeningBtn")?.addEventListener("click", () => {
-          localStorage.setItem("test_started", "1");
-          window.location.href = `test.html?userId=${userId}&mode=listening`;
-        });
-      }
-    });
-  } else {
-    // 無料：リーディングのみ（必要なら既に上で広告を見てもらっている）
-    Swal.fire({
-      title: "リスニングモードはプレミアム専用🎧",
-      html: `
-        <p>今は <strong>リーディングモード</strong>のみご利用いただけます。</p>
-        <p>🎀 プレミアム登録で <strong>音声リスニングテスト</strong>も可能に！</p>
-      `,
-      showCancelButton: true,
-      confirmButtonText: "リーディングで始める",
-      cancelButtonText: "プレミアムを見る",
-    }).then(result => {
-      if (result.isConfirmed) {
-        localStorage.setItem("test_started", "1");
-        window.location.href = `test.html?userId=${userId}&mode=reading`;
-      } else if (result.dismiss === Swal.DismissReason.cancel) {
-        window.showPremiumPopup?.();
-      }
-    });
-  }
-}
+		  if (window.isPremium()) {
+		    // プレミアムユーザーはモード選択可能
+		    Swal.fire({
+		      title: "テストモードを選んでね",
+		      html: `
+		        <button id="readingBtn" class="swal2-confirm swal2-styled" style="margin: 5px;">📘 リーディング</button>
+		        <button id="listeningBtn" class="swal2-confirm swal2-styled" style="background:#3949ab;margin: 5px;">🎧 リスニング</button>
+		      `,
+		      showConfirmButton: false,
+		      didOpen: () => {
+		        document.getElementById("readingBtn").addEventListener("click", () => {
+		          localStorage.setItem("test_started", "1");
+		          window.location.href = `test.html?userId=${userId}&mode=reading`;
+		        });
+		        document.getElementById("listeningBtn").addEventListener("click", () => {
+		          localStorage.setItem("test_started", "1");
+		          window.location.href = `test.html?userId=${userId}&mode=listening`;
+		        });
+		      }
+		    });
+		  } else {
+		    // 無料ユーザーはリーディングのみ（広告付き）
+		    Swal.fire({
+		      title: "リスニングモードはプレミアム専用🎧",
+		      html: `
+		        <p>今は <strong>リーディングモード</strong>のみご利用いただけます。</p>
+		        <p>🎀 プレミアム登録で <strong>音声リスニングテスト</strong>も可能に！</p>
+		      `,
+		      showCancelButton: true,
+		      confirmButtonText: "リーディングで始める",
+		      cancelButtonText: "プレミアムを見る",
+		    }).then(result => {
+		      if (result.isConfirmed) {
+		        localStorage.setItem("test_started", "1");
+		        window.location.href = `test.html?userId=${userId}&mode=reading`;
+		      } else if (result.dismiss === Swal.DismissReason.cancel) {
+		        showPremiumPopup(); // プレミアム案内を表示
+		      }
+		    });
+		  }
+		}
+	
+	async function startVocabularyTest() {
+		  await ensurePremiumTruth();   // ← 追加
+		  const userId = getUserId();
+		  const testCount = localStorage.getItem("test_started");
 
-async function startVocabularyTest() {
-  await ensurePremiumTruth?.();
-  const userId    = getUserId?.();
-  const testCount = localStorage.getItem("test_started");
+		  if (testCount) {
+		    alert("広告を見せる処理（仮）");
+		  }
 
-  // ★ 2回目以降 & 無料 & まだ解放されていない → 広告を表示してから再実行
-  if (testCount && !(typeof window.isPremium === 'function' && window.isPremium()) && !(typeof window.isAdEnabled === 'function' && window.isAdEnabled())) {
-    window.setAdPendingToggle?.(() => startVocabularyTest());
-    window.showAd?.();
-    return; // いったん終了（視聴成功後に再入）
-  }
-
-  if (window.isPremium && window.isPremium()) {
-    // プレミアム：モード選択（広告なし）
-    Swal.fire({
-      title: "テストモードを選んでね",
-      html: `
-        <button id="readingBtn" class="swal2-confirm swal2-styled" style="margin: 5px;">📘 リーディング</button>
-        <button id="listeningBtn" class="swal2-confirm swal2-styled" style="background:#3949ab;margin: 5px;">🎧 リスニング</button>
-      `,
-      showConfirmButton: false,
-      didOpen: () => {
-        document.getElementById("readingBtn")?.addEventListener("click", () => {
-          localStorage.setItem("test_started", "1");
-          window.location.href = `vocabularyTest.html?userId=${userId}&mode=reading`;
-        });
-        document.getElementById("listeningBtn")?.addEventListener("click", () => {
-          localStorage.setItem("test_started", "1");
-          window.location.href = `vocabularyTest.html?userId=${userId}&mode=listening`;
-        });
-      }
-    });
-  } else {
-    // 無料：リーディングのみ
-    Swal.fire({
-      title: "リスニングモードはプレミアム専用🎧",
-      html: `
-        <p>今は <strong>リーディングモード</strong>のみご利用いただけます。</p>
-        <p>🎀 プレミアム登録で <strong>音声リスニングテスト</strong>も可能に！</p>
-      `,
-      showCancelButton: true,
-      confirmButtonText: "リーディングで始める",
-      cancelButtonText: "プレミアムを見る",
-    }).then(result => {
-      if (result.isConfirmed) {
-        localStorage.setItem("test_started", "1");
-        window.location.href = `vocabularyTest.html?userId=${userId}&mode=reading`;
-      } else if (result.dismiss === Swal.DismissReason.cancel) {
-        window.showPremiumPopup?.();
-      }
-    });
-  }
-}
-
+		  if (window.isPremium()) {
+		    // プレミアムユーザーはモード選択可能
+		    Swal.fire({
+		      title: "テストモードを選んでね",
+		      html: `
+		        <button id="readingBtn" class="swal2-confirm swal2-styled" style="margin: 5px;">📘 リーディング</button>
+		        <button id="listeningBtn" class="swal2-confirm swal2-styled" style="background:#3949ab;margin: 5px;">🎧 リスニング</button>
+		      `,
+		      showConfirmButton: false,
+		      didOpen: () => {
+		        document.getElementById("readingBtn").addEventListener("click", () => {
+		          localStorage.setItem("test_started", "1");
+		          window.location.href = `vocabularyTest.html?userId=${userId}&mode=reading`;
+		        });
+		        document.getElementById("listeningBtn").addEventListener("click", () => {
+		          localStorage.setItem("test_started", "1");
+		          window.location.href = `vocabularyTest.html?userId=${userId}&mode=listening`;
+		        });
+		      }
+		    });
+		  } else {
+		    // 無料ユーザーはリーディングのみ（広告付き）
+		    Swal.fire({
+		      title: "リスニングモードはプレミアム専用🎧",
+		      html: `
+		        <p>今は <strong>リーディングモード</strong>のみご利用いただけます。</p>
+		        <p>🎀 プレミアム登録で <strong>音声リスニングテスト</strong>も可能に！</p>
+		      `,
+		      showCancelButton: true,
+		      confirmButtonText: "リーディングで始める",
+		      cancelButtonText: "プレミアムを見る",
+		    }).then(result => {
+		      if (result.isConfirmed) {
+		        localStorage.setItem("test_started", "1");
+		        window.location.href = `vocabularyTest.html?userId=${userId}&mode=reading`;
+		      } else if (result.dismiss === Swal.DismissReason.cancel) {
+		        showPremiumPopup(); // プレミアム案内を表示
+		      }
+		    });
+		  }
+		}
 // 累計正答と学習日数を /user/me から更新。
 // loginPoints がなければ /api/test/weekly から直近7日の学習日数相当を表示。
 let _statsRetry = 0;
