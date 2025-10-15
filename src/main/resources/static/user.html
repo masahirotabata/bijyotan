@@ -3316,49 +3316,20 @@ async function ensurePremiumTruth() {
   }
 }
 
-// --- 共通：広告ゲート（無料 & 2回目以降 & 未解錠なら広告視聴を要求）---
-function gateAdIfNeededAndRun(nextFn) {
-  const premium   = typeof window.isPremium === 'function' ? window.isPremium() : false;
-  const testCount = localStorage.getItem("test_started");          // 1回目開始後は存在
-  const adOpen    = typeof window.isAdEnabled === 'function' ? window.isAdEnabled() : false;
-
-  // プレミアム / 1回目 / 5分解放中 は広告スキップ
-  if (premium || !testCount || adOpen) {
-    nextFn?.();
-    return;
-  }
-
-  // 2回目以降・未解錠 → 広告視聴を促す
-  Swal.fire({
-    title: "続行には広告視聴が必要です",
-    html: `<p>広告を見れば<strong>5分間</strong>プレミアム機能が解放されます。</p>`,
-    icon: "info",
-    showCancelButton: true,
-    showDenyButton: true,
-    confirmButtonText: "広告を見る",
-    cancelButtonText: "やめる",
-    denyButtonText: "🎀 プレミアムを見る"
-  }).then(res => {
-    if (res.isConfirmed) {
-      // 視聴成功後に nextFn を必ず実行
-      window.setAdPendingToggle?.(nextFn);
-      window.showAd?.();
-    } else if (res.isDenied) {
-      window.showPremiumPopup?.();
-    }
-  });
-}
-
-// ==============================
-// テスト開始（test.html）
-// ==============================
 async function startTest() {
   await ensurePremiumTruth?.();
-  const userId  = getUserId?.();
-  const premium = typeof window.isPremium === 'function' ? window.isPremium() : false;
+  const userId    = getUserId?.();
+  const testCount = localStorage.getItem("test_started");
 
-  if (premium) {
-    // ★ プレミアム：モード選択（広告なし）
+  // ★ 2回目以降 & 無料 & まだ解放されていない → 広告を表示してから再実行
+  if (testCount && !(typeof window.isPremium === 'function' && window.isPremium()) && !(typeof window.isAdEnabled === 'function' && window.isAdEnabled())) {
+    window.setAdPendingToggle?.(() => startTest());
+    window.showAd?.();
+    return; // いったん終了（視聴成功後に再入）
+  }
+
+  if (window.isPremium && window.isPremium()) {
+    // プレミアム：モード選択（広告なし）
     Swal.fire({
       title: "テストモードを選んでね",
       html: `
@@ -3377,42 +3348,42 @@ async function startTest() {
         });
       }
     });
-    return;
-  }
-
-  // ★ 無料：読解のみ（ただし「2回目以降 & 未解錠」は広告ゲート）
-  Swal.fire({
-    title: "リスニングモードはプレミアム専用🎧",
-    html: `
-      <p>今は <strong>リーディングモード</strong>のみご利用いただけます。</p>
-      <p>🎀 プレミアム登録で <strong>音声リスニングテスト</strong>も可能に！</p>
-    `,
-    showCancelButton: true,
-    confirmButtonText: "リーディングで始める",
-    cancelButtonText: "プレミアムを見る",
-  }).then(result => {
-    if (result.isConfirmed) {
-      // ここで広告ゲートを通してから開始（2回目以降のみ要求）
-      gateAdIfNeededAndRun(() => {
+  } else {
+    // 無料：リーディングのみ（必要なら既に上で広告を見てもらっている）
+    Swal.fire({
+      title: "リスニングモードはプレミアム専用🎧",
+      html: `
+        <p>今は <strong>リーディングモード</strong>のみご利用いただけます。</p>
+        <p>🎀 プレミアム登録で <strong>音声リスニングテスト</strong>も可能に！</p>
+      `,
+      showCancelButton: true,
+      confirmButtonText: "リーディングで始める",
+      cancelButtonText: "プレミアムを見る",
+    }).then(result => {
+      if (result.isConfirmed) {
         localStorage.setItem("test_started", "1");
         window.location.href = `test.html?userId=${userId}&mode=reading`;
-      });
-    } else if (result.dismiss === Swal.DismissReason.cancel) {
-      window.showPremiumPopup?.();
-    }
-  });
+      } else if (result.dismiss === Swal.DismissReason.cancel) {
+        window.showPremiumPopup?.();
+      }
+    });
+  }
 }
 
-// ========================================
-// 語彙テスト開始（vocabularyTest.html）
-// ========================================
 async function startVocabularyTest() {
   await ensurePremiumTruth?.();
-  const userId  = getUserId?.();
-  const premium = typeof window.isPremium === 'function' ? window.isPremium() : false;
+  const userId    = getUserId?.();
+  const testCount = localStorage.getItem("test_started");
 
-  if (premium) {
-    // ★ プレミアム：モード選択（広告なし）
+  // ★ 2回目以降 & 無料 & まだ解放されていない → 広告を表示してから再実行
+  if (testCount && !(typeof window.isPremium === 'function' && window.isPremium()) && !(typeof window.isAdEnabled === 'function' && window.isAdEnabled())) {
+    window.setAdPendingToggle?.(() => startVocabularyTest());
+    window.showAd?.();
+    return; // いったん終了（視聴成功後に再入）
+  }
+
+  if (window.isPremium && window.isPremium()) {
+    // プレミアム：モード選択（広告なし）
     Swal.fire({
       title: "テストモードを選んでね",
       html: `
@@ -3431,29 +3402,26 @@ async function startVocabularyTest() {
         });
       }
     });
-    return;
-  }
-
-  // ★ 無料：読解のみ（ただし「2回目以降 & 未解錠」は広告ゲート）
-  Swal.fire({
-    title: "リスニングモードはプレミアム専用🎧",
-    html: `
-      <p>今は <strong>リーディングモード</strong>のみご利用いただけます。</p>
-      <p>🎀 プレミアム登録で <strong>音声リスニングテスト</strong>も可能に！</p>
-    `,
-    showCancelButton: true,
-    confirmButtonText: "リーディングで始める",
-    cancelButtonText: "プレミアムを見る",
-  }).then(result => {
-    if (result.isConfirmed) {
-      gateAdIfNeededAndRun(() => {
+  } else {
+    // 無料：リーディングのみ
+    Swal.fire({
+      title: "リスニングモードはプレミアム専用🎧",
+      html: `
+        <p>今は <strong>リーディングモード</strong>のみご利用いただけます。</p>
+        <p>🎀 プレミアム登録で <strong>音声リスニングテスト</strong>も可能に！</p>
+      `,
+      showCancelButton: true,
+      confirmButtonText: "リーディングで始める",
+      cancelButtonText: "プレミアムを見る",
+    }).then(result => {
+      if (result.isConfirmed) {
         localStorage.setItem("test_started", "1");
         window.location.href = `vocabularyTest.html?userId=${userId}&mode=reading`;
-      });
-    } else if (result.dismiss === Swal.DismissReason.cancel) {
-      window.showPremiumPopup?.();
-    }
-  });
+      } else if (result.dismiss === Swal.DismissReason.cancel) {
+        window.showPremiumPopup?.();
+      }
+    });
+  }
 }
 
 // 累計正答と学習日数を /user/me から更新。
@@ -4305,96 +4273,6 @@ document.addEventListener('keydown', (e) => {
   };
 })();
 </script>
-<script>
-// ====== 堅牢版：報酬広告ボタン初期化（デリゲーション採用） ======
-(function rewardedButtonInit(){
-  // クリック処理（視聴→成功後の続行処理はここに書く）
-  function handleRewardedClick(e){
-    const el = e.target.closest('#btn-rewarded');
-    if (!el) return;                // 他のクリックは無視
-    e.preventDefault();
-
-    if (el.disabled) return;        // 無効なら何もしない
-
-    // 視聴成功後に行いたい処理（例：ページ遷移やUI更新）
-    window.setAdPendingToggle?.(() => {
-      // TODO: 成功後の処理をここに
-      // 例）location.href = 'musou.html?part=part4';
-    });
-
-    // showAd が未ロードでも落ちないようにガード
-    if (typeof window.showAd === 'function') {
-      window.showAd();
-    } else {
-      // フォールバック（デモ）※本番では不要なら削除
-      const yes = confirm('【デモ】広告を視聴しましたか？\nOK=成功 / Cancel=キャンセル');
-      if (yes && typeof window.onAdWatchedSuccess === 'function') window.onAdWatchedSuccess();
-    }
-  }
-
-  // デリゲーション：#btn-rewarded が後から差し替えられてもOK
-  document.addEventListener('click', handleRewardedClick);
-
-  // DOM生成後に表示/活性状態を整える
-  function ready(fn){ 
-    if (document.readyState !== 'loading') fn(); 
-    else document.addEventListener('DOMContentLoaded', fn);
-  }
-
-  ready(() => {
-    const btn = document.getElementById('btn-rewarded');
-    if (!btn) return;
-
-    // form内でも誤送信させない
-    if (!btn.hasAttribute('type')) btn.setAttribute('type','button');
-
-    // 無料ユーザーのみ表示
-    const premium = typeof window.isPremium === 'function' ? window.isPremium() : false;
-    if (premium) {
-      btn.classList.add('is-hidden');
-      btn.setAttribute('aria-hidden','true');
-    } else {
-      btn.classList.remove('is-hidden');
-      btn.removeAttribute('aria-hidden');
-      btn.style.display = ''; // CSSでdisplay:none;が残っても可視化
-    }
-
-    // 初期は無効 → Ad初期化の合図で有効化
-    btn.disabled = true;
-
-    const enable = () => {
-      const b = document.getElementById('btn-rewarded');
-      if (b) b.disabled = false;
-    };
-
-    // ネイティブ側の初期化合図（どちらか採用していればOK）
-    window.addEventListener('gmaInitialized', enable);
-
-    const prev = window.onGmaInitialized;
-    window.onGmaInitialized = function(){
-      try { prev?.(); } catch(e){}
-      enable();
-    };
-
-    // showAdスクリプトが後読み込みでも最終的に有効化
-    window.addEventListener('load', () => {
-      if (typeof window.showAd === 'function') enable();
-    });
-  });
-
-  // デバッグ支援：被さり・無効・非表示の典型を検知
-  window.debugRewardedButton = function(){
-    const b = document.getElementById('btn-rewarded');
-    if (!b) return console.warn('[btn-rewarded] not found');
-    const cs = getComputedStyle(b);
-    console.log('[btn-rewarded] visible=', cs.display !== 'none', 'opacity=', cs.opacity, 'pe=', cs.pointerEvents, 'disabled=', b.disabled);
-    const elAtCenter = document.elementFromPoint(
-      Math.round(b.getBoundingClientRect().left + b.offsetWidth/2),
-      Math.round(b.getBoundingClientRect().top + b.offsetHeight/2)
-    );
-    console.log('[btn-rewarded] elementFromPoint=', elAtCenter);
-  };
-})();
-</script>
+	
 </body>
 </html>
