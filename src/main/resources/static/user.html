@@ -2129,7 +2129,7 @@ async function onFileChange(e, currentWord) {
 // 互換のため第1引数は未使用
 function goToPart(_unused, partName) {
   const locked = ["無双Part", "part4", "part5", "part6", "partHealing", "musou"];
-  if (!window.isPremium() && locked.includes(partName) && !isAdEnabled()) {
+  if (!window.isPremium?.() && locked.includes(partName) && !isAdEnabled()) {
     Swal.fire({
       title: "このパートは広告視聴が必要です",
       html: `<p>広告を見れば<strong>残り6枚めくれます</strong>。<br>
@@ -2142,14 +2142,16 @@ function goToPart(_unused, partName) {
       denyButtonText: "🎀 プレミアムへ"
     }).then(result => {
       if (result.isConfirmed) {
-		　pendingToggle = () => { location.href = `musou.html?part=${encodeURIComponent(partName)}`; };
-		　showAd();
+        // ✅ 広告成功後に遷移
+        pendingToggle = () => { location.href = `musou.html?part=${encodeURIComponent(partName)}`; };
+        showAd();
       } else if (result.isDenied) {
-        showPremiumPopup();
+        window.showPremiumPopup?.();
       }
     });
     return;
   }
+  // 開放済みなら即遷移
   location.href = `musou.html?part=${encodeURIComponent(partName)}`;
 }
 
@@ -2487,21 +2489,26 @@ const makeBtn = (label, page, disabled = false, active = false) => {
 }
 
 // 修正：Part選択時に「そのPartが載っているページ」を自動表示
+// 修正：Part選択時に「そのPartが載っているページ」を自動表示
 function selectPart(part) {
   const lockedParts = ["part4", "part5", "part6", "partHealing", "musou"];
   const isLockedPart = lockedParts.includes(part);
 
   const show = () => {
+    // 対象Partが含まれるページを自動で表示
     selectedPart = part;
     const idx = Math.max(0, parts.findIndex(p => p.value === part));
-    partsPage = Math.floor(idx / partsPerPage) + 1; // そのPartが載っている「Partページ」を表示
+    partsPage   = Math.floor(idx / partsPerPage) + 1;
     currentPart = idx + 1;
     currentPage = 1;
-    renderPartButtons();
-    loadWords();
+    renderPartButtons?.();
+    loadWords?.();
   };
 
-  if (!window.isPremium() && isLockedPart && !isAdEnabled()) {
+  const premium = typeof window.isPremium === 'function' ? window.isPremium() : false;
+  const adOpen  = typeof window.isAdEnabled === 'function' ? window.isAdEnabled() : false;
+
+  if (!premium && isLockedPart && !adOpen) {
     Swal.fire({
       title: "このパートは広告視聴が必要です",
       html: `<p>広告を見れば<strong>残り6枚めくれます</strong>。<br>
@@ -2514,10 +2521,11 @@ function selectPart(part) {
       denyButtonText: "🎀 300円で広告なし！美女めくり放題🎀"
     }).then(result => {
       if (result.isConfirmed) {
-		pendingToggle = show;  // 成功後に Part を表示
-        showAd();
+        // ✅ 広告視聴に成功したら show() を実行
+        window.setAdPendingToggle?.(show);
+        window.showAd?.();
       } else if (result.isDenied) {
-        showPremiumPopup();
+        window.showPremiumPopup?.();
       }
     });
   } else {
@@ -3576,13 +3584,14 @@ window.addEventListener('resize', () => {
 
 
 	// ✅ スワイプ学習開始時：最初に広告 → 終了後モード選択
-	function startSwipeMode(partValue = selectedPart){
-	  placeSwipeBoxAboveStartButton();   // ← 追加
-	  selectedPart = partValue;
+	function startSwipeMode(partValue = window.selectedPart) {
+  window.placeSwipeBoxAboveStartButton?.(); // 既存の演出を踏襲
+  window.selectedPart = partValue;
 
-	  const lockedParts = ["part4", "part5", "part6", "partHealing", "musou"];
-	  const isLocked = lockedParts.includes(selectedPart);
-	  const premium = window.isPremium();
+  const lockedParts = ["part4", "part5", "part6", "partHealing", "musou"];
+  const isLocked = lockedParts.includes(window.selectedPart);
+  const premium = window.isPremium?.();
+
   const htmlMsg = premium
     ? "プレミアムのため広告は表示されません。<br>学習を始めます！"
     : "学習開始前と終了時に広告が表示されます（計2回）<br>美女と一緒に楽しく学習しましょう！";
@@ -3596,14 +3605,14 @@ window.addEventListener('resize', () => {
     allowOutsideClick: false
   }).then(() => {
     if (!premium) {
-      pendingToggle = showSwipeModeSelection; // 成功後に続行
+      // ✅ 広告成功後にモード選択へ
+      pendingToggle = () => { window.showSwipeModeSelection?.(); };
       showAd();
     } else {
-      showSwipeModeSelection();
+      window.showSwipeModeSelection?.();
     }
   });
 }
-
 	// ✅ モード選択ダイアログ（分離して使いやすく）
 	function showSwipeModeSelection() {
 	  Swal.fire({
@@ -4009,26 +4018,39 @@ document.addEventListener('keydown', (e) => {
   aria-labelledby="adModalTitle"
   style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:10000;"
 >
+  <div
+  id="adModal"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="adModalTitle"
+  style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:10000; align-items:center; justify-content:center;"
+>
   <div role="document" style="margin:auto; background:#fff; border-radius:12px; padding:16px; width:min(420px,90%); box-shadow:0 8px 20px rgba(0,0,0,.2)">
-    <h3 id="adModalTitle" style="margin-top:0">広告を見る</h3>
+    <h3 id="adModalTitle" style="margin:0 0 8px">広告を見る</h3>
     <p style="margin:8px 0 0">視聴すると<strong>5分間</strong>プレミアム機能が解放されます。</p>
     <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:16px">
       <button id="cancelAdBtn" class="btn btn-secondary" type="button">キャンセル</button>
-      <button id="watchAdBtn" class="btn btn-primary" type="button">視聴する</button>
+      <!-- ✅ 準備できるまで disabled にする -->
+      <button id="watchAdBtn" class="btn btn-primary" type="button" disabled>視聴する</button>
     </div>
   </div>
 </div>
 
 <script>
-/* ===== AdMob bridge for Capacitor (Banner + Rewarded) =====
- * - Capacitor(iOS/Android) では AdMob SDK、本ブラウザでは confirm フォールバック
- */
-(function () {
-  // 端末判定（必要なら isAndroid を使ってもOK）
+/* =========================================================
+   AdMob bridge for Capacitor (Banner + Rewarded)
+   - ネイティブ（Capacitor）: AdMob SDK を使用
+   - ブラウザ/非ネイティブ  : confirm でフォールバック
+   - ATT はネイティブ側（AppDelegate）で実施
+   ========================================================= */
+
+(() => {
+  // ---- 環境判定 ----
+  const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   const isIOS     = /iPhone|iPad|iPod/i.test(navigator.userAgent);
   const isAndroid = /Android/i.test(navigator.userAgent);
 
-  // === ユニットID ===
+  // ---- ユニットID ----
   const TEST = {
     banner:   isIOS ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111',
     inter:    isIOS ? 'ca-app-pub-3940256099942544/4411468910' : 'ca-app-pub-3940256099942544/1033173712',
@@ -4039,113 +4061,211 @@ document.addEventListener('keydown', (e) => {
     inter:    'ca-app-pub-3517487281025314/6481656285',
     rewarded: 'ca-app-pub-3517487281025314/1240830098'
   };
-  const useProd = false;              // ← 本番に切り替えるなら true
+  const useProd = false; // ← 本番に切り替えるなら true
   const AD_UNIT = useProd ? PROD : TEST;
 
-  // ===== 初期化 =====
+  // ---- 状態管理（共通）----
+  let adReady = false;           // GMA/AdMob 初期化が完了すると true
+  let pendingToggle = null;      // 視聴成功後に実行するコールバック
+  const AD_UNLOCK_MS = 5 * 60 * 1000; // 5分
+
+  function enableAdFor5Min() {
+    localStorage.setItem('adEnabledUntil', String(Date.now() + AD_UNLOCK_MS));
+  }
+  window.isAdEnabled = function isAdEnabled() {
+    const until = Number(localStorage.getItem('adEnabledUntil') || 0);
+    return until > Date.now();
+  };
+
+  // ---- モーダル制御（カスタムUI想定）----
+  function openAdModal() {
+    const modal = document.getElementById('adModal');
+    if (modal) modal.style.display = 'flex';
+    const btn = document.getElementById('watchAdBtn');
+    if (btn) btn.disabled = !adReady; // 準備できるまで押せない
+  }
+  function closeAdModal() {
+    const modal = document.getElementById('adModal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  // ---- AdMob 初期化 ----
   async function initAdMob() {
-	const ad = window.AdMob;            // ← 関数内で参照（実行時）
-    if (!window.AdMob) return false;         // ブラウザ等はフォールバックへ
+    const AdMob = window.AdMob;
+    if (!isNative || !AdMob) return false; // 非ネイティブやプラグイン未ロードならフォールバックへ
     try {
-      await window.AdMob.initialize({
-        requestTrackingAuthorization: true,
+      await AdMob.initialize({
+        requestTrackingAuthorization: true,   // （ATT自体はネイティブで表示、ここは保険）
         initializeForTesting: !useProd
       });
+      adReady = true;
+      // 既にUIがあれば有効化
+      const btn = document.getElementById('watchAdBtn');
+      if (btn) btn.disabled = false;
       return true;
     } catch (e) {
-      console.warn('AdMob init failed', e);
+      console.warn('[AdMob] init failed', e);
       return false;
     }
   }
 
-  // ===== バナー（下固定） =====
+  // ---- バナー表示（下固定）----
   async function showBottomBanner() {
-	const ad = window.AdMob;            // 実行時参照
-    if (!window.AdMob) return;
+    const AdMob = window.AdMob;
+    if (!isNative || !AdMob) return;
     try {
-      await window.AdMob.showBanner({
+      await AdMob.showBanner({
         adId: AD_UNIT.banner,
-        adSize: 'BANNER',             // or 'ADAPTIVE_BANNER'
+        adSize: 'BANNER',        // 必要に応じて 'ADAPTIVE_BANNER'
         position: 'BOTTOM_CENTER',
         isTesting: !useProd
       });
     } catch (e) {
-      console.warn('banner error', e);
+      console.warn('[AdMob] banner error', e);
     }
   }
 
-  // ===== リワード =====
-  async function showRewardedAdReal() {
-    if (!window.AdMob) throw new Error('NO_ADMOB');
-    await window.AdMob.prepareRewardVideoAd({
-      adId: AD_UNIT.rewarded,
-      isTesting: !useProd
-    });
-    const res = await window.AdMob.showRewardVideoAd();
-    // 視聴完了の報酬
-    if (typeof onAdWatchedSuccess === 'function') onAdWatchedSuccess();
-    return res;
-  }
-
-  // ===== 既存フック：showAd を差し替え =====
-  window.showAd = async function () {
-    // 1) 初期化。失敗ならデモフォールバック
-    const ok = await initAdMob();
-    if (!ok) {
-      const yes = window.confirm('【デモ】広告を最後まで視聴しましたか？\nOK=成功 / Cancel=キャンセル');
-      yes ? onAdWatchedSuccess?.() : onAdClosedOrFailed?.();
-      return;
-    }
-
-    // 2) 無料ユーザーなら下部バナーも
+  // ---- バナー非表示 ----
+  window.hideNativeBannerIfPossible = async function hideNativeBannerIfPossible() {
+    const AdMob = window.AdMob;
+    if (!isNative || !AdMob) return;
     try {
-      if (typeof isPremium !== 'function' || !window.isPremium()) {
-        await showBottomBanner();
-      }
-    } catch {}
-
-    // 3) リワード表示
-    try {
-      await showRewardedAdReal();
+      await AdMob.hideBanner?.();
+      await AdMob.removeBanner?.();
     } catch (e) {
-      console.warn('rewarded failed', e);
-      onAdClosedOrFailed?.(e);
+      // no-op
     }
   };
 
-  // 初期描画時（無料のみ）にバナー
-  document.addEventListener('DOMContentLoaded', async () => {
-    try { if (typeof isPremium === 'function' && window.isPremium()) return; } catch {}
-    const ok = await initAdMob();
-    if (ok) await showBottomBanner();
-  });
-})(); // ← IIFE はこれ1つだけ
+  // ---- リワード実体 ----
+  async function showRewardedAdReal() {
+    const AdMob = window.AdMob;
+    if (!isNative || !AdMob) throw new Error('NO_ADMOB');
+    await AdMob.prepareRewardVideoAd({
+      adId: AD_UNIT.rewarded,
+      isTesting: !useProd
+    });
+    const res = await AdMob.showRewardVideoAd();
+    // ここまで来たら視聴成功扱い（SDKによっては complete コールバックを使う）
+    if (typeof window.onAdWatchedSuccess === 'function') window.onAdWatchedSuccess();
+    return res;
+  }
 
-async function hideNativeBannerIfPossible(){
-  try {
-    await window.AdMob?.hideBanner?.();   // 一時的に非表示
-    await window.AdMob?.removeBanner?.(); // 破棄（実装がある場合）
-  } catch(e){}
-}
+  // ---- 既定フック（未定義なら用意）----
+  if (typeof window.onAdWatchedSuccess !== 'function') {
+    window.onAdWatchedSuccess = function () {
+      enableAdFor5Min();
+      if (typeof pendingToggle === 'function') {
+        const next = pendingToggle;
+        pendingToggle = null;
+        next();
+      }
+    };
+  }
+  if (typeof window.onAdClosedOrFailed !== 'function') {
+    window.onAdClosedOrFailed = function () {
+      // 任意：失敗時のUI
+    };
+  }
 
-// 初期描画時
-document.addEventListener('DOMContentLoaded', async ()=>{
-  try{
-    if (typeof isPremium === 'function' && window.isPremium()){
-      await hideNativeBannerIfPossible();
-      // tabbar の位置を戻す
-      window.adjustBottomPadding?.();
+  // ---- showAd（公開API）----
+  window.showAd = async function showAd() {
+    // モーダルを開いて「視聴する」ボタンの活性/非活性を状態に同期
+    openAdModal();
+
+    // 1) 初期化（未完了ならここで実行）。失敗ならフォールバック
+    if (!adReady) {
+      const ok = await initAdMob();
+      if (!ok) {
+        // デモフォールバック
+        const yes = window.confirm('【デモ】広告を最後まで視聴しましたか？\nOK=成功 / Cancel=キャンセル');
+        closeAdModal();
+        yes ? window.onAdWatchedSuccess?.() : window.onAdClosedOrFailed?.();
+        return;
+      }
     }
-  }catch{}
-});
 
-// プレミアムに昇格した瞬間（あなたの markPremiumEnabled の中など）でも：
-async function markPremiumEnabled(){
-  // ...既存処理...
-  await hideNativeBannerIfPossible();
-  window.adjustBottomPadding?.();
-}
+    // 2) 無料ユーザーなら下部バナーも（失敗は無視）
+    try {
+      if (!(typeof window.isPremium === 'function' && window.isPremium())) {
+        await showBottomBanner();
+      }
+    } catch (_) {}
 
+    // 3) 「視聴する」ボタンのクリックで実際にリワード再生
+    const btn = document.getElementById('watchAdBtn');
+    if (!btn) {
+      // モーダルを使わない設計の場合はすぐ再生
+      try {
+        await showRewardedAdReal();
+      } catch (e) {
+        console.warn('[AdMob] rewarded failed', e);
+        window.onAdClosedOrFailed?.(e);
+      } finally {
+        closeAdModal();
+      }
+      return;
+    }
+
+    // 余計な多重bindを避けるため一旦既存ハンドラをクローン置換
+    const btnClone = btn.cloneNode(true);
+    btn.parentNode.replaceChild(btnClone, btn);
+    btnClone.disabled = !adReady;
+
+    btnClone.addEventListener('click', async () => {
+      if (!adReady) return;
+      btnClone.disabled = true; // 二重押し防止
+      try {
+        await showRewardedAdReal();
+      } catch (e) {
+        console.warn('[AdMob] rewarded failed', e);
+        window.onAdClosedOrFailed?.(e);
+      } finally {
+        closeAdModal();
+        btnClone.disabled = !adReady;
+      }
+    }, { once: true });
+  };
+
+  // ---- ネイティブ合図（AppDelegate → JS）----
+  // 1) triggerJSEvent("gmaInitialized", target: "window")
+  window.addEventListener('gmaInitialized', () => {
+    adReady = true;
+    const btn = document.getElementById('watchAdBtn');
+    if (btn) btn.disabled = false;
+  });
+  // 2) 直接 onGmaInitialized() を呼ぶ場合
+  window.onGmaInitialized = function () {
+    adReady = true;
+    const btn = document.getElementById('watchAdBtn');
+    if (btn) btn.disabled = false;
+  };
+
+  // ---- 初期描画時：無料ユーザーなら下部バナー（可能時のみ）----
+  document.addEventListener('DOMContentLoaded', async () => {
+    try {
+      if (typeof window.isPremium === 'function' && window.isPremium()) {
+        await window.hideNativeBannerIfPossible();
+        window.adjustBottomPadding?.();
+        return;
+      }
+      const ok = await initAdMob();
+      if (ok) await showBottomBanner();
+    } catch (_) {}
+  });
+
+  // ---- プレミアム昇格時の後処理（呼び出し例）----
+  window.markPremiumEnabled = async function markPremiumEnabled() {
+    // ...既存の昇格処理...
+    await window.hideNativeBannerIfPossible();
+    window.adjustBottomPadding?.();
+  };
+
+  // ---- 公開: 視聴後に実行したい処理を登録するための setter ----
+  window.setAdPendingToggle = function setAdPendingToggle(fn) {
+    pendingToggle = typeof fn === 'function' ? fn : null;
+  };
+})();
 </script>
 	
 </body>
