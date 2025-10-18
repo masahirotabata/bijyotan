@@ -1737,6 +1737,61 @@ const candidates = [
   }
 }
 
+// クリック時の処理（あなたの既存関数名に合わせてください）
+function onStartTest(){ /* 既存ロジック */ }
+function onStartWord(){ /* 既存ロジック */ }
+function onStartSwipe(){ /* 既存ロジック */ }
+function onWatchAd(){ /* 既存ロジック（広告） */ }
+
+function setupCtas() {
+  // id とハンドラ、ラベル・ローディング文言を定義
+  const map = [
+    { id: 'startTestBtn',      on: onStartTest, label: 'テストを開始する',                  loading: '読み込み中…' },
+    { id: 'startWordModeBtn',  on: onStartWord, label: 'テストを開始する（単語モード）',    loading: '読み込み中…' },
+    { id: 'startSwipeBtn',     on: onStartSwipe, label: 'スワイプ学習を始める',            loading: '読み込み中…' },
+    { id: 'adBeautyBtn',       on: onWatchAd,   label: '広告を見て美女で英単語を表現',      loading: '広告を準備中…' },
+  ];
+
+  for (const it of map) {
+    const el = document.getElementById(it.id);
+    if (!el) {            // ← 存在しないIDはスキップ（ここで落ちない）
+      console.warn(`[setupCtas] missing #${it.id}`);
+      continue;
+    }
+    try {
+      // 見た目を正常化
+      el.classList?.remove('is-loading');
+      el.disabled = false;
+      if (!el.dataset.labelApplied) {
+        el.textContent = it.label;
+        el.dataset.labelApplied = '1';
+      }
+      // 既存の重複リスナを避ける
+      el.replaceWith(el.cloneNode(true));
+      const el2 = document.getElementById(it.id);
+
+      // クリックハンドラ登録（必ず例外捕捉）
+      el2.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        try { it.on?.(); } 
+        catch (e) {
+          console.error(`[setupCtas] handler error for #${it.id}`, e);
+          // フェイルセーフ：ユーザーに分かる表示
+          alert('読み込みに失敗しました。もう一度お試しください。');
+        }
+      }, { passive:false });
+    } catch(e) {
+      console.error(`[setupCtas] init error for #${it.id}`, e);
+    }
+  }
+}
+
+// DOM 準備できたら実行（例外で止まらないよう try）
+document.addEventListener('DOMContentLoaded', () => {
+  try { setupCtas(); } catch(e){ console.error(e); }
+  // 広告／ブリッジ準備までボタンを一時無効化したい場合はここで制御
+});
+
   // ★ タブ起動時点で未定義エラーを防ぐためのプレースホルダ
  // 置き換え
 	addEventListener("resize", () => window.adjustBottomPadding && window.adjustBottomPadding());
