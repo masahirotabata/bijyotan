@@ -1993,22 +1993,65 @@ window.onStoreKitMessage = function (msg) {
 })();
 
 // ✅ 初回ログイン or バージョン変更時のみ表示
+// v1.1: 事故防止つきアップデート情報モーダル
 function showUpdateInfoIfNeeded() {
-  const shownVersion = localStorage.getItem("updateInfoShownVersion");
-  if (shownVersion !== latestUpdateVersion) {
-    Swal.fire({
-      title: "✨アップデート情報 (v" + latestUpdateVersion + ")✨",
-      html: updateMessage,
-      icon: "info",
-      confirmButtonText: "閉じる",
-      confirmButtonColor: "#e91e63"
-    });
+  const key = "updateInfoShownVersion";
+  const shownVersion = (() => {
+    try { return localStorage.getItem(key); } catch (e) { return null; }
+  })();
 
-    // 表示済みバージョンとして保存
-    localStorage.setItem("updateInfoShownVersion", latestUpdateVersion);
-  }
+  if (shownVersion === latestUpdateVersion) return;
+
+  // DOMに残ったオーバーレイ等を確実に除去する保険
+  const cleanupOverlays = () => {
+    document.querySelectorAll(".swal2-container").forEach(el => el.remove());
+    // まれに body のヒットテストが奪われる事故対策
+    document.body.style.pointerEvents = "auto";
+  };
+
+  let failSafeTimer;
+
+  Swal.fire({
+    title: `✨アップデート情報 (v${latestUpdateVersion})✨`,
+    html: updateMessage,
+    icon: "info",
+    confirmButtonText: "閉じる",
+    confirmButtonColor: "#e91e63",
+
+    // ★ 閉じられる導線を増やす
+    allowOutsideClick: true,     // 背景タップで閉じる
+    allowEscapeKey: true,        // ESCで閉じる
+    heightAuto: false,           // iOS のレイアウト崩れ回避
+
+    didOpen: () => {
+      // ★ 10秒フェイルセーフ自動クローズ（レビュアー保護）
+      failSafeTimer = setTimeout(() => {
+        if (Swal.isVisible()) Swal.close();
+      }, 10000);
+    },
+    willClose: () => {
+      clearTimeout(failSafeTimer);
+    }
+  })
+  .then(() => {
+    // ★ 閉じられた“後で”既読化（閉じられないまま既読にしない）
+    try { localStorage.setItem(key, latestUpdateVersion); } catch (e) {}
+    // ★ 残留オーバーレイの完全除去
+    setTimeout(cleanupOverlays, 0);
+  })
+  .catch(() => {
+    // 例外時もオーバーレイを残さない
+    setTimeout(cleanupOverlays, 0);
+  });
+
+  // ★ 二重保険：予想外の状態でも12秒後に強制クローズ＋掃除
+  setTimeout(() => {
+    if (document.querySelector(".swal2-container")) {
+      try { Swal.close(); } catch (e) {}
+      setTimeout(cleanupOverlays, 0);
+    }
+  }, 12000);
 }
-
 	
 async function checkPremiumStatus(userId) {
 	  try {
