@@ -1737,32 +1737,33 @@ const candidates = [
   }
 }
 
+// --- 残留モーダル掃除（任意） ---
 function cleanupSwalOverlay(){
   document.querySelectorAll('.swal2-container').forEach(el => el.remove());
   document.body.style.pointerEvents = 'auto';
 }
 
-function setupCtas() {
-  // モーダル等の残留オーバーレイがあれば除去（任意）
+/**
+ * ボタン初期化本体。引数でハンドラを受け取るので、外の定義順に依存しない。
+ */
+function setupCtas(handlers) {
   cleanupSwalOverlay();
 
-  const map = [
-    { sel:'#startTestBtn',     on:onStartTest,  label:'テストを開始する' },
-    { sel:'#startWordModeBtn', on:onStartWord,  label:'テストを開始する(単語モード)' },
-    { sel:'#startSwipeBtn',    on:onStartSwipe, label:'スワイプ学習を始める' },
-    { sel:'#adBeautyBtn',      on:onWatchAd,    label:'広告を見て美女で英単語を表現' },
+  const defs = [
+    { sel:'#startTestBtn',     on:handlers.onStartTest,  label:'テストを開始する' },
+    { sel:'#startWordModeBtn', on:handlers.onStartWord,  label:'テストを開始する(単語モード)' },
+    { sel:'#startSwipeBtn',    on:handlers.onStartSwipe, label:'スワイプ学習を始める' },
+    { sel:'#adBeautyBtn',      on:handlers.onWatchAd,    label:'広告を見て美女で英単語を表現' }, // 無ければスキップ
   ];
 
-  for (const it of map) {
+  for (const it of defs) {
     const el = document.querySelector(it.sel);
     if (!el) { console.warn('[setupCtas] missing', it.sel); continue; }
 
     try {
-      // 重複リスナ対策：cloneして差し替え（id/属性は維持される）
-      const clone = el.cloneNode(true);
+      const clone = el.cloneNode(true);     // 重複リスナ対策
       el.replaceWith(clone);
 
-      // 見た目/状態を初期化
       clone.disabled = false;
       clone.classList?.remove('is-loading');
       if (!clone.dataset.labelApplied) {
@@ -1770,33 +1771,56 @@ function setupCtas() {
         clone.dataset.labelApplied = '1';
       }
 
-      // ダブルタップ防止付きハンドラ
       const handler = async (e) => {
         e.preventDefault();
         if (clone.disabled) return;
         clone.disabled = true;
-        try {
-          await it.on?.();  // 同期でも非同期でもOK
-        } catch (err) {
+        try { await it.on?.(); }
+        catch (err) {
           console.error(`[handler error] ${it.sel}`, err);
           alert('読み込みに失敗しました。もう一度お試しください。');
         } finally {
-          // 必要なら処理完了後に再び有効化（広告などは on 側で管理してもOK）
-          clone.disabled = false;
+          clone.disabled = false; // 遷移する場合は戻らないので影響なし
         }
       };
 
-      clone.addEventListener('click', handler, { passive:false, once:false });
+      clone.addEventListener('click', handler, { passive:false });
     } catch (e) {
       console.error('[setupCtas] init error', it.sel, e);
     }
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  try { setupCtas(); } catch(e){ console.error(e); }
-});
+/**
+ * ハンドラ（startTest 等）がロードされるまで待ってから setupCtas を呼ぶ。
+ * 最大5秒リトライ（100ms刻み）。
+ */
+function bindCtasWhenReady(tries = 0) {
+  const ok =
+    typeof window.startTest === 'function' &&
+    typeof window.startVocabularyTest === 'function' &&
+    typeof window.startSwipeMode === 'function';
 
+  if (!ok) {
+    if (tries < 50) return setTimeout(() => bindCtasWhenReady(tries + 1), 100);
+    console.warn('[setupCtas] handlers not ready, skip binding');
+    return;
+  }
+
+  const handlers = {
+    onStartTest : async () => { await window.startTest(); },
+    onStartWord : async () => { await window.startVocabularyTest(); },
+    onStartSwipe: async () => { await window.startSwipeMode(); },
+    onWatchAd   : async () => { try { await window.showAd?.(); } catch(e){ console.error(e); } },
+  };
+
+  setupCtas(handlers);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  try { bindCtasWhenReady(); } catch (e) { console.error(e); }
+});
+	
 </script>
 B) HTMLを触れない場合（テキスト一致でバインド）
 IDが無いなら ラベル文字で探すフォールバックも可（日本語固定UI向け）：
