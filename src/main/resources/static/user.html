@@ -1259,9 +1259,9 @@ button { writing-mode: horizontal-tb; }
 <main id="view-test" class="app-view">
   <div id="test-section" class="buttons">
     <!-- 広告版はJSで free & 広告可のときだけ表示 -->
-    <button id="btn-test" class="btn">テストを開始する</button>
-    <button id="btn-test-vocab" class="btn">テストを開始する(単語モード)</button>
-    <button id="btn-swipe" class="btn">スワイプ学習を始める</button>
+	<button id="startTestBtn"      class="pink-btn">テストを開始する</button>
+	<button id="startWordModeBtn"  class="pink-btn">テストを開始する(単語モード)</button>
+	<button id="startSwipeBtn"     class="pink-btn">スワイプ学習を始める</button>
   </div>
 
   <div id="swipeModeBox" class="hidden">
@@ -1737,55 +1737,95 @@ const candidates = [
   }
 }
 
-// クリック時の処理（あなたの既存関数名に合わせてください）
-function onStartTest(){ /* 既存ロジック */ }
-function onStartWord(){ /* 既存ロジック */ }
-function onStartSwipe(){ /* 既存ロジック */ }
-function onWatchAd(){ /* 既存ロジック（広告） */ }
+function cleanupSwalOverlay(){
+  document.querySelectorAll('.swal2-container').forEach(el => el.remove());
+  document.body.style.pointerEvents = 'auto';
+}
 
 function setupCtas() {
-  // id とハンドラ、ラベル・ローディング文言を定義
+  // モーダル等の残留オーバーレイがあれば除去（任意）
+  cleanupSwalOverlay();
+
   const map = [
-    { id: 'startTestBtn',      on: onStartTest, label: 'テストを開始する',                  loading: '読み込み中…' },
-    { id: 'startWordModeBtn',  on: onStartWord, label: 'テストを開始する（単語モード）',    loading: '読み込み中…' },
-    { id: 'startSwipeBtn',     on: onStartSwipe, label: 'スワイプ学習を始める',            loading: '読み込み中…' },
-    { id: 'adBeautyBtn',       on: onWatchAd,   label: '広告を見て美女で英単語を表現',      loading: '広告を準備中…' },
+    { sel:'#startTestBtn',     on:onStartTest,  label:'テストを開始する' },
+    { sel:'#startWordModeBtn', on:onStartWord,  label:'テストを開始する(単語モード)' },
+    { sel:'#startSwipeBtn',    on:onStartSwipe, label:'スワイプ学習を始める' },
+    { sel:'#adBeautyBtn',      on:onWatchAd,    label:'広告を見て美女で英単語を表現' },
   ];
 
   for (const it of map) {
-    const el = document.getElementById(it.id);
-    if (!el) {            // ← 存在しないIDはスキップ（ここで落ちない）
-      console.warn(`[setupCtas] missing #${it.id}`);
-      continue;
-    }
-    try {
-      // 見た目を正常化
-      el.classList?.remove('is-loading');
-      el.disabled = false;
-      if (!el.dataset.labelApplied) {
-        el.textContent = it.label;
-        el.dataset.labelApplied = '1';
-      }
-      // 既存の重複リスナを避ける
-      el.replaceWith(el.cloneNode(true));
-      const el2 = document.getElementById(it.id);
+    const el = document.querySelector(it.sel);
+    if (!el) { console.warn('[setupCtas] missing', it.sel); continue; }
 
-      // クリックハンドラ登録（必ず例外捕捉）
-      el2.addEventListener('click', (ev) => {
-        ev.preventDefault();
-        try { it.on?.(); } 
-        catch (e) {
-          console.error(`[setupCtas] handler error for #${it.id}`, e);
-          // フェイルセーフ：ユーザーに分かる表示
+    try {
+      // 重複リスナ対策：cloneして差し替え（id/属性は維持される）
+      const clone = el.cloneNode(true);
+      el.replaceWith(clone);
+
+      // 見た目/状態を初期化
+      clone.disabled = false;
+      clone.classList?.remove('is-loading');
+      if (!clone.dataset.labelApplied) {
+        clone.textContent = it.label;
+        clone.dataset.labelApplied = '1';
+      }
+
+      // ダブルタップ防止付きハンドラ
+      const handler = async (e) => {
+        e.preventDefault();
+        if (clone.disabled) return;
+        clone.disabled = true;
+        try {
+          await it.on?.();  // 同期でも非同期でもOK
+        } catch (err) {
+          console.error(`[handler error] ${it.sel}`, err);
           alert('読み込みに失敗しました。もう一度お試しください。');
+        } finally {
+          // 必要なら処理完了後に再び有効化（広告などは on 側で管理してもOK）
+          clone.disabled = false;
         }
-      }, { passive:false });
-    } catch(e) {
-      console.error(`[setupCtas] init error for #${it.id}`, e);
+      };
+
+      clone.addEventListener('click', handler, { passive:false, once:false });
+    } catch (e) {
+      console.error('[setupCtas] init error', it.sel, e);
     }
   }
 }
 
+document.addEventListener('DOMContentLoaded', () => {
+  try { setupCtas(); } catch(e){ console.error(e); }
+});
+
+</script>
+B) HTMLを触れない場合（テキスト一致でバインド）
+IDが無いなら ラベル文字で探すフォールバックも可（日本語固定UI向け）：
+
+html
+コードをコピーする
+<script>
+function qBtnByLabel(label){
+  return [...document.querySelectorAll('button, a[role="button"]')]
+    .find(b => (b.textContent || '').trim().replace(/\s+/g,'') === label);
+}
+
+function setupCtasByText(){
+  const pairs = [
+    { node:qBtnByLabel('テストを開始する'),             on:onStartTest },
+    { node:qBtnByLabel('テストを開始する(単語モード)'), on:onStartWord },
+    { node:qBtnByLabel('スワイプ学習を始める'),         on:onStartSwipe },
+    { node:qBtnByLabel('広告を見て美女で英単語を表現'),   on:onWatchAd },
+  ];
+  for (const p of pairs) {
+    if (!p.node) continue;
+    const c = p.node.cloneNode(true);
+    p.node.replaceWith(c);
+    c.addEventListener('click', (e)=>{ e.preventDefault(); try{p.on?.();}catch(e){console.error(e);} });
+  }
+}
+document.addEventListener('DOMContentLoaded', () => {
+  setupCtasByText();
+});
 // DOM 準備できたら実行（例外で止まらないよう try）
 document.addEventListener('DOMContentLoaded', () => {
   try { setupCtas(); } catch(e){ console.error(e); }
