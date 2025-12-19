@@ -5,7 +5,7 @@ WORKDIR /app
 COPY . .
 RUN ./gradlew --no-daemon bootJar -x test
 
-# ==== ここからデバッグ（後で消してOK） ====
+# ==== ここからデバッグ（必要なければあとで消してOK） ====
 # 生成された jar の中に images が本当に入っているか出力
 RUN set -eux; \
   ls -lah build/libs; \
@@ -15,10 +15,12 @@ RUN set -eux; \
 # ==== ここまでデバッグ ====
 
 # 実行用ステージ（軽量）
-FROM openjdk:17-jdk-slim
+# ここを openjdk から Temurin 系に変更
+FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app
 
 # jar 名が一定でなくても拾えるように *.jar をコピー
 COPY --from=build /app/build/libs/*.jar /app/app.jar
 
-ENTRYPOINT ["java","-jar","/app/app.jar"]
+# Render が割り当てる PORT を使って起動
+CMD ["sh", "-c", "java -Dserver.port=${PORT:-8080} -jar /app/app.jar"]
