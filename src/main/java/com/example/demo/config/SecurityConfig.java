@@ -48,6 +48,7 @@ public class SecurityConfig {
     CorsConfiguration c = new CorsConfiguration();
     c.setAllowedOrigins(List.of(
         "https://bijyotan.onrender.com",
+        "https://liferabbit-todo-web.onrender.com", 
         "http://localhost:8080",
         "http://127.0.0.1:8080"
     ));
